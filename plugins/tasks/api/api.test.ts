@@ -499,10 +499,13 @@ describe("Tasks RPC domain API", () => {
               ],
             },
           }),
-          list: async () => [
-            thread("thr_recent_old", "Recent old", null, 40, "idle"),
-            thread("thr_recent_new", null, "Recent new", 50, "starting"),
-          ],
+          list: async () => ({
+            threads: [
+              thread("thr_recent_old", "Recent old", null, 40, "idle"),
+              thread("thr_recent_new", null, "Recent new", 50, "starting"),
+            ],
+            nextCursor: null,
+          }),
         },
       },
     });
@@ -524,10 +527,21 @@ describe("Tasks RPC domain API", () => {
         { id: "thr_recent_old", title: "Recent old", status: "idle" },
       ],
     });
+    await expect(
+      harness.callRpc("searchThreads", { query: "x" }),
+    ).resolves.toEqual({
+      threads: [
+        { id: "thr_recent_new", title: "Recent new", status: "starting" },
+        { id: "thr_recent_old", title: "Recent old", status: "idle" },
+      ],
+    });
     expect(harness.sdk.callsTo("threads.search")).toEqual([
       [{ query: "match", limitPerGroup: "10" }],
     ]);
-    expect(harness.sdk.callsTo("threads.list")).toEqual([[{ limit: 10 }]]);
+    expect(harness.sdk.callsTo("threads.list")).toEqual([
+      [{ pageSize: 10, order: "updated" }],
+      [{ pageSize: 10, order: "updated" }],
+    ]);
     await harness.dispose();
   });
 

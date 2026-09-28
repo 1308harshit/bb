@@ -240,12 +240,10 @@ describe("empty-fork sweep", () => {
       visibility: "hidden",
       createdAt: old,
     });
-    const list = vi.fn(async () => [
-      emptyOldFork,
-      repliedOldFork,
-      emptyYoungFork,
-      foreignFork,
-    ]);
+    const list = vi.fn(async () => ({
+      threads: [emptyOldFork, repliedOldFork, emptyYoungFork, foreignFork],
+      nextCursor: null,
+    }));
     const timeline = vi.fn(async ({ threadId }: { threadId: string }) =>
       threadId === "thr_replied_old"
         ? timelineResult([turnRow([conversationRow("a reply", "user")])])
@@ -268,8 +266,7 @@ describe("empty-fork sweep", () => {
       originKind: "fork",
       originPluginId: PLUGIN_ID,
       archived: false,
-      limit: EMPTY_FORK_SWEEP_PAGE_SIZE,
-      offset: 0,
+      pageSize: EMPTY_FORK_SWEEP_PAGE_SIZE,
     });
     expect(archive.mock.calls.map(([args]) => args)).toEqual([
       { threadId: "thr_empty_old" },
@@ -280,7 +277,7 @@ describe("empty-fork sweep", () => {
     ]);
   });
 
-  it("advances the page offset by the forks it left behind", async () => {
+  it("follows the cursor after archiving forks from a page", async () => {
     const now = Date.now();
     const old = now - EMPTY_FORK_MAX_AGE_MS - 60_000;
     const firstPage = Array.from(
@@ -294,8 +291,10 @@ describe("empty-fork sweep", () => {
           createdAt: old,
         }),
     );
-    const list = vi.fn(async ({ offset }: { offset?: number }) =>
-      offset === 0 ? firstPage : [],
+    const list = vi.fn(async ({ cursor }: { cursor?: string }) =>
+      cursor === undefined
+        ? { threads: firstPage, nextCursor: "next" }
+        : { threads: [], nextCursor: null },
     );
     const { harness } = await loadPlugin({
       list,
@@ -309,7 +308,10 @@ describe("empty-fork sweep", () => {
 
     await harness.runSchedule("empty-fork-cleanup");
 
-    expect(list.mock.calls.map(([args]) => args.offset)).toEqual([0, 1]);
+    expect(list.mock.calls.map(([args]) => args.cursor)).toEqual([
+      undefined,
+      "next",
+    ]);
   });
 
   it("keeps an old empty-timeline fork that has queued-but-unsent input", async () => {
@@ -325,7 +327,7 @@ describe("empty-fork sweep", () => {
       ok: true,
     }));
     const { harness } = await loadPlugin({
-      list: async () => [fork],
+      list: async () => ({ threads: [fork], nextCursor: null }),
       timeline: async () => timelineResult([]),
       archive,
       queuedMessages: {
@@ -354,7 +356,7 @@ describe("empty-fork sweep", () => {
       ok: true,
     }));
     const { harness } = await loadPlugin({
-      list: async () => [fork],
+      list: async () => ({ threads: [fork], nextCursor: null }),
       timeline,
       archive,
       queuedMessages: { list: async () => [] },
@@ -380,7 +382,7 @@ describe("empty-fork sweep", () => {
       throw new Error("timeline unavailable");
     });
     const { harness } = await loadPlugin({
-      list: async () => [fork],
+      list: async () => ({ threads: [fork], nextCursor: null }),
       timeline,
       archive: async (_args: { threadId: string }) => ({ ok: true }),
       queuedMessages: { list: async () => [] },
@@ -405,7 +407,7 @@ describe("empty-fork sweep", () => {
       ok: true,
     }));
     const { harness } = await loadPlugin({
-      list: async () => [fork],
+      list: async () => ({ threads: [fork], nextCursor: null }),
       timeline: async () => timelineResult([]),
       archive,
       queuedMessages: {

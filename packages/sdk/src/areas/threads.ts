@@ -34,6 +34,7 @@ import type {
   ThreadCountQuery,
   ThreadCountResponse,
   ThreadListResponse,
+  ThreadListPageResponse,
   ThreadRunningResponse,
   ThreadOpenResponse,
   ThreadPaneAction,
@@ -86,18 +87,18 @@ export interface ThreadListArgs {
   archived?: boolean;
   environmentId?: string;
   hostId?: string;
-  sectionId?: string;
-  hasParent?: boolean;
+  sectionId?: string | null;
   includeHidden?: boolean;
-  limit?: number;
-  offset?: number;
+  pageSize: number;
+  cursor?: string;
+  order?: "created" | "updated" | "archived";
   originKind?: ThreadListQuery["originKind"];
   originPluginId?: string;
   parentThreadId?: string;
+  hasParent?: boolean;
   projectId?: string;
   signal?: AbortSignal;
   sourceThreadId?: string;
-  unsectioned?: boolean;
 }
 
 export interface ThreadSearchArgs extends ThreadSearchQuery {
@@ -160,7 +161,7 @@ export type ThreadCountResult = ThreadCountResponse;
  * distinct idle threads can momentarily under-report.
  */
 export type ThreadRunningResult = ThreadRunningResponse;
-export type ThreadListResult = ThreadListResponse;
+export type ThreadListResult = ThreadListPageResponse;
 export type ThreadSearchResult = ThreadSearchResponse;
 export type ThreadResolveMentionsResult = ResolveThreadMentionsResponse;
 export interface ThreadOutputResponse {
@@ -574,7 +575,7 @@ export interface ThreadsArea {
   ): Promise<ThreadPluginMetadataResult>;
   queue: ThreadQueueArea;
   interactions: ThreadInteractionsArea;
-  list(args?: ThreadListArgs): Promise<ThreadListResult>;
+  list(args: ThreadListArgs): Promise<ThreadListResult>;
   listRunning(args?: { signal?: AbortSignal }): Promise<ThreadRunningResult>;
   markRead(args: ThreadActionArgs): Promise<ThreadReadStateResult>;
   markUnread(args: ThreadActionArgs): Promise<ThreadReadStateResult>;
@@ -634,29 +635,57 @@ export interface ThreadsArea {
 }
 
 function listQuery(args: ThreadListArgs | undefined): ThreadListQuery {
+  const legacy = args as
+    | (ThreadListArgs & {
+        limit?: number;
+        offset?: number;
+        unsectioned?: boolean;
+      })
+    | undefined;
   return {
     ...(args?.projectId ? { projectId: args.projectId } : {}),
     ...(args?.environmentId ? { environmentId: args.environmentId } : {}),
     ...(args?.hostId ? { hostId: args.hostId } : {}),
-    ...(args?.parentThreadId ? { parentThreadId: args.parentThreadId } : {}),
+    ...(args?.parentThreadId !== undefined
+      ? { parentThreadId: args.parentThreadId }
+      : {}),
+    ...(args?.hasParent === undefined
+      ? {}
+      : { hasParent: args.hasParent ? ("true" as const) : ("false" as const) }),
     ...(args?.sourceThreadId ? { sourceThreadId: args.sourceThreadId } : {}),
-    ...(args?.sectionId ? { sectionId: args.sectionId } : {}),
+    ...(args?.sectionId !== undefined
+      ? { sectionId: args.sectionId ?? "" }
+      : {}),
     ...(args?.originKind ? { originKind: args.originKind } : {}),
     ...(args?.originPluginId ? { originPluginId: args.originPluginId } : {}),
     ...(args?.archived === undefined
       ? {}
       : { archived: args.archived ? "true" : "false" }),
-    ...(args?.unsectioned === undefined
-      ? {}
-      : { unsectioned: args.unsectioned ? "true" : "false" }),
     ...(args?.includeHidden === undefined
       ? {}
       : { includeHidden: args.includeHidden ? "true" : "false" }),
-    ...(args?.limit === undefined ? {} : { limit: String(args.limit) }),
-    ...(args?.offset === undefined ? {} : { offset: String(args.offset) }),
-    ...(args?.hasParent === undefined
+    ...(args?.pageSize === undefined
       ? {}
-      : { hasParent: args.hasParent ? "true" : "false" }),
+      : { pageSize: String(args.pageSize) }),
+    ...(args?.cursor === undefined ? {} : { cursor: args.cursor }),
+    ...(args?.order === undefined ? {} : { order: args.order }),
+    ...(args?.pageSize !== undefined
+      ? {}
+      : {
+          ...(legacy?.limit === undefined
+            ? {}
+            : { limit: String(legacy.limit) }),
+          ...(legacy?.offset === undefined
+            ? {}
+            : { offset: String(legacy.offset) }),
+          ...(legacy?.unsectioned === undefined
+            ? {}
+            : {
+                unsectioned: legacy.unsectioned
+                  ? ("true" as const)
+                  : ("false" as const),
+              }),
+        }),
   };
 }
 
@@ -1199,12 +1228,17 @@ export function createThreadsArea(args: CreateSdkAreaArgs): ThreadsArea {
     queue,
     interactions,
     async list(input) {
-      return transport.readJson(
+      const response = await transport.readJson(
         transport.api.v1.threads.$get(
           { query: listQuery(input) },
           ...signalRequestArgs(input?.signal),
         ),
       );
+      if (input?.pageSize === undefined)
+        return response as ThreadListPageResponse;
+      if (Array.isArray(response))
+        throw new Error("Expected a paginated thread list response");
+      return response as ThreadListPageResponse;
     },
     async markRead(input) {
       return transport.readJson(

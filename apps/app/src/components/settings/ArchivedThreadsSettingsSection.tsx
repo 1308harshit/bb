@@ -151,7 +151,9 @@ export function ArchivedThreadsSettingsSection() {
     const threads = searchIsActive
       ? (threadSearch.data?.archived.results.map((result) => result.thread) ??
         [])
-      : (archivedThreadsQuery.data?.pages ?? []).flat();
+      : (archivedThreadsQuery.data?.pages ?? []).flatMap(
+          (page) => page.threads,
+        );
     const filteredThreads = threads.filter(
       (thread) =>
         thread.archivedAt !== null &&

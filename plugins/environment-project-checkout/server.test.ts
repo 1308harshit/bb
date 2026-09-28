@@ -72,12 +72,14 @@ async function validateWith(args: {
           ),
       },
       threads: {
-        list: (filters?: { environmentId?: string }) =>
-          args.threads.filter(
+        list: (filters?: { environmentId?: string }) => ({
+          threads: args.threads.filter(
             (row) =>
               filters?.environmentId === undefined ||
               row.environmentId === filters.environmentId,
           ),
+          nextCursor: null,
+        }),
       },
     },
   });
@@ -288,7 +290,10 @@ it.each([false, true])(
         if (call.method !== "attach") throw new Error("Unexpected host method");
         return { status: "attached", path: CHECKOUT_PATH, branchName: "main" };
       },
-      sdk: { environments: { list: () => [] }, threads: { list: () => [] } },
+      sdk: {
+        environments: { list: () => [] },
+        threads: { list: () => ({ threads: [], nextCursor: null }) },
+      },
     });
     try {
       await plugin(bb);
@@ -417,7 +422,10 @@ describe("restoring a destroyed checkout environment", () => {
         attachCalls.push(call.input);
         return { status: "attached", path: CHECKOUT_PATH, branchName: null };
       },
-      sdk: { environments: { list: () => [] }, threads: { list: () => [] } },
+      sdk: {
+        environments: { list: () => [] },
+        threads: { list: () => ({ threads: [], nextCursor: null }) },
+      },
     });
     try {
       await plugin(bb);

@@ -11,13 +11,10 @@ export interface ThreadListFilters {
   projectId?: string;
   parentThreadId?: string;
   sourceThreadId?: string;
-  sectionId?: string;
-  unsectioned?: boolean;
+  sectionId?: string | null;
   hasParent?: boolean;
   originKind?: ThreadOriginKind;
   archived: boolean;
-  limit?: number;
-  offset?: number;
 }
 
 export interface ThreadSearchFilters {

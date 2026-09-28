@@ -1162,13 +1162,16 @@ describe("plugin bb.sdk against a running server", () => {
         }),
       ).resolves.toMatchObject({ matched: true, threadId: thread.id });
       await expect(
-        api.sdk.threads.list({ projectId: project.id }),
+        api.sdk.threads
+          .list({ projectId: project.id, pageSize: 20 })
+          .then((page) => page.threads),
       ).resolves.not.toContainEqual(expect.objectContaining({ id: thread.id }));
       const allThreads = await api.sdk.threads.list({
         projectId: project.id,
         includeHidden: true,
+        pageSize: 20,
       });
-      expect(allThreads).toContainEqual(
+      expect(allThreads.threads).toContainEqual(
         expect.objectContaining({ id: thread.id }),
       );
       expect(JSON.stringify(allThreads)).not.toContain(launchMarker);

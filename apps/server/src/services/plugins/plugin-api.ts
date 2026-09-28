@@ -334,11 +334,25 @@ function withPluginThreadAttribution<
   return { ...args, ...attribution };
 }
 
+const legacyThreadListWarnings = new Set<string>();
+
 function wrapSdkForPlugin(sdk: BbSdk, pluginId: string): PluginBbSdk {
   return {
     ...sdk,
     threads: {
       ...sdk.threads,
+      list(args) {
+        if (
+          args?.pageSize === undefined &&
+          !legacyThreadListWarnings.has(pluginId)
+        ) {
+          legacyThreadListWarnings.add(pluginId);
+          console.warn(
+            `Plugin ${pluginId} uses deprecated threads.list without pageSize`,
+          );
+        }
+        return sdk.threads.list(args);
+      },
       async getPluginMetadata(
         args: Omit<ThreadPluginMetadataArgs, "pluginId"> & {
           pluginId?: string;

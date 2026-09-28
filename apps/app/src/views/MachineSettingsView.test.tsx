@@ -439,8 +439,8 @@ describe("MachineSettingsView", () => {
     vi.mocked(sdk.system.config).mockResolvedValue(systemConfig());
     vi.mocked(sdk.hosts.list).mockResolvedValue([host()]);
     stubSupportingFetches();
-    vi.mocked(sdk.threads.list).mockResolvedValue(
-      [
+    vi.mocked(sdk.threads.list).mockResolvedValue({
+      threads: [
         "Fix login",
         "Refactor auth",
         "Add retries",
@@ -449,7 +449,8 @@ describe("MachineSettingsView", () => {
       ].map((title, index) =>
         makeThreadListEntry({ id: `thr_${index}`, title }),
       ),
-    );
+      nextCursor: null,
+    });
     vi.mocked(sdk.threads.count).mockResolvedValue({ total: 7 });
     renderView();
 
@@ -464,7 +465,11 @@ describe("MachineSettingsView", () => {
     expect(within(dialog).getByText("Refactor auth")).toBeDefined();
     expect(within(dialog).getByText("and 2 more")).toBeDefined();
     expect(sdk.threads.list).toHaveBeenCalledWith(
-      expect.objectContaining({ archived: false, hostId: HOST_ID, limit: 5 }),
+      expect.objectContaining({
+        archived: false,
+        hostId: HOST_ID,
+        pageSize: 5,
+      }),
     );
     expect(sdk.threads.count).toHaveBeenCalledWith(
       expect.objectContaining({ hostId: HOST_ID }),

@@ -152,20 +152,24 @@ Editing a sent message:
 
 Listing:
 
-  bb thread list                           List threads
+  bb thread list                           List up to 50 active threads, newest first
     --project <id>                         Filter by project
     --environment <id>                     Filter by environment
     --machine <id-or-name>                 Filter by the machine the environment is on (alias --host)
     --parent-thread <id>                   Filter by parent thread
-    --archived                             Show only archived threads
+    --archived                             Show only archived threads, most recently archived first
     --section <id>                         Filter by section
     --unsectioned                          Show only threads outside sections
     --include-hidden                       Include hidden threads
+    --limit <1-200>                         Threads per page (default 50)
+    --cursor <cursor>                       Continue from a previous page
 
+  Each invocation reads one page. Repeat the same filters with --cursor to
+  continue; human output prints the next cursor when more rows are available.
   The table prints ID, Title, Project, and Status. Title uses the thread
   title, then the fallback title from the first prompt, then "-". Long
   titles are cut at 60 characters. Project shows the project name; the
-  personal project shows "-". Use --json for the full thread records.
+  personal project shows "-". Use --json for {threads, nextCursor}.
 
   bb thread search <query> [--limit <1-50>]
                                              Search threads and messages
@@ -180,7 +184,7 @@ Listing:
     --by <dimension>                       Group the count by host, provider, or project
 
   Counting happens in the database, so use it instead of listing threads and
-  counting rows: `bb thread list` pages a bounded window and would miscount.
+  counting rows when you need a current aggregate.
   Archived, deleted, and hidden threads are excluded. Without --by the command
   prints one number; with --by it prints a count per group (threads with no
   host/provider/project group under "-") followed by the total.

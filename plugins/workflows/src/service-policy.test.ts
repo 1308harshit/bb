@@ -1333,7 +1333,8 @@ describe("workflow service policy integration", () => {
       .run(Date.now() + 60_000, run.id);
     test.harness.sdk.stub(
       "threads.list",
-      async () => [{ id: "legacy-worker" }] as never,
+      async () =>
+        ({ threads: [{ id: "legacy-worker" }], nextCursor: null }) as never,
     );
     test.harness.sdk.stub("threads.getPluginMetadata", async () => ({}));
     const originCallsBefore = test.harness.sdk.callsTo("threads.get").length;
@@ -1499,8 +1500,13 @@ describe("workflow service policy integration", () => {
         return { id: "spawning-worker" } as never;
       },
     );
-    test.harness.sdk.stub("threads.list", async () =>
-      metadata.workflowWorker ? ([{ id: "spawning-worker" }] as never) : [],
+    test.harness.sdk.stub(
+      "threads.list",
+      async () =>
+        ({
+          threads: metadata.workflowWorker ? [{ id: "spawning-worker" }] : [],
+          nextCursor: null,
+        }) as never,
     );
     test.harness.sdk.stub("threads.getPluginMetadata", async () => metadata);
     const run = await test.start(
@@ -1556,8 +1562,13 @@ describe("workflow service policy integration", () => {
         return { id: "zz-live-worker" } as never;
       },
     );
-    test.harness.sdk.stub("threads.list", async () =>
-      metadata.workflowWorker ? ([{ id: "zz-live-worker" }] as never) : [],
+    test.harness.sdk.stub(
+      "threads.list",
+      async () =>
+        ({
+          threads: metadata.workflowWorker ? [{ id: "zz-live-worker" }] : [],
+          nextCursor: null,
+        }) as never,
     );
     test.harness.sdk.stub("threads.getPluginMetadata", async () => metadata);
     test.harness.sdk.stub(
@@ -1721,7 +1732,8 @@ describe("workflow service policy integration", () => {
     }
     test.harness.sdk.stub(
       "threads.list",
-      async () => [{ id: "lost-worker" }] as never,
+      async () =>
+        ({ threads: [{ id: "lost-worker" }], nextCursor: null }) as never,
     );
     test.harness.sdk.stub(
       "threads.getPluginMetadata",

@@ -31,6 +31,7 @@ export type StatusTimeline = ThreadTimelineResponse;
 
 export interface StatusResult {
   childThreads: StatusChildThreads | null;
+  childThreadCount: number | null;
   pendingTodos: ThreadTimelinePendingTodos | null;
   project: StatusProject | null;
   thread: StatusThreadSummary | null;
@@ -110,22 +111,50 @@ export function createStatusArea(args: CreateSdkAreaArgs): StatusArea {
               );
               return timeline.pendingTodos;
             });
-      const childThreads =
+      const childThreadData =
         thread === null
           ? null
-          : await fetchSilent(() =>
-              transport.readJson(
-                transport.api.v1.threads.$get(
-                  {
-                    query: { parentThreadId: thread.id },
-                  },
-                  ...signalRequestArgs(signal),
+          : await fetchSilent(async () => {
+              const [summary, activePage, archivedPage] = await Promise.all([
+                transport.readJson(
+                  transport.api.v1.threads[":id"]["child-summary"].$get(
+                    { param: { id: thread.id } },
+                    ...signalRequestArgs(signal),
+                  ),
                 ),
-              ),
-            );
+                ...[false, true].map((archived) =>
+                  transport.readJson(
+                    transport.api.v1.threads.$get(
+                      {
+                        query: {
+                          parentThreadId: thread.id,
+                          archived: archived ? "true" : "false",
+                          pageSize: "20",
+                        },
+                      },
+                      ...signalRequestArgs(signal),
+                    ),
+                  ),
+                ),
+              ]);
+              if (Array.isArray(activePage) || Array.isArray(archivedPage))
+                throw new Error("Expected a paginated thread list response");
+              const children = [...activePage.threads, ...archivedPage.threads];
+              return {
+                count: summary.nonDeletedChildCount,
+                threads: children
+                  .sort(
+                    (left, right) =>
+                      right.createdAt - left.createdAt ||
+                      right.id.localeCompare(left.id),
+                  )
+                  .slice(0, 20),
+              };
+            });
 
       return {
-        childThreads,
+        childThreads: childThreadData?.threads ?? null,
+        childThreadCount: childThreadData?.count ?? null,
         pendingTodos,
         project,
         thread: thread === null ? null : summarizeThread(thread),

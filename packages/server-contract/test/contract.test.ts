@@ -510,9 +510,10 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "Thread list queries may omit filters and pagination to include the corresponding unfiltered/default set.",
+      "Thread list queries may omit filters; pageSize is optional only for legacy clients.",
     fields: [
       "threadListQuerySchema.archived",
+      "threadListQuerySchema.cursor",
       "threadListQuerySchema.environmentId",
       "threadListQuerySchema.hostId",
       "threadListQuerySchema.sectionId",
@@ -520,8 +521,10 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
       "threadListQuerySchema.hasParent",
       "threadListQuerySchema.includeHidden",
       "threadListQuerySchema.offset",
+      "threadListQuerySchema.order",
       "threadListQuerySchema.originKind",
       "threadListQuerySchema.originPluginId",
+      "threadListQuerySchema.pageSize",
       "threadListQuerySchema.parentThreadId",
       "threadListQuerySchema.projectId",
       "threadListQuerySchema.sourceThreadId",

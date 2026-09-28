@@ -119,31 +119,26 @@ export default async function plugin(bb: BbPluginApi) {
     const now = Date.now();
     const keptKeys = new Set(await bb.storage.kv.list(KEPT_FORK_KEY_PREFIX));
     const stillLive = new Set<string>();
-    let offset = 0;
+    let cursor: string | undefined;
     for (;;) {
       const page = await bb.sdk.threads.list({
         includeHidden: true,
         originKind: "fork",
         originPluginId: bb.pluginId,
         archived: false,
-        limit: EMPTY_FORK_SWEEP_PAGE_SIZE,
-        offset,
+        pageSize: EMPTY_FORK_SWEEP_PAGE_SIZE,
+        ...(cursor ? { cursor } : {}),
       });
-      if (page.length === 0) break;
-      let retained = 0;
-      for (const thread of page) {
+      for (const thread of page.threads) {
         if (!isOwnLiveHiddenFork(thread, bb.pluginId)) {
-          retained += 1;
           continue;
         }
         if (now - thread.createdAt <= EMPTY_FORK_MAX_AGE_MS) {
-          retained += 1;
           continue;
         }
         const keptKey = `${KEPT_FORK_KEY_PREFIX}${thread.id}`;
         if (keptKeys.has(keptKey)) {
           stillLive.add(keptKey);
-          retained += 1;
           continue;
         }
         const outcome = await sweepEmptyFork(thread.id, thread.createdAt);
@@ -152,10 +147,9 @@ export default async function plugin(bb: BbPluginApi) {
           await bb.storage.kv.set(keptKey, true);
           stillLive.add(keptKey);
         }
-        retained += 1;
       }
-      if (page.length < EMPTY_FORK_SWEEP_PAGE_SIZE) break;
-      offset += retained;
+      cursor = page.nextCursor ?? undefined;
+      if (cursor === undefined) break;
     }
     for (const key of keptKeys) {
       if (!stillLive.has(key)) await bb.storage.kv.delete(key);

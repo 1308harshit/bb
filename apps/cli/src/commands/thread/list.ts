@@ -25,6 +25,23 @@ interface ThreadListCommandOptions {
   unsectioned?: boolean;
   json?: boolean;
   includeHidden?: boolean;
+  limit?: string;
+  cursor?: string;
+}
+
+const DEFAULT_THREAD_LIST_PAGE_SIZE = 50;
+const MAX_THREAD_LIST_PAGE_SIZE = 200;
+
+function parseThreadListPageSize(value: string | undefined): number {
+  if (value === undefined) return DEFAULT_THREAD_LIST_PAGE_SIZE;
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error("--limit must be an integer between 1 and 200.");
+  }
+  const pageSize = Number(value);
+  if (!Number.isSafeInteger(pageSize) || pageSize > MAX_THREAD_LIST_PAGE_SIZE) {
+    throw new Error("--limit must be an integer between 1 and 200.");
+  }
+  return pageSize;
 }
 
 export function registerListCommand(
@@ -33,7 +50,7 @@ export function registerListCommand(
 ): void {
   parent
     .command("list")
-    .description("List threads")
+    .description("List a page of active threads, newest first")
     .option("--project <id>", "Filter by project ID (defaults to all projects)")
     .option("--environment <id>", "Filter by environment ID")
     .option(
@@ -44,8 +61,13 @@ export function registerListCommand(
     .option("--parent-thread <id>", "Filter by parent thread ID")
     .option("--section <id>", "Filter by thread section ID")
     .option("--unsectioned", "Show only threads outside sections")
-    .option("--archived", "Show only archived threads")
+    .option(
+      "--archived",
+      "Show only archived threads, most recently archived first",
+    )
     .option("--include-hidden", "Include hidden threads")
+    .option("--limit <count>", "Threads per page, 1–200 (default 50)")
+    .option("--cursor <cursor>", "Continue from a previous page's nextCursor")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: ThreadListCommandOptions) => {
@@ -82,18 +104,29 @@ export function registerListCommand(
           flagName: "--section",
           value: opts.section,
         });
-        const threads = await sdk.threads.list({
+        const filters = {
           ...(projectId ? { projectId } : {}),
           ...(environmentId ? { environmentId } : {}),
           ...(hostId ? { hostId } : {}),
           ...(parentThreadId ? { parentThreadId } : {}),
           ...(opts.archived ? { archived: true } : {}),
           ...(sectionId ? { sectionId } : {}),
-          ...(opts.unsectioned ? { unsectioned: true } : {}),
+          ...(opts.unsectioned ? { sectionId: null } : {}),
           ...(opts.includeHidden ? { includeHidden: true } : {}),
+        };
+        const pageSize = parseThreadListPageSize(opts.limit);
+        if (opts.cursor !== undefined && opts.cursor.trim().length === 0) {
+          throw new Error(
+            "--cursor must be a nonempty cursor from a previous page.",
+          );
+        }
+        const page = await sdk.threads.list({
+          ...filters,
+          pageSize,
+          ...(opts.cursor !== undefined ? { cursor: opts.cursor } : {}),
         });
-        if (outputJson(opts, threads)) return;
-        if (threads.length === 0) {
+        if (outputJson(opts, page)) return;
+        if (page.threads.length === 0) {
           console.log("No threads found");
           return;
         }
@@ -101,7 +134,11 @@ export function registerListCommand(
         const projectNames = new Map(
           projects.map((project) => [project.id, project.name]),
         );
-        printThreadTable(threads, projectNames);
+        printThreadTable(page.threads, projectNames);
+        if (page.nextCursor !== null) {
+          console.log(`Next cursor: ${page.nextCursor}`);
+          console.log("Use --cursor with the same filters to continue.");
+        }
       }),
     );
 }

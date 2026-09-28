@@ -111,6 +111,8 @@ function withPluginThreadAttribution<
   return { ...args, ...attribution };
 }
 
+const legacyThreadListWarnings = new Set<string>();
+
 export function bindSdkToPlugin(
   sdk: BbSdkAreas,
   pluginId: string,
@@ -149,6 +151,18 @@ export function bindSdkToPlugin(
     },
     threads: {
       ...sdk.threads,
+      list(args) {
+        if (
+          args?.pageSize === undefined &&
+          !legacyThreadListWarnings.has(pluginId)
+        ) {
+          legacyThreadListWarnings.add(pluginId);
+          console.warn(
+            `Plugin ${pluginId} uses deprecated threads.list without pageSize`,
+          );
+        }
+        return sdk.threads.list(args);
+      },
       update: updateThread,
       getPluginMetadata(
         args: Omit<ThreadPluginMetadataArgs, "pluginId"> & {

@@ -302,7 +302,7 @@ describe("@bb/sdk", () => {
     let receivedSignal: AbortSignal | null | undefined;
     const fetch: FetchImplementation = async (_input, init) => {
       receivedSignal = init?.signal;
-      return jsonResponse({ body: [] });
+      return jsonResponse({ body: { threads: [], nextCursor: null } });
     };
     const sdk = createBbSdk({
       transport: createHttpTransport({
@@ -313,8 +313,8 @@ describe("@bb/sdk", () => {
     });
 
     await expect(
-      sdk.threads.list({ signal: controller.signal }),
-    ).resolves.toEqual([]);
+      sdk.threads.list({ pageSize: 20, signal: controller.signal }),
+    ).resolves.toEqual({ threads: [], nextCursor: null });
     expect(receivedSignal).toBe(controller.signal);
   });
 
@@ -859,7 +859,9 @@ describe("@bb/sdk", () => {
   });
 
   it("routes thread list calls through the HTTP transport", async () => {
-    const queue = createFetchQueue([{ body: [] }]);
+    const queue = createFetchQueue([
+      { body: { threads: [], nextCursor: null } },
+    ]);
     const sdk = createBbSdk({
       transport: createHttpTransport({
         baseUrl: "http://bb.test",
@@ -869,16 +871,107 @@ describe("@bb/sdk", () => {
     });
 
     await expect(
-      sdk.threads.list({ archived: true, projectId: "proj_123" }),
-    ).resolves.toEqual([]);
+      sdk.threads.list({ archived: true, projectId: "proj_123", pageSize: 20 }),
+    ).resolves.toEqual({ threads: [], nextCursor: null });
 
     expect(queue.requests).toEqual([
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/threads?projectId=proj_123&archived=true",
+        url: "http://bb.test/api/v1/threads?projectId=proj_123&archived=true&pageSize=20",
       },
     ]);
+  });
+
+  it("serializes parentage filters for a paged thread list", async () => {
+    const queue = createFetchQueue([
+      { body: { threads: [], nextCursor: null } },
+    ]);
+    const sdk = createBbSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://bb.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    await sdk.threads.list({
+      hasParent: true,
+      parentThreadId: "thr_parent",
+      pageSize: 20,
+    });
+    expect(queue.requests[0]?.url).toBe(
+      "http://bb.test/api/v1/threads?parentThreadId=thr_parent&hasParent=true&pageSize=20",
+    );
+  });
+
+  it("bounds status children while reporting the full child count", async () => {
+    const activeChildren = Array.from({ length: 20 }, (_, index) => ({
+      id: `active-${index}`,
+      createdAt: index + 1,
+    }));
+    const archivedChildren = Array.from({ length: 20 }, (_, index) => ({
+      id: `archived-${index}`,
+      createdAt: index + 21,
+    }));
+    const queue = createFetchQueue([
+      {
+        body: {
+          id: "thr_parent",
+          projectId: "proj_1",
+          environmentId: null,
+          parentThreadId: null,
+          pinnedAt: null,
+          status: "idle",
+          title: "Parent",
+        },
+      },
+      { body: { pendingTodos: null } },
+      { body: { nonDeletedChildCount: 45 } },
+      { body: { threads: activeChildren, nextCursor: "more-active" } },
+      { body: { threads: archivedChildren, nextCursor: "more-archived" } },
+    ]);
+    const sdk = createBbSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://bb.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    const result = await sdk.status.get({ threadId: "thr_parent" });
+    expect(result.childThreadCount).toBe(45);
+    expect(result.childThreads).toHaveLength(20);
+    expect(result.childThreads?.map((thread) => thread.id)).toEqual(
+      archivedChildren.map((thread) => thread.id).reverse(),
+    );
+    expect(queue.requests.map((request) => request.url)).toEqual([
+      "http://bb.test/api/v1/threads/thr_parent",
+      "http://bb.test/api/v1/threads/thr_parent/timeline?summaryOnly=true",
+      "http://bb.test/api/v1/threads/thr_parent/child-summary",
+      "http://bb.test/api/v1/threads?parentThreadId=thr_parent&archived=false&pageSize=20",
+      "http://bb.test/api/v1/threads?parentThreadId=thr_parent&archived=true&pageSize=20",
+    ]);
+  });
+
+  it("keeps the legacy array response for callers compiled without pageSize", async () => {
+    const queue = createFetchQueue([{ body: [] }]);
+    const sdk = createBbSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://bb.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+    const legacyList = sdk.threads.list as unknown as (args: {
+      limit: number;
+      offset: number;
+    }) => Promise<unknown>;
+
+    await expect(legacyList({ limit: 5, offset: 10 })).resolves.toEqual([]);
+    expect(queue.requests[0]?.url).toBe(
+      "http://bb.test/api/v1/threads?limit=5&offset=10",
+    );
   });
 
   it("routes bounded thread mention resolution through one HTTP request", async () => {
@@ -1288,7 +1381,7 @@ describe("@bb/sdk", () => {
 
   it("forwards includeHidden list filtering and visibility updates", async () => {
     const queue = createFetchQueue([
-      { body: [] },
+      { body: { threads: [], nextCursor: null } },
       { body: { id: "thr_hidden", visibility: "hidden" } },
     ]);
     const sdk = createBbSdk({
@@ -1299,14 +1392,14 @@ describe("@bb/sdk", () => {
       }),
     });
 
-    await sdk.threads.list({ includeHidden: true });
+    await sdk.threads.list({ includeHidden: true, pageSize: 20 });
     await sdk.threads.update({
       threadId: "thr_hidden",
       visibility: "hidden",
     });
 
     expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/threads?includeHidden=true",
+      "http://bb.test/api/v1/threads?includeHidden=true&pageSize=20",
     );
     expect(JSON.parse(queue.requests[1]?.bodyText ?? "{}")).toEqual({
       visibility: "hidden",

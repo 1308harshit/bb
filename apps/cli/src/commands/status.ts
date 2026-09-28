@@ -30,6 +30,7 @@ interface StatusPayload {
     status: string;
     title: string | null;
   }> | null;
+  childThreadCount: number | null;
   pendingTodos: ThreadTimelinePendingTodos | null;
   pluginsNeedingAttention: Array<{ id: string; status: string }>;
 }
@@ -59,6 +60,7 @@ export function registerStatusCommand(
           project: null,
           thread: null,
           childThreads: null,
+          childThreadCount: null,
           pendingTodos: null,
           pluginsNeedingAttention: [],
         };
@@ -123,6 +125,7 @@ export function registerStatusCommand(
             serverAvailable = true;
 
             if (status.childThreads) {
+              payload.childThreadCount = status.childThreadCount;
               payload.childThreads = status.childThreads.map((thread) => ({
                 id: thread.id,
                 status: thread.status,
@@ -164,12 +167,15 @@ export function registerStatusCommand(
             printEnvironmentInfo(payload.thread.environment);
           }
 
-          if (payload.childThreads && payload.childThreads.length > 0) {
+          if (payload.childThreads && payload.childThreadCount) {
             console.log("");
-            console.log(`Child threads: ${payload.childThreads.length}`);
+            console.log(`Child threads: ${payload.childThreadCount}`);
             for (const mt of payload.childThreads) {
               const title = mt.title ? `"${mt.title}"` : "";
               console.log(`  ${mt.id}  ${mt.status}  ${title}`);
+            }
+            if (payload.childThreadCount > payload.childThreads.length) {
+              console.log("  Showing up to 20 recent visible child threads.");
             }
           }
 

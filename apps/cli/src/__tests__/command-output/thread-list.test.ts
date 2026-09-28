@@ -17,7 +17,7 @@ describe("bb thread list command output", () => {
     registerThreadCommands(program, () => "http://server");
 
   it("bb thread list supports parent-thread filtering", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
     stubServerApi({ "v1.threads.$get": list });
 
     await runCommand(
@@ -36,12 +36,101 @@ describe("bb thread list command output", () => {
       query: {
         projectId: "proj-1",
         parentThreadId: "thread-manager-1",
+        pageSize: "50",
       },
     });
   });
 
+  it("bb thread list returns one JSON page and accepts its cursor", async () => {
+    const first = fixtures.makeThread({
+      id: "thr_first",
+      projectId: "proj_1",
+      providerId: "codex",
+    });
+    const second = fixtures.makeThread({
+      id: "thr_second",
+      projectId: "proj_1",
+      providerId: "codex",
+    });
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({ threads: [first], nextCursor: "next" })
+      .mockResolvedValueOnce({ threads: [second], nextCursor: null });
+    stubServerApi({ "v1.threads.$get": list });
+
+    await runCommand(
+      ["thread", "list", "--json", "--project", "proj_1"],
+      register,
+    );
+
+    expect(list.mock.calls).toEqual([
+      [{ query: { projectId: "proj_1", pageSize: "50" } }],
+    ]);
+    expect(
+      JSON.parse(collectLogPayloads(vi.mocked(console.log)).join("")),
+    ).toEqual({ threads: [first], nextCursor: "next" });
+
+    vi.mocked(console.log).mockClear();
+    await runCommand(
+      [
+        "thread",
+        "list",
+        "--json",
+        "--project",
+        "proj_1",
+        "--cursor",
+        "next",
+        "--limit",
+        "1",
+      ],
+      register,
+    );
+    expect(list.mock.calls[1]).toEqual([
+      { query: { projectId: "proj_1", pageSize: "1", cursor: "next" } },
+    ]);
+    expect(
+      JSON.parse(collectLogPayloads(vi.mocked(console.log)).join("")),
+    ).toEqual({ threads: [second], nextCursor: null });
+  });
+
+  it("bb thread list rejects unbounded and invalid limits", async () => {
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
+    stubServerApi({ "v1.threads.$get": list });
+
+    for (const limit of ["0", "201", "1.5", "1e2", "abc"]) {
+      await expect(
+        runCommand(["thread", "list", "--limit", limit], register),
+      ).rejects.toThrow("process.exit:1");
+    }
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("bb thread list prints how to continue after a human-readable page", async () => {
+    const list = vi.fn(async () => ({
+      threads: [
+        fixtures.makeThread({
+          id: "thr_first",
+          projectId: "proj_1",
+          providerId: "codex",
+        }),
+      ],
+      nextCursor: "next-page",
+    }));
+    stubServerApi({
+      "v1.threads.$get": list,
+      "v1.projects.$get": async () => [],
+    });
+
+    await runCommand(["thread", "list", "--limit", "200"], register);
+
+    expect(list).toHaveBeenCalledWith({ query: { pageSize: "200" } });
+    expect(collectLogPayloads(vi.mocked(console.log)).join("\n")).toContain(
+      "Next cursor: next-page\nUse --cursor with the same filters to continue.",
+    );
+  });
+
   it("bb thread list accepts a removed machine ID without looking it up among active machines", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
     const hosts = vi.fn(async () => []);
     stubServerApi({
       "v1.threads.$get": list,
@@ -53,23 +142,25 @@ describe("bb thread list command output", () => {
       register,
     );
 
-    expect(list).toHaveBeenCalledWith({ query: { hostId: "host_removed123" } });
+    expect(list).toHaveBeenCalledWith({
+      query: { hostId: "host_removed123", pageSize: "50" },
+    });
     expect(hosts).not.toHaveBeenCalled();
   });
 
   it("bb thread list opts into hidden threads explicitly", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
     stubServerApi({ "v1.threads.$get": list });
 
     await runCommand(["thread", "list", "--include-hidden"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: { includeHidden: "true" },
+      query: { includeHidden: "true", pageSize: "50" },
     });
   });
 
   it("bb thread list rejects invalid parent-thread values", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
     stubServerApi({ "v1.threads.$get": list });
 
     await expect(
@@ -93,26 +184,29 @@ describe("bb thread list command output", () => {
   });
 
   it("bb thread list renders archived status in the shared borderless table", async () => {
-    const list = vi.fn(async () => [
-      fixtures.makeThread({
-        id: "thread-archived-1",
-        projectId: "proj-1",
-        providerId: "codex",
-        status: "idle",
-        archivedAt: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
+    const list = vi.fn(async () => ({
+      threads: [
+        fixtures.makeThread({
+          id: "thread-archived-1",
+          projectId: "proj-1",
+          providerId: "codex",
+          status: "idle",
+          archivedAt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+      ],
+      nextCursor: null,
+    }));
     stubServerApi({
       "v1.threads.$get": list,
       "v1.projects.$get": async () => [{ id: "proj-1", name: "Alpha" }],
     });
 
-    await runCommand(["thread", "list"], register);
+    await runCommand(["thread", "list", "--archived"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: {},
+      query: { archived: "true", pageSize: "50" },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
       "",
@@ -122,17 +216,20 @@ describe("bb thread list command output", () => {
   });
 
   it("bb thread list renders pinned status in the shared borderless table", async () => {
-    const list = vi.fn(async () => [
-      fixtures.makeThread({
-        id: "thread-pinned-1",
-        projectId: "proj-1",
-        providerId: "codex",
-        status: "idle",
-        pinnedAt: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
+    const list = vi.fn(async () => ({
+      threads: [
+        fixtures.makeThread({
+          id: "thread-pinned-1",
+          projectId: "proj-1",
+          providerId: "codex",
+          status: "idle",
+          pinnedAt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+      ],
+      nextCursor: null,
+    }));
     stubServerApi({
       "v1.threads.$get": list,
       "v1.projects.$get": async () => [],
@@ -146,16 +243,19 @@ describe("bb thread list command output", () => {
   });
 
   it("bb thread list hides the personal project label", async () => {
-    const list = vi.fn(async () => [
-      fixtures.makeThread({
-        id: "thread-personal-1",
-        projectId: domain.PERSONAL_PROJECT_ID,
-        providerId: "codex",
-        status: "idle",
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
+    const list = vi.fn(async () => ({
+      threads: [
+        fixtures.makeThread({
+          id: "thread-personal-1",
+          projectId: domain.PERSONAL_PROJECT_ID,
+          providerId: "codex",
+          status: "idle",
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+      ],
+      nextCursor: null,
+    }));
     stubServerApi({
       "v1.threads.$get": list,
       "v1.projects.$get": async () => [],
@@ -165,7 +265,7 @@ describe("bb thread list command output", () => {
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: {},
+      query: { pageSize: "50" },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
       "",
@@ -175,38 +275,41 @@ describe("bb thread list command output", () => {
   });
 
   it("bb thread list prints the thread title, fallback, and project name (#1648)", async () => {
-    const list = vi.fn(async () => [
-      fixtures.makeThread({
-        id: "thr_a9niqhjj9c",
-        projectId: "proj_bsst4jxfwv",
-        providerId: "codex",
-        status: "idle",
-        title: "Investigate flaky login test",
-        titleFallback: "Reply only with ok.",
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-      fixtures.makeThread({
-        id: "thr_uwfzqywzsz",
-        projectId: "proj_bsst4jxfwv",
-        providerId: "codex",
-        status: "idle",
-        title: null,
-        titleFallback: "Reply only with ok.\nThis is the second QA thread.",
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-      fixtures.makeThread({
-        id: "thr_unknownproj",
-        projectId: "proj_missing",
-        providerId: "codex",
-        status: "idle",
-        title: "x".repeat(80),
-        titleFallback: null,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
+    const list = vi.fn(async () => ({
+      threads: [
+        fixtures.makeThread({
+          id: "thr_a9niqhjj9c",
+          projectId: "proj_bsst4jxfwv",
+          providerId: "codex",
+          status: "idle",
+          title: "Investigate flaky login test",
+          titleFallback: "Reply only with ok.",
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+        fixtures.makeThread({
+          id: "thr_uwfzqywzsz",
+          projectId: "proj_bsst4jxfwv",
+          providerId: "codex",
+          status: "idle",
+          title: null,
+          titleFallback: "Reply only with ok.\nThis is the second QA thread.",
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+        fixtures.makeThread({
+          id: "thr_unknownproj",
+          projectId: "proj_missing",
+          providerId: "codex",
+          status: "idle",
+          title: "x".repeat(80),
+          titleFallback: null,
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+      ],
+      nextCursor: null,
+    }));
     const projects = vi.fn(async () => [{ id: "proj_bsst4jxfwv", name: "qa" }]);
     stubServerApi({ "v1.threads.$get": list, "v1.projects.$get": projects });
 
@@ -231,7 +334,7 @@ describe("bb thread list command output", () => {
   });
 
   it("bb thread list --json does not fetch projects", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
     const projects = vi.fn(async () => []);
     stubServerApi({ "v1.threads.$get": list, "v1.projects.$get": projects });
 
@@ -241,19 +344,19 @@ describe("bb thread list command output", () => {
   });
 
   it("bb thread list ignores BB_PROJECT_ID when --project is omitted", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
     stubServerApi({ "v1.threads.$get": list });
 
     vi.stubEnv("BB_PROJECT_ID", "proj-env");
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: {},
+      query: { pageSize: "50" },
     });
   });
 
   it("bb thread list does not infer parent-thread from BB_THREAD_ID", async () => {
-    const list = vi.fn(async () => []);
+    const list = vi.fn(async () => ({ threads: [], nextCursor: null }));
 
     stubServerApi({ "v1.threads.$get": list });
 
@@ -262,7 +365,7 @@ describe("bb thread list command output", () => {
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: {},
+      query: { pageSize: "50" },
     });
   });
 });

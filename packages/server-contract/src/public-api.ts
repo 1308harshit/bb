@@ -236,6 +236,7 @@ import type {
   ThreadCountQuery,
   ThreadCountResponse,
   ThreadListQuery,
+  ThreadListPageResponse,
   ThreadListResponse,
   ThreadConversationOutlineResponse,
   ThreadOpenRequest,
@@ -1239,7 +1240,7 @@ export const publicApiRoutes = {
       request: optionalQueryRequest<EmptyInput, ThreadListQuery>(
         threadListQuerySchema,
       ),
-      response: jsonResponse<ThreadListResponse>(),
+      response: jsonResponse<ThreadListResponse | ThreadListPageResponse>(),
     }),
     /**
      * Grouped `SELECT count(*)` over threads. Exists because a plugin gate

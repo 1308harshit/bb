@@ -419,9 +419,9 @@ export interface ListThreadsOptions {
   environmentId?: string;
   hostId?: string;
   archived?: boolean;
-  sectionId?: string;
+  sectionId?: string | null;
   unsectioned?: boolean;
-  parentThreadId?: string;
+  parentThreadId?: string | null;
   hasParent?: boolean;
   sourceThreadId?: string;
   originKind?: ThreadOriginKind;
@@ -429,6 +429,18 @@ export interface ListThreadsOptions {
   limit?: number;
   offset?: number;
   includeHidden?: boolean;
+}
+
+export interface PageThreadsOptions extends Omit<
+  ListThreadsOptions,
+  "limit" | "offset" | "unsectioned" | "archived" | "sectionId" | "parentThreadId"
+> {
+  archived: boolean;
+  sectionId?: string | null;
+  parentThreadId?: string;
+  order: "created" | "updated" | "archived";
+  pageSize: number;
+  after?: { key: number; id: string };
 }
 
 type ThreadRow = typeof threads.$inferSelect;
@@ -1412,6 +1424,43 @@ export function listThreadsWithPendingInteractionState(
   const rows = query.all();
 
   return rows.map(toThreadWithPendingInteractionState);
+}
+
+export function pageThreadsWithPendingInteractionState(
+  db: DbConnection,
+  options: PageThreadsOptions,
+): { threads: ThreadWithPendingInteractionState[]; hasMore: boolean } {
+  const orderColumn =
+    options.order === "updated"
+      ? threads.updatedAt
+      : options.order === "archived"
+        ? threads.archivedAt
+        : threads.createdAt;
+  const rows = threadWithPendingInteractionBaseQuery(db)
+    .where(
+      and(
+        ...buildListThreadsFilters(options),
+        options.sectionId === null ? isNull(threads.sectionId) : undefined,
+        options.after === undefined
+          ? undefined
+          : or(
+              lt(orderColumn, options.after.key),
+              and(
+                eq(orderColumn, options.after.key),
+                lt(threads.id, options.after.id),
+              ),
+            ),
+      ),
+    )
+    .orderBy(desc(orderColumn), desc(threads.id))
+    .limit(options.pageSize + 1)
+    .all();
+  return {
+    threads: rows
+      .slice(0, options.pageSize)
+      .map(toThreadWithPendingInteractionState),
+    hasMore: rows.length > options.pageSize,
+  };
 }
 
 export function hasActiveThreadAttention(db: DbConnection): boolean {

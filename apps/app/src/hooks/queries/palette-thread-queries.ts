@@ -8,15 +8,21 @@ import {
   THREAD_SEARCH_LIMIT_PER_GROUP,
 } from "./thread-queries";
 
-export function usePaletteRecentArchivedThreads({ enabled }: { enabled: boolean }) {
+export function usePaletteRecentArchivedThreads({
+  enabled,
+}: {
+  enabled: boolean;
+}) {
   useThreadListRealtimeSubscription({ enabled });
   const filters = {
     archived: true,
-    limit: THREAD_SEARCH_LIMIT_PER_GROUP,
+    pageSize: THREAD_SEARCH_LIMIT_PER_GROUP,
+    order: "archived" as const,
   };
   return useQuery<ThreadListResponse>({
     queryKey: threadListQueryKey(filters),
-    queryFn: ({ signal }) => sdk.threads.list({ ...filters, signal }),
+    queryFn: ({ signal }) =>
+      sdk.threads.list({ ...filters, signal }).then((page) => page.threads),
     enabled,
     staleTime: THREAD_LIST_STALE_TIME_MS,
   });

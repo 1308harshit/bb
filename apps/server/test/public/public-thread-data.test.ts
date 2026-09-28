@@ -32,6 +32,7 @@ import {
   threadSectionMutationResponseSchema,
   threadSectionSchema,
   threadConversationOutlineResponseSchema,
+  threadListPageResponseSchema,
   threadQueuedMessageListResponseSchema,
   threadStorageLocationResponseSchema,
   threadTimelineResponseSchema,
@@ -93,6 +94,137 @@ const clientTurnRequestedDataSchema = z.object({
 type TimelineTurnRow = Extract<TimelineRow, { kind: "turn" }>;
 
 describe("public thread data routes", () => {
+  it("pages active threads by key and preserves the legacy array response", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps);
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const first = seedThread(harness.deps, {
+        projectId: project.id,
+        title: "First",
+      });
+      const second = seedThread(harness.deps, {
+        projectId: project.id,
+        title: "Second",
+      });
+      const third = seedThread(harness.deps, {
+        projectId: project.id,
+        title: "Third",
+      });
+      const hidden = seedThread(harness.deps, {
+        projectId: project.id,
+        visibility: "hidden",
+      });
+      const archived = seedThread(harness.deps, { projectId: project.id });
+      for (const [id, createdAt, updatedAt, archivedAt] of [
+        [first.id, 1, 30, null],
+        [second.id, 2, 20, null],
+        [third.id, 3, 10, null],
+        [hidden.id, 4, 40, null],
+        [archived.id, 5, 50, 50],
+      ] as const) {
+        harness.db
+          .update(threadRows)
+          .set({ createdAt, updatedAt, archivedAt })
+          .where(eq(threadRows.id, id))
+          .run();
+      }
+      const request = async (query: string) =>
+        harness.app.request(`/api/v1/threads?projectId=${project.id}&${query}`);
+      const firstPage = threadListPageResponseSchema.parse(
+        await readJson(await request("pageSize=1")),
+      );
+      expect(firstPage.threads.map((thread) => thread.id)).toEqual([third.id]);
+      expect(firstPage.nextCursor).not.toBeNull();
+
+      const inserted = seedThread(harness.deps, { projectId: project.id });
+      harness.db
+        .update(threadRows)
+        .set({ createdAt: 6 })
+        .where(eq(threadRows.id, inserted.id))
+        .run();
+      harness.db
+        .update(threadRows)
+        .set({ archivedAt: 60 })
+        .where(eq(threadRows.id, third.id))
+        .run();
+      const secondPage = threadListPageResponseSchema.parse(
+        await readJson(
+          await request(`pageSize=1&cursor=${firstPage.nextCursor}`),
+        ),
+      );
+      expect(secondPage.threads.map((thread) => thread.id)).toEqual([
+        second.id,
+      ]);
+      const finalPage = threadListPageResponseSchema.parse(
+        await readJson(
+          await request(`pageSize=1&cursor=${secondPage.nextCursor}`),
+        ),
+      );
+      expect(finalPage.threads.map((thread) => thread.id)).toEqual([first.id]);
+      expect(finalPage.nextCursor).toBeNull();
+
+      const updated = threadListPageResponseSchema.parse(
+        await readJson(await request("pageSize=20&order=updated")),
+      );
+      expect(updated.threads.map((thread) => thread.id)).toEqual([
+        inserted.id,
+        first.id,
+        second.id,
+      ]);
+      const archivedPage = threadListPageResponseSchema.parse(
+        await readJson(
+          await request("pageSize=20&archived=true&order=archived"),
+        ),
+      );
+      expect(archivedPage.threads.map((thread) => thread.id)).toEqual([
+        third.id,
+        archived.id,
+      ]);
+      const legacy = await readJson(await request(""));
+      expect(Array.isArray(legacy)).toBe(true);
+      const legacyIds = (legacy as { id: string }[]).map((thread) => thread.id);
+      expect(legacyIds).toContain(archived.id);
+      expect(legacyIds).not.toContain(hidden.id);
+      const child = seedThread(harness.deps, {
+        projectId: project.id,
+        parentThreadId: first.id,
+      });
+      const roots = threadListPageResponseSchema.parse(
+        await readJson(await request("pageSize=20&hasParent=false")),
+      );
+      expect(roots.threads.map((thread) => thread.id)).not.toContain(child.id);
+      const children = threadListPageResponseSchema.parse(
+        await readJson(await request("pageSize=20&hasParent=true")),
+      );
+      expect(children.threads.map((thread) => thread.id)).toContain(child.id);
+      const specificChildren = threadListPageResponseSchema.parse(
+        await readJson(await request(`pageSize=20&parentThreadId=${first.id}`)),
+      );
+      expect(specificChildren.threads.map((thread) => thread.id)).toEqual([
+        child.id,
+      ]);
+      expect((await request("pageSize=20&parentThreadId=")).status).toBe(400);
+      const sectionResult = createThreadSection(harness.db, harness.deps.hub, {
+        name: "Section",
+      });
+      if (sectionResult.status !== "created")
+        throw new Error("Expected section fixture to be created");
+      harness.db
+        .update(threadRows)
+        .set({ sectionId: sectionResult.section.id })
+        .where(eq(threadRows.id, second.id))
+        .run();
+      const unsectioned = threadListPageResponseSchema.parse(
+        await readJson(await request("pageSize=20&sectionId=")),
+      );
+      expect(unsectioned.threads.map((thread) => thread.id)).not.toContain(
+        second.id,
+      );
+      expect((await request("pageSize=201")).status).toBe(400);
+    });
+  });
   it("manages sections through the canonical public route lifecycle", async () => {
     await withTestHarness(async (harness) => {
       const initialList = await harness.app.request("/api/v1/thread-sections");

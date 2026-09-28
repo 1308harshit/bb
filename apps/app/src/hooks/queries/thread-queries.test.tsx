@@ -35,9 +35,11 @@ import {
   useThreadHostFilePreview,
   useThreadMentionCandidates,
   useThreadPendingInteractions,
+  useProjectThreadSubset,
   useThreadQueuedMessages,
   useThreadStorageLocation,
   useThreadTimeline,
+  useThreads,
 } from "./thread-queries";
 import {
   makeProjectWithThreadsResponse,
@@ -136,7 +138,10 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.mocked(sdk.threads.get).mockResolvedValue(THREAD_WITH_INCLUDES);
-  vi.mocked(sdk.threads.list).mockResolvedValue([]);
+  vi.mocked(sdk.threads.list).mockResolvedValue({
+    threads: [],
+    nextCursor: null,
+  });
   vi.mocked(sdk.threads.queuedMessages.list).mockResolvedValue([]);
   vi.mocked(sdk.threads.interactions.list).mockResolvedValue([]);
   vi.mocked(sdk.threads.storageLocation).mockResolvedValue({
@@ -344,18 +349,21 @@ describe("useThreadDetailBootstrap", () => {
 });
 
 describe("useArchivedThreads", () => {
-  it("fetches pages only while selected and continues from the loaded offset", async () => {
+  it("fetches pages only while selected and continues from the cursor", async () => {
     const { queryClient, wrapper } = createQueryClientTestHarness();
     vi.mocked(sdk.threads.list)
-      .mockResolvedValueOnce(
-        Array.from({ length: ARCHIVED_THREADS_PAGE_SIZE }, (_, index) =>
-          makeThreadListEntry({
-            id: `archived-${index}`,
-            archivedAt: 1,
-          }),
+      .mockResolvedValueOnce({
+        threads: Array.from(
+          { length: ARCHIVED_THREADS_PAGE_SIZE },
+          (_, index) =>
+            makeThreadListEntry({
+              id: `archived-${index}`,
+              archivedAt: 1,
+            }),
         ),
-      )
-      .mockResolvedValueOnce([]);
+        nextCursor: "next-page",
+      })
+      .mockResolvedValueOnce({ threads: [], nextCursor: null });
     const { result, rerender } = renderHook(
       ({ enabled }) => useArchivedThreads({}, { enabled }),
       { wrapper, initialProps: { enabled: false } },
@@ -366,8 +374,8 @@ describe("useArchivedThreads", () => {
     await act(async () => {
       await result.current.fetchNextPage();
     });
-    expect(vi.mocked(sdk.threads.list).mock.calls[1]?.[0]?.offset).toBe(
-      ARCHIVED_THREADS_PAGE_SIZE,
+    expect(vi.mocked(sdk.threads.list).mock.calls[1]?.[0]?.cursor).toBe(
+      "next-page",
     );
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
     rerender({ enabled: false });
@@ -387,27 +395,39 @@ describe("useArchivedThreads", () => {
     });
     expect(vi.mocked(sdk.threads.list).mock.calls[0]?.[0]).toEqual({
       archived: true,
-      limit: ARCHIVED_THREADS_PAGE_SIZE,
-      offset: 0,
+      order: "archived",
+      pageSize: ARCHIVED_THREADS_PAGE_SIZE,
       signal: expect.any(AbortSignal),
     });
   });
 
-  it("maps the archived kind filter to the parent-thread query", async () => {
+  it("requests archived children from the server", async () => {
     const { wrapper } = createQueryClientTestHarness();
+    const child = makeThreadListEntry({
+      id: "child",
+      parentThreadId: "root",
+      archivedAt: 1,
+    });
+    vi.mocked(sdk.threads.list).mockResolvedValueOnce({
+      threads: [child],
+      nextCursor: null,
+    });
 
-    renderHook(() => useArchivedThreads({ kind: "child" }), { wrapper });
+    const { result } = renderHook(() => useArchivedThreads({ kind: "child" }), {
+      wrapper,
+    });
 
     await waitFor(() => {
-      expect(sdk.threads.list).toHaveBeenCalled();
+      expect(result.current.data?.pages[0]?.threads).toEqual([child]);
     });
     expect(vi.mocked(sdk.threads.list).mock.calls[0]?.[0]).toEqual({
       archived: true,
       hasParent: true,
-      limit: ARCHIVED_THREADS_PAGE_SIZE,
-      offset: 0,
+      order: "archived",
+      pageSize: ARCHIVED_THREADS_PAGE_SIZE,
       signal: expect.any(AbortSignal),
     });
+    expect(sdk.threads.list).toHaveBeenCalledTimes(1);
   });
 
   it("keeps project scope for project archived lists", async () => {
@@ -422,8 +442,8 @@ describe("useArchivedThreads", () => {
     });
     expect(vi.mocked(sdk.threads.list).mock.calls[0]?.[0]).toEqual({
       archived: true,
-      limit: ARCHIVED_THREADS_PAGE_SIZE,
-      offset: 0,
+      order: "archived",
+      pageSize: ARCHIVED_THREADS_PAGE_SIZE,
       projectId: "proj_1",
       signal: expect.any(AbortSignal),
     });
@@ -581,6 +601,70 @@ describe("useThreadHostFilePreview", () => {
   });
 });
 
+describe("useThreads", () => {
+  it("uses the complete sidebar cache for a project's forks", () => {
+    const { queryClient, wrapper } = createQueryClientTestHarness();
+    const forks = Array.from({ length: 205 }, (_, index) =>
+      makeThreadListEntry({
+        id: `fork-${index}`,
+        projectId: "project-1",
+        sourceThreadId: "source-1",
+        originKind: "fork",
+        createdAt: index,
+      }),
+    );
+    queryClient.setQueryData(
+      sidebarNavigationQueryKey(),
+      makeSidebarNavigation(forks),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useThreads({
+          projectId: "project-1",
+          sourceThreadId: "source-1",
+          originKind: "fork",
+          archived: false,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.data).toHaveLength(205);
+    expect(result.current.data?.[0]?.id).toBe("fork-204");
+    expect(sdk.threads.list).not.toHaveBeenCalled();
+  });
+});
+
+describe("useProjectThreadSubset", () => {
+  it("uses sidebar project threads without paging through the project", () => {
+    const { queryClient, wrapper } = createQueryClientTestHarness();
+    const threads = Array.from({ length: 205 }, (_, index) =>
+      makeThreadListEntry({
+        id: `thread-${index}`,
+        projectId: "project-1",
+        createdAt: index,
+      }),
+    );
+    queryClient.setQueryData(
+      sidebarNavigationQueryKey(),
+      makeSidebarNavigation(threads),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useProjectThreadSubset({
+          filters: {},
+          projectId: "project-1",
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.data).toHaveLength(205);
+    expect(result.current.data?.[0]?.id).toBe("thread-204");
+    expect(sdk.threads.list).not.toHaveBeenCalled();
+  });
+});
+
 describe("useChildThreads", () => {
   it("derives children from the sidebar cache across projects without a list request", async () => {
     const { queryClient, wrapper } = createQueryClientTestHarness();
@@ -720,7 +804,10 @@ describe("useChildThreads", () => {
       id: "child-1",
       parentThreadId: "parent-1",
     });
-    vi.mocked(sdk.threads.list).mockResolvedValue([child]);
+    vi.mocked(sdk.threads.list).mockResolvedValue({
+      threads: [child],
+      nextCursor: null,
+    });
 
     const { result } = renderHook(
       () => useChildThreads({ enabled: true, parentThreadId: "parent-1" }),
@@ -734,6 +821,7 @@ describe("useChildThreads", () => {
     expect(vi.mocked(sdk.threads.list).mock.calls[0]?.[0]).toEqual({
       archived: false,
       parentThreadId: "parent-1",
+      pageSize: 200,
       signal: expect.any(AbortSignal),
     });
   });
@@ -772,7 +860,10 @@ describe("useThreadMentionCandidates", () => {
   it("falls back to the capped list request without a sidebar cache", async () => {
     const { wrapper } = createQueryClientTestHarness();
     const thread = makeThreadListEntry({ id: "thread-1" });
-    vi.mocked(sdk.threads.list).mockResolvedValue([thread]);
+    vi.mocked(sdk.threads.list).mockResolvedValue({
+      threads: [thread],
+      nextCursor: null,
+    });
 
     const { result } = renderHook(
       () => useThreadMentionCandidates({ enabled: true }),
@@ -784,7 +875,7 @@ describe("useThreadMentionCandidates", () => {
     });
     expect(vi.mocked(sdk.threads.list).mock.calls[0]?.[0]).toEqual({
       archived: false,
-      limit: 200,
+      pageSize: 200,
       signal: expect.any(AbortSignal),
     });
   });
@@ -860,9 +951,13 @@ describe("palette lifecycle queries", () => {
   it("loads bounded archived recents only while selected before typing", async () => {
     const { wrapper } = createQueryClientTestHarness();
     const archived = makeThreadListEntry({ id: "archived", archivedAt: 1 });
-    vi.mocked(sdk.threads.list).mockResolvedValue([archived]);
+    vi.mocked(sdk.threads.list).mockResolvedValue({
+      threads: [archived],
+      nextCursor: null,
+    });
     const { result, rerender } = renderHook(
-      ({ recent, selected }) => usePaletteRecentArchivedThreads({ enabled: recent && selected }),
+      ({ recent, selected }) =>
+        usePaletteRecentArchivedThreads({ enabled: recent && selected }),
       { wrapper, initialProps: { recent: true, selected: false } },
     );
     expect(sdk.threads.list).not.toHaveBeenCalled();
@@ -871,8 +966,10 @@ describe("palette lifecycle queries", () => {
     rerender({ recent: true, selected: true });
     await waitFor(() => expect(result.current.data).toEqual([archived]));
     expect(sdk.threads.list).toHaveBeenCalledExactlyOnceWith({
-      archived: true, limit: 20, signal: expect.any(AbortSignal),
+      archived: true,
+      order: "archived",
+      pageSize: 20,
+      signal: expect.any(AbortSignal),
     });
   });
-
 });

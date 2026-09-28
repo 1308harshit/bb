@@ -796,7 +796,7 @@ describe("core environment orchestration", () => {
               if (filters?.environmentId === undefined)
                 throw new Error("Missing environment filter");
               const response = await harness.app.request(
-                `/api/v1/threads?${new URLSearchParams({ environmentId: filters.environmentId })}`,
+                `/api/v1/threads?${new URLSearchParams({ environmentId: filters.environmentId, pageSize: "200" })}`,
               );
               expect(response.status).toBe(200);
               return response.json();
@@ -849,7 +849,10 @@ describe("core environment orchestration", () => {
       const switched: string[] = [];
       const fake = createFakePluginHost({
         pluginId: "environment-project-checkout",
-        sdk: { environments: { list: () => [] }, threads: { list: () => [] } },
+        sdk: {
+          environments: { list: () => [] },
+          threads: { list: () => ({ threads: [], nextCursor: null }) },
+        },
         experimental_callHostRpc: async ({ input }) => {
           const parsed = z
             .object({

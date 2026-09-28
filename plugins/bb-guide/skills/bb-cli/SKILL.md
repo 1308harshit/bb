@@ -33,7 +33,8 @@ one page.
   `{"ok": false, "error": {"code", "message", "hint"}}` on stdout and the
   readable message on stderr, and exits non-zero. Parse stdout only; `2>&1`
   mixes the message into the JSON.
-- Output shapes differ by command: `bb thread list --json` is a bare array,
+- Output shapes differ by command: `bb thread list --json` returns
+  `{threads, nextCursor}` for one page (50 by default, at most 200),
   `bb thread show --json` nests under `.thread`, `bb terminal list --json`
   wraps in `.sessions`. `bb guide json` lists each shape, and the help of the
   most-parsed commands ends with its JSON shape.

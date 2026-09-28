@@ -424,7 +424,7 @@ export function createWorkflowService(
   }
 
   const spawningCalls = new Set<string>();
-  let discoveryOffset = 0;
+  let discoveryCursor: string | undefined;
   let nextDiscoveryAt = 0;
   let nextOriginReconcileAt = 0;
 
@@ -492,10 +492,10 @@ export function createWorkflowService(
       originPluginId: bb.pluginId,
       includeHidden: true,
       archived: false,
-      limit: 100,
-      offset: discoveryOffset,
+      pageSize: 100,
+      ...(discoveryCursor ? { cursor: discoveryCursor } : {}),
     });
-    for (const thread of threads) {
+    for (const thread of threads.threads) {
       if (hasWorker(db, thread.id)) continue;
       try {
         const metadata = ownershipSchema.safeParse(
@@ -517,9 +517,8 @@ export function createWorkflowService(
           );
       }
     }
-    discoveryOffset =
-      threads.length < 100 ? 0 : discoveryOffset + threads.length;
-    if (discoveryOffset !== 0) nextDiscoveryAt = Date.now() + 1_000;
+    discoveryCursor = threads.nextCursor ?? undefined;
+    if (discoveryCursor !== undefined) nextDiscoveryAt = Date.now() + 1_000;
   }
 
   async function cleanupWorkers(): Promise<void> {

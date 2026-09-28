@@ -131,15 +131,25 @@ Read and edit existing threads with the same area — you do not need a
 sidebar panel or a spawned thread to reach them:
 
 ```ts
-const threads = await bb.sdk.threads.list({ projectId, limit: 50 });
+const { threads, nextCursor } = await bb.sdk.threads.list({
+  projectId,
+  pageSize: 50,
+});
 const thread = await bb.sdk.threads.get({ threadId });
 const timeline = await bb.sdk.threads.timeline({ threadId });
 await bb.sdk.threads.update({ threadId, title: "Fix the flaky test" });
 ```
 
-`threads.list` filters on `projectId`, `environmentId`, `parentThreadId`, `sourceThreadId`,
-`sectionId`, `originKind`, `originPluginId`, `archived`, `unsectioned`,
-`hasParent`, and `includeHidden`, and it pages with `limit` and `offset`.
+`threads.list` filters on `projectId`, `environmentId`, `hostId`,
+`parentThreadId`, `hasParent`, `sourceThreadId`, `sectionId`, `originKind`,
+`originPluginId`, `archived`, and `includeHidden`. Pass `null` for
+`hasParent: false` to list roots, `hasParent: true` to list children, or
+`sectionId: null` to list unsectioned threads. `parentThreadId` lists the
+children of a specific thread.
+It requires `pageSize` (1–200) and returns `{ threads, nextCursor }`;
+pass `nextCursor` as `cursor` for the next page. Active threads and visible
+threads are the defaults. Set `order` to `"created"` (default), `"updated"`,
+or `"archived"` for newest first; archived order requires `archived: true`.
 `threads.update` writes `title`, `sectionId`, `parentThreadId`, `model`,
 `reasoningLevel`, and `visibility`. Use `threads.timeline` (or
 `threads.output` for the last assistant text) to read a thread's messages.

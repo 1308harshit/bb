@@ -3421,3 +3421,11 @@ remain forbidden. New-machine selections continue through creation.
 
 Stabilization requires lifecycle coverage for reuse, missing paths, cleanup in
 progress, cross-project ownership, and concurrent creation before binding.
+
+# Legacy `threads.list` array response
+
+Scheduled removal in the next major: calls without `pageSize` retain the
+previous unbounded array response, filters, and ordering for already compiled
+plugins and older CLIs. New SDK types expose only the bounded cursor form.
+Remove the legacy branch after deployed plugins and CLIs have had a migration
+window, with usage warnings confirming that the branch is no longer used.

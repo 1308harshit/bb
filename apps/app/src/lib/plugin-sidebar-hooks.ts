@@ -168,7 +168,9 @@ export function useSidebarThreads(
     const allProjects = [...data.projects, data.personalProject];
     const selected = new Map<string, ThreadListEntry>();
     if (includeArchived) {
-      for (const thread of archived.data?.pages.flat() ?? []) {
+      for (const thread of archived.data?.pages.flatMap(
+        (page) => page.threads,
+      ) ?? []) {
         if (thread.archivedAt !== null) selected.set(thread.id, thread);
       }
     }
@@ -250,7 +252,7 @@ function useThreadEntryMap(): ReadonlyMap<string, ThreadListEntry> {
     if (cached !== undefined) return cached;
     const entries = new Map([
       ...archived.data.pages
-        .flat()
+        .flatMap((page) => page.threads)
         .map((thread) => [thread.id, thread] as const),
       ...active,
     ]);

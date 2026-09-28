@@ -412,6 +412,13 @@ export type SendQueuedMessageResponse = z.infer<
 
 export const threadListResponseSchema = z.array(threadListEntrySchema);
 export type ThreadListResponse = z.infer<typeof threadListResponseSchema>;
+export const threadListPageResponseSchema = z.object({
+  threads: threadListResponseSchema,
+  nextCursor: z.string().nullable(),
+});
+export type ThreadListPageResponse = z.infer<
+  typeof threadListPageResponseSchema
+>;
 
 export const THREAD_MENTION_RESOLVE_MAX_IDS = 32;
 
@@ -769,7 +776,7 @@ export const threadListQuerySchema = z.object({
   parentThreadId: z.string().min(1).optional(),
   sourceThreadId: z.string().min(1).optional(),
   archived: z.enum(["true", "false"]).optional(),
-  sectionId: z.string().min(1).optional(),
+  sectionId: z.string().optional(),
   unsectioned: z.enum(["true", "false"]).optional(),
   hasParent: z.enum(["true", "false"]).optional(),
   originKind: threadOriginKindSchema.optional(),
@@ -777,6 +784,9 @@ export const threadListQuerySchema = z.object({
   includeHidden: z.enum(["true", "false"]).optional(),
   limit: z.string().regex(/^\d+$/).optional(),
   offset: z.string().regex(/^\d+$/).optional(),
+  pageSize: z.string().regex(/^\d+$/).optional(),
+  cursor: z.string().min(1).optional(),
+  order: z.enum(["created", "updated", "archived"]).optional(),
 });
 export type ThreadListQuery = z.infer<typeof threadListQuerySchema>;
 

@@ -73,19 +73,23 @@ export default async function checkoutPlugin(bb: BbPluginApi): Promise<void> {
       path: args.path,
     });
     for (const row of rows) {
-      const threads = await bb.sdk.threads.list({
-        environmentId: row.id,
-        archived: false,
-      });
-      if (
-        threads.some(
-          (thread) =>
-            thread.id !== args.threadId &&
-            LIVE_THREAD_STATUSES.has(thread.status),
+      let cursor: string | undefined;
+      do {
+        const page = await bb.sdk.threads.list({
+          environmentId: row.id,
+          pageSize: 200,
+          ...(cursor ? { cursor } : {}),
+        });
+        if (
+          page.threads.some(
+            (thread) =>
+              thread.id !== args.threadId &&
+              LIVE_THREAD_STATUSES.has(thread.status),
+          )
         )
-      ) {
-        return true;
-      }
+          return true;
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined);
     }
     return false;
   }

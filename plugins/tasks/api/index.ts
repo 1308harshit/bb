@@ -958,15 +958,10 @@ export function registerHandlers(
           )
         : (
             await bb.sdk.threads.list({
-              limit: MAX_THREAD_SEARCH_RESULTS,
+              pageSize: MAX_THREAD_SEARCH_RESULTS,
+              order: "updated",
             })
-          ).filter((thread) => {
-            if (query.length === 0) return true;
-            const title = thread.title ?? thread.titleFallback ?? "";
-            return title
-              .toLocaleLowerCase()
-              .includes(query.toLocaleLowerCase());
-          });
+          ).threads;
       return {
         threads: threads
           .sort((left, right) => right.updatedAt - left.updatedAt)

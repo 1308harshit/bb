@@ -6,13 +6,10 @@ import {
   type NotifyOnChangeProps,
   type QueryClient,
 } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
 import { getMediaQuerySnapshot } from "@bb/shared-ui/hooks/use-media-query";
-import type {
-  PendingInteraction,
-  ThreadListEntry,
-} from "@bb/domain";
+import type { PendingInteraction, ThreadListEntry } from "@bb/domain";
 import type {
   PromptHistoryResponse,
   ThreadQueuedMessageListResponse,
@@ -206,7 +203,7 @@ interface GetThreadMentionCandidatePlaceholderArgs {
 const THREAD_MENTION_CANDIDATE_FILTERS = {
   archived: false,
   limit: THREAD_MENTION_CANDIDATE_LIMIT,
-} satisfies UseThreadsFilters;
+};
 
 function buildThreadSubsetListFilters({
   filters,
@@ -337,15 +334,19 @@ export function useArchivedThreads(
 ) {
   const { projectId, kind = "all" } = filters;
   const enabled = options?.enabled ?? true;
-  const hasParent = kind === "all" ? undefined : kind === "child";
+  const hasParent =
+    kind === "root" ? false : kind === "child" ? true : undefined;
   useThreadListRealtimeSubscription({ enabled });
 
   return useInfiniteQuery<
-    ThreadListResponse,
+    { threads: ThreadListResponse; nextCursor: string | null },
     Error,
-    { pageParams: number[]; pages: ThreadListResponse[] },
+    {
+      pageParams: (string | null)[];
+      pages: { threads: ThreadListResponse; nextCursor: string | null }[];
+    },
     ReturnType<typeof archivedThreadsListQueryKey>,
-    number
+    string | null
   >({
     queryKey: archivedThreadsListQueryKey({
       ...(projectId ? { projectId } : {}),
@@ -356,17 +357,13 @@ export function useArchivedThreads(
         ...(projectId ? { projectId } : {}),
         ...(hasParent !== undefined ? { hasParent } : {}),
         archived: true,
-        limit: ARCHIVED_THREADS_PAGE_SIZE,
-        offset: pageParam,
+        order: "archived",
+        pageSize: ARCHIVED_THREADS_PAGE_SIZE,
+        ...(pageParam ? { cursor: pageParam } : {}),
         signal,
       }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      if (lastPage.length < ARCHIVED_THREADS_PAGE_SIZE) {
-        return undefined;
-      }
-      return allPages.reduce((sum, page) => sum + page.length, 0);
-    },
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled,
     staleTime: THREAD_LIST_STALE_TIME_MS,
   });
@@ -376,22 +373,64 @@ export function useThreads(filters: UseThreadsFilters, options?: QueryOptions) {
   const { projectId, ...rest } = filters;
   const enabled = (options?.enabled ?? true) && Boolean(projectId);
   useThreadListRealtimeSubscription({ enabled });
+  const selectThreads = useCallback(
+    (threads: ThreadListEntry[]) =>
+      threads
+        .filter(
+          (thread) =>
+            thread.projectId === projectId &&
+            thread.archivedAt === null &&
+            thread.visibility !== "hidden" &&
+            (rest.parentThreadId === undefined ||
+              thread.parentThreadId === rest.parentThreadId) &&
+            (rest.hasParent === undefined ||
+              (thread.parentThreadId !== null) === rest.hasParent) &&
+            (rest.sourceThreadId === undefined ||
+              thread.sourceThreadId === rest.sourceThreadId) &&
+            (rest.originKind === undefined ||
+              thread.originKind === rest.originKind) &&
+            (rest.sectionId === undefined ||
+              thread.sectionId === rest.sectionId),
+        )
+        .sort(
+          (left, right) =>
+            right.createdAt - left.createdAt || right.id.localeCompare(left.id),
+        ),
+    [
+      projectId,
+      rest.parentThreadId,
+      rest.hasParent,
+      rest.sourceThreadId,
+      rest.originKind,
+      rest.sectionId,
+    ],
+  );
+  const { data: cachedThreads, isBootstrapPending } =
+    useSidebarNavigationThreadSelection(selectThreads);
+  const sidebarThreads = rest.archived ? undefined : cachedThreads;
   const queryKey =
     enabled && projectId
       ? threadListQueryKey({ ...rest, projectId })
       : disabledThreadListQueryKey(projectId ? { ...rest, projectId } : rest);
 
-  return useQuery<ThreadListResponse>({
+  const listQuery = useQuery<ThreadListResponse>({
     queryKey,
-    queryFn: ({ signal }) =>
-      sdk.threads.list({
-        ...rest,
-        projectId: requireThreadId(projectId ?? "", "useThreads"),
-        signal,
-      }),
-    enabled,
+    queryFn: async ({ signal }) =>
+      (
+        await sdk.threads.list({
+          ...rest,
+          projectId: requireThreadId(projectId ?? "", "useThreads"),
+          pageSize: 200,
+          signal,
+        })
+      ).threads,
+    enabled: enabled && sidebarThreads === undefined && !isBootstrapPending,
     staleTime: THREAD_LIST_STALE_TIME_MS,
   });
+  return {
+    ...listQuery,
+    data: enabled ? (sidebarThreads ?? listQuery.data) : undefined,
+  };
 }
 
 interface MachineThreadPreview {
@@ -420,7 +459,23 @@ export function useMachineThreadPreview({
         argName: "host id",
       });
       const [threads, count] = await Promise.all([
-        sdk.threads.list({ archived: false, hostId: id, limit, signal }),
+        (async () => {
+          const rows: ThreadListResponse = [];
+          let cursor: string | undefined;
+          while (rows.length < limit) {
+            const page = await sdk.threads.list({
+              archived: false,
+              hostId: id,
+              pageSize: Math.min(limit - rows.length, 200),
+              ...(cursor ? { cursor } : {}),
+              signal,
+            });
+            rows.push(...page.threads);
+            cursor = page.nextCursor ?? undefined;
+            if (cursor === undefined) break;
+          }
+          return rows;
+        })(),
         sdk.threads.count({ hostId: id, signal }),
       ]);
       return { threads, total: count.total };
@@ -464,15 +519,18 @@ export function useChildThreads({
       shouldFetch && parentThreadId
         ? threadListQueryKey({ archived: false, parentThreadId })
         : disabledThreadListQueryKey({ archived: false }),
-    queryFn: ({ signal }) =>
-      sdk.threads.list({
-        archived: false,
-        parentThreadId: requireThreadId(
-          parentThreadId ?? "",
-          "useChildThreads",
-        ),
-        signal,
-      }),
+    queryFn: async ({ signal }) =>
+      (
+        await sdk.threads.list({
+          archived: false,
+          parentThreadId: requireThreadId(
+            parentThreadId ?? "",
+            "useChildThreads",
+          ),
+          pageSize: 200,
+          signal,
+        })
+      ).threads,
     enabled: shouldFetch,
     staleTime: THREAD_LIST_STALE_TIME_MS,
   });
@@ -499,76 +557,43 @@ export function useProjectThreadSubset({
   filters,
   projectId,
 }: UseProjectThreadSubsetArgs): UseProjectThreadSubsetResult {
-  const queryClient = useQueryClient();
   const enabled = (enabledOption ?? true) && Boolean(projectId);
   useThreadListRealtimeSubscription({ enabled });
-  const { hasParent, parentThreadId } = filters;
-  const canDeriveFromActiveProjectThreads = true;
-  const activeProjectThreadListQueryKey =
-    enabled && projectId
-      ? threadListQueryKey({ archived: false, projectId })
-      : disabledThreadListQueryKey(
-          projectId ? { archived: false, projectId } : { archived: false },
-        );
-  const activeProjectThreadListIsCached =
-    canDeriveFromActiveProjectThreads &&
-    enabled &&
-    projectId !== undefined &&
-    queryClient.getQueryData<ThreadListResponse>(
-      threadListQueryKey({ archived: false, projectId }),
-    ) !== undefined;
-  const activeProjectThreadsQuery = useQuery<ThreadListResponse>({
-    queryKey: activeProjectThreadListQueryKey,
-    queryFn: ({ signal }) =>
-      sdk.threads.list({
-        archived: false,
-        projectId: requireThreadId(projectId ?? "", "useProjectThreadSubset"),
-        signal,
-      }),
-    enabled: enabled && activeProjectThreadListIsCached,
-    staleTime: THREAD_LIST_STALE_TIME_MS,
-  });
-  const hasActiveProjectThreadList =
-    activeProjectThreadsQuery.data !== undefined;
+  const selectProjectThreads = useCallback(
+    (threads: ThreadListEntry[]) =>
+      projectId === undefined
+        ? EMPTY_THREAD_LIST
+        : filterProjectThreadSubset(
+            threads.filter((thread) => thread.projectId === projectId),
+            filters,
+          ).sort(
+            (left, right) =>
+              right.createdAt - left.createdAt ||
+              right.id.localeCompare(left.id),
+          ),
+    [filters, projectId],
+  );
+  const { data: sidebarThreads, isBootstrapPending } =
+    useSidebarNavigationThreadSelection(selectProjectThreads);
   const targetedThreadsQuery = useThreads(
     buildThreadSubsetListFilters({ filters, projectId }),
     {
-      enabled: enabled && !hasActiveProjectThreadList,
+      enabled: enabled && sidebarThreads === undefined && !isBootstrapPending,
     },
   );
-  const derivedThreads = useMemo(
-    () =>
-      activeProjectThreadsQuery.data
-        ? filterProjectThreadSubset(activeProjectThreadsQuery.data, {
-            hasParent,
-            parentThreadId,
-          })
-        : undefined,
-    [activeProjectThreadsQuery.data, hasParent, parentThreadId],
-  );
-  const refetchActiveProjectThreads = activeProjectThreadsQuery.refetch;
-  const refetchTargetedThreads = targetedThreadsQuery.refetch;
   const retry = useCallback(() => {
-    void (hasActiveProjectThreadList
-      ? refetchActiveProjectThreads()
-      : refetchTargetedThreads());
-  }, [
-    hasActiveProjectThreadList,
-    refetchActiveProjectThreads,
-    refetchTargetedThreads,
-  ]);
+    void targetedThreadsQuery.refetch();
+  }, [targetedThreadsQuery]);
 
   return {
-    data: derivedThreads ?? targetedThreadsQuery.data,
-    isError: hasActiveProjectThreadList
-      ? activeProjectThreadsQuery.isError
-      : targetedThreadsQuery.isError,
-    isFetching: hasActiveProjectThreadList
-      ? activeProjectThreadsQuery.isFetching
-      : targetedThreadsQuery.isFetching,
-    isLoading: hasActiveProjectThreadList
-      ? activeProjectThreadsQuery.isLoading
-      : targetedThreadsQuery.isLoading,
+    data: sidebarThreads ?? targetedThreadsQuery.data,
+    isError: sidebarThreads === undefined && targetedThreadsQuery.isError,
+    isFetching:
+      sidebarThreads === undefined &&
+      (targetedThreadsQuery.isFetching || isBootstrapPending),
+    isLoading:
+      sidebarThreads === undefined &&
+      (targetedThreadsQuery.isLoading || isBootstrapPending),
     retry,
   };
 }
@@ -589,7 +614,13 @@ export function useThreadMentionCandidates({
   const threadsQuery = useQuery<ThreadListResponse>({
     queryKey,
     queryFn: ({ signal }) =>
-      sdk.threads.list({ ...THREAD_MENTION_CANDIDATE_FILTERS, signal }),
+      sdk.threads
+        .list({
+          archived: false,
+          pageSize: THREAD_MENTION_CANDIDATE_LIMIT,
+          signal,
+        })
+        .then((page) => page.threads),
     enabled: shouldFetch,
     placeholderData: (previousData) =>
       previousData ??

@@ -56,7 +56,9 @@ const state = vi.hoisted(() => ({
 }));
 
 const archiveQuery = vi.hoisted(() => ({
-  data: undefined as { pages: ThreadListEntry[][] } | undefined,
+  data: undefined as
+    | { pages: { threads: ThreadListEntry[]; nextCursor: string | null }[] }
+    | undefined,
   isLoadingError: false,
   hasNextPage: false,
   isFetchingNextPage: false,
@@ -217,7 +219,12 @@ describe("sidebar lifecycle selection", () => {
       archivedAt: 42,
     });
     state.data = payload([active, archived]);
-    archiveQuery.data = { pages: [[archived, active], [archived]] };
+    archiveQuery.data = {
+      pages: [
+        { threads: [archived, active], nextCursor: "next" },
+        { threads: [archived], nextCursor: null },
+      ],
+    };
     archiveQuery.hasNextPage = true;
     const { result, rerender } = renderHook(
       ({ lifecycles }: { lifecycles: ("active" | "archived")[] }) =>
@@ -271,7 +278,7 @@ describe("sidebar lifecycle selection", () => {
       archivedAt: 42,
     });
     state.data = payload([]);
-    archiveQuery.data = { pages: [[archived]] };
+    archiveQuery.data = { pages: [{ threads: [archived], nextCursor: null }] };
     const { result } = renderHook(() => useSidebarThreadEntry(archived.id));
     expect(result.current).toBe(archived);
   });

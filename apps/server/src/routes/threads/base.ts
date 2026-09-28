@@ -11,6 +11,7 @@ import {
   getThreadSectionById,
   listThreadMentionRowsByIds,
   listThreadsWithPendingInteractionState,
+  pageThreadsWithPendingInteractionState,
   markThreadDeleted,
   listLifecycleThreadTree,
   searchThreadsWithPendingInteractionState,
@@ -30,6 +31,7 @@ import {
   type ThreadChildSummaryResponse,
   type ThreadCountResponse,
   type ThreadRunningResponse,
+  type ThreadListPageResponse,
   type ThreadSearchResponse,
   type ThreadWithIncludesResponse,
   type PublicApiSchema,
@@ -261,6 +263,137 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.list, (context, query) => {
+    if (query.pageSize !== undefined) {
+      const pageSize = Number(query.pageSize);
+      if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 200) {
+        throw new ApiError(
+          400,
+          "invalid_request",
+          "pageSize must be between 1 and 200",
+        );
+      }
+      if (
+        query.limit !== undefined ||
+        query.offset !== undefined ||
+        query.unsectioned !== undefined
+      ) {
+        throw new ApiError(
+          400,
+          "invalid_request",
+          "Legacy list filters cannot be combined with pageSize",
+        );
+      }
+      if (query.projectId) requirePublicProject(deps.db, query.projectId);
+      const sectionId = query.sectionId === "" ? null : query.sectionId;
+      const parentThreadId = query.parentThreadId;
+      const hasParent =
+        query.hasParent === undefined ? undefined : query.hasParent === "true";
+      if (sectionId) requireThreadSection(deps, sectionId);
+      const order = query.order ?? "created";
+      const archived = query.archived === "true";
+      if (order === "archived" && !archived) {
+        throw new ApiError(
+          400,
+          "invalid_request",
+          "archived order requires archived=true",
+        );
+      }
+      const identity = JSON.stringify({
+        projectId: query.projectId,
+        environmentId: query.environmentId,
+        hostId: query.hostId,
+        sourceThreadId: query.sourceThreadId,
+        originKind: query.originKind,
+        originPluginId: query.originPluginId,
+        sectionId,
+        parentThreadId,
+        hasParent,
+        archived,
+        includeHidden: query.includeHidden === "true",
+        order,
+      });
+      let after: { key: number; id: string } | undefined;
+      if (query.cursor !== undefined) {
+        try {
+          const decoded: unknown = JSON.parse(
+            Buffer.from(query.cursor, "base64url").toString("utf8"),
+          );
+          if (
+            typeof decoded !== "object" ||
+            decoded === null ||
+            !("identity" in decoded) ||
+            decoded.identity !== identity ||
+            !("key" in decoded) ||
+            typeof decoded.key !== "number" ||
+            !Number.isFinite(decoded.key) ||
+            !("id" in decoded) ||
+            typeof decoded.id !== "string" ||
+            decoded.id.length === 0
+          )
+            throw new Error("invalid cursor");
+          after = { key: decoded.key, id: decoded.id };
+        } catch {
+          throw new ApiError(
+            400,
+            "invalid_request",
+            "Invalid thread list cursor",
+          );
+        }
+      }
+      const page = pageThreadsWithPendingInteractionState(deps.db, {
+        ...(query.projectId ? { projectId: query.projectId } : {}),
+        ...(query.environmentId ? { environmentId: query.environmentId } : {}),
+        ...(query.hostId ? { hostId: query.hostId } : {}),
+        ...(query.sourceThreadId
+          ? { sourceThreadId: query.sourceThreadId }
+          : {}),
+        ...(query.originKind ? { originKind: query.originKind } : {}),
+        ...(query.originPluginId
+          ? { originPluginId: query.originPluginId }
+          : {}),
+        ...(sectionId !== undefined ? { sectionId } : {}),
+        ...(parentThreadId !== undefined ? { parentThreadId } : {}),
+        ...(hasParent !== undefined ? { hasParent } : {}),
+        ...(after ? { after } : {}),
+        archived,
+        includeHidden: query.includeHidden === "true",
+        order,
+        pageSize,
+      });
+      const last = page.threads.at(-1);
+      const key =
+        last === undefined
+          ? null
+          : order === "updated"
+            ? last.updatedAt
+            : order === "archived"
+              ? last.archivedAt
+              : last.createdAt;
+      const response: ThreadListPageResponse = {
+        threads: toThreadListEntryResponses(deps, { threads: page.threads }),
+        nextCursor:
+          page.hasMore && last !== undefined && key !== null
+            ? Buffer.from(
+                JSON.stringify({ identity, key, id: last.id }),
+              ).toString("base64url")
+            : null,
+      };
+      return context.json(response);
+    }
+    if (query.cursor !== undefined || query.order !== undefined) {
+      throw new ApiError(
+        400,
+        "invalid_request",
+        "pageSize is required for cursor and order",
+      );
+    }
+    if (query.parentThreadId === "" || query.sectionId === "") {
+      throw new ApiError(
+        400,
+        "invalid_request",
+        "Thread list IDs must not be empty",
+      );
+    }
     const { limit, offset } = parsePaginationQuery({
       limit: query.limit,
       offset: query.offset,

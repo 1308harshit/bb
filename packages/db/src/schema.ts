@@ -637,6 +637,8 @@ export const threads = sqliteTable(
   (table) => [
     index("threads_project_id_idx").on(table.projectId, table.id),
     index("threads_project_updated_idx").on(table.projectId, table.updatedAt),
+    index("threads_list_created_idx").on(table.createdAt, table.id),
+    index("threads_list_updated_idx").on(table.updatedAt, table.id),
     index("threads_project_archived_deleted_idx").on(
       table.projectId,
       table.archivedAt,
