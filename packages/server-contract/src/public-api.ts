@@ -1190,6 +1190,12 @@ export const publicApiRoutes = {
   },
 
   threadSections: {
+    list: defineRoute({
+      path: "/thread-sections",
+      method: "get",
+      request: noRequest<EmptyInput>(),
+      response: jsonResponse<ThreadSectionResponse[]>(),
+    }),
     create: defineRoute({
       path: "/thread-sections",
       method: "post",
