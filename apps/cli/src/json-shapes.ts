@@ -12,6 +12,8 @@ export const JSON_SHAPE_BY_COMMAND_PATH: Readonly<Record<string, string>> = {
     "the created thread: {id, status, title, projectId, environmentId, ...}",
   "thread wait": "{threadId, matched: true, target}",
   "thread search": "{active: {total, results}, archived: {total, results}}",
+  "history search":
+    "[{id, createdAt, input, projectId, threadId}]    (bare array, newest first)",
   "project list":
     "[{id, kind, name, gitRemoteUrl, sources: [{id, hostId, path, isDefault}]}]    (bare array)",
   "machine list":

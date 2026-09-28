@@ -168,6 +168,11 @@ export const BUILTIN_PLUGINS = [
     defaultEnabled: true,
   },
   {
+    name: "prompt-library",
+    pluginId: "prompt-library",
+    defaultEnabled: true,
+  },
+  {
     name: "agent-annotations",
     pluginId: "agent-annotations",
     defaultEnabled: false,

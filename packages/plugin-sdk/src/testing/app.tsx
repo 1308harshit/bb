@@ -23,6 +23,7 @@ import {
   type ComposerMention,
   type ComposerSelection,
   type ComposerSubmitOptions,
+  type ComposerTypeaheadApi,
   type ComposerView,
   type ExperimentalAppOverlayRegistration,
   type ExperimentalQuestionFormHost,
@@ -235,6 +236,8 @@ export interface ComposerLog {
    * queued-message scope rejects, as the app does.
    */
   selections: ComposerSelection[];
+  /** How many times `experimental_useComposerTypeahead().close()` ran. */
+  typeaheadCloseCount: number;
 }
 
 interface TestComposerStore {
@@ -1197,6 +1200,17 @@ const testPluginSdkApp = {
       };
     }, [composer, version]);
   },
+  experimental_useComposerTypeahead(): ComposerTypeaheadApi {
+    const env = useSlotEnv("experimental_useComposerTypeahead");
+    return useMemo(
+      () => ({
+        close() {
+          env.composerLog.typeaheadCloseCount += 1;
+        },
+      }),
+      [env],
+    );
+  },
 } satisfies PluginSdkApp;
 
 interface PluginRuntimeHost {
@@ -2012,6 +2026,7 @@ export function renderSlot<
     focusCount: 0,
     submits: [],
     selections: [],
+    typeaheadCloseCount: 0,
   };
   const composerOwnership = { active: true };
   const composerIsAvailable = () =>

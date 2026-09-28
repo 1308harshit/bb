@@ -15,6 +15,7 @@ import {
 import type { PromptHistoryScope, PromptInput } from "@bb/domain";
 import {
   listProjectPromptHistory,
+  searchPromptHistory,
   listThreadPromptHistory,
   recordAcceptedPromptHistoryEntry,
 } from "../../src/services/prompt-history.js";
@@ -61,6 +62,52 @@ function insertPromptHistoryEntry(args: InsertPromptHistoryEntryArgs) {
 }
 
 describe("prompt history service", () => {
+  it("deduplicates search results globally and keeps the newest location", () => {
+    const { db, firstProject } = setup();
+    const olderThread = createThread(db, noopNotifier, {
+      projectId: firstProject.id,
+      providerId: "codex",
+    });
+    const newerThread = createThread(db, noopNotifier, {
+      projectId: firstProject.id,
+      providerId: "codex",
+    });
+    const duplicateInput = textInput("Investigate auth flow");
+    insertPromptHistoryEntry({
+      db,
+      projectId: firstProject.id,
+      threadId: olderThread.id,
+      scope: "project",
+      requestSequence: 1,
+      createdAt: 10,
+      input: duplicateInput,
+    });
+    const newer = insertPromptHistoryEntry({
+      db,
+      projectId: firstProject.id,
+      threadId: newerThread.id,
+      scope: "thread",
+      requestSequence: 1,
+      createdAt: 20,
+      input: duplicateInput,
+    });
+
+    expect(
+      searchPromptHistory(
+        { db },
+        { scope: "global", query: "auth", limit: 50 },
+      ),
+    ).toEqual([
+      {
+        id: newer.id,
+        createdAt: 20,
+        input: duplicateInput,
+        projectId: firstProject.id,
+        threadId: newerThread.id,
+      },
+    ]);
+  });
+
   it("returns project create history scoped to one project", () => {
     const { db, firstProject, secondProject } = setup();
     const firstThread = createThread(db, noopNotifier, {

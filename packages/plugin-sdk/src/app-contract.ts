@@ -1783,6 +1783,13 @@ export interface PluginCommandContext {
    * rather than assuming.
    */
   openPanel(options: PluginTargetedPanelActionOpenOptions): boolean;
+  /**
+   * Open one of this plugin's `experimental_typeaheads` in the most recently
+   * focused composer. Returns false when no composer is mounted, or when the
+   * id names no typeahead of this plugin that applies to that composer's
+   * scope. Experimental: see docs/api_to_audit.md.
+   */
+  experimental_openComposerTypeahead(typeaheadId: string): boolean;
 }
 
 /** A default keyboard shortcut. Omitted modifiers are false. */
@@ -2333,6 +2340,53 @@ export interface ComposerCustomization {
   /** Host-rendered rows in the menu next to the composer's send button. */
   sendMenu?: readonly ComposerSendMenuItem[];
   richText?: ComposerRichTextSpec;
+  /**
+   * Plugin-rendered pickers the host opens in the composer's typeahead
+   * container — the same place the built-in @-mention and `/` menus appear.
+   * Experimental: see docs/api_to_audit.md.
+   */
+  experimental_typeaheads?: readonly ComposerTypeaheadRegistration[];
+}
+
+/**
+ * A plugin-rendered typeahead. The host positions it where the built-in
+ * mention menu appears (above or below the composer), keeps at most one
+ * typeahead open per composer, and closes the built-in mention menu when it
+ * opens. The component owns its rendering, data, focus, and keys. Inside it,
+ * `useComposer()` is the composer that opened it: read `draft`, and write with
+ * `insert` (the editor keeps its cursor while focus is in the typeahead) or
+ * `replace`. Close it with `experimental_useComposerTypeahead().close()`.
+ *
+ * Open it from the composer's `+` menu (a host-rendered row is added unless
+ * `plusMenu` is false) or from a command with
+ * `PluginCommandContext.experimental_openComposerTypeahead`.
+ */
+export interface ComposerTypeaheadRegistration {
+  /** Unique within the customization; letters, digits, `-`, `_`. */
+  id: string;
+  /** Label of the `+` menu row and accessible name of the container. */
+  label: string;
+  /** Drawn only when the manifest declares no `bb.branding.icon`. */
+  icon?: BbIconName;
+  /** Accessible description for the `+` menu row. */
+  description?: string;
+  /** Adds a `+` menu row that opens this typeahead. Defaults to true. */
+  plusMenu?: boolean;
+  component: ComponentType;
+}
+
+/**
+ * Controls for the open typeahead. Returned by
+ * `experimental_useComposerTypeahead()`; only available inside a typeahead
+ * component. Experimental: see docs/api_to_audit.md.
+ */
+export interface ComposerTypeaheadApi {
+  /**
+   * Close the typeahead and focus the composer, keeping its cursor. The host
+   * also closes it when focus returns to the editor or a pointer lands
+   * outside the composer.
+   */
+  close(): void;
 }
 
 /** Host-rendered menu row in the composer's `+` menu. */
@@ -3586,4 +3640,10 @@ export interface PluginSdkApp {
   experimental_Diff: ComponentType<DiffProps>;
   /** @internal Superseded by `useComposer()`; kept for plugins built against older SDKs. */
   useComposerView(): ComposerView;
+  /**
+   * Controls for the open typeahead (see {@link ComposerTypeaheadApi}).
+   * Throws outside an `experimental_typeaheads` component. Experimental: see
+   * docs/api_to_audit.md.
+   */
+  experimental_useComposerTypeahead(): ComposerTypeaheadApi;
 }

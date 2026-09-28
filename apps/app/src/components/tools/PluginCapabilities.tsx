@@ -330,6 +330,14 @@ function pluginAppSurfaceItems(
             "Adds an item to the composer’s add menu.",
           ),
         ),
+        ...(slot.experimental_typeaheads ?? []).map((typeahead) =>
+          namedSurface(
+            `composer:${slot.id}:typeahead`,
+            typeahead.id,
+            typeahead.label,
+            "Opens a picker where the composer’s mention menu appears.",
+          ),
+        ),
         ...(slot.richText?.effects ?? []).map((effect) =>
           namedSurface(
             `composer:${slot.id}:rich-text`,

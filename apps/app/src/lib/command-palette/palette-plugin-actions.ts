@@ -1,4 +1,5 @@
 import type { PluginCommandContext } from "@get-bb/plugin-sdk";
+import { openComposerTypeahead } from "@/components/plugin/ComposerTypeaheadHost";
 import type { PluginThreadPanelOpenHandler } from "@/components/plugin/plugin-thread-panel-navigation";
 import type { PluginCommandPaletteActionSlot } from "@/lib/plugin-slots";
 import { getPluginDisplayName } from "@/lib/plugin-logos";
@@ -31,6 +32,8 @@ function actionContext(
       }
       return args.openThreadPanel({ ...options, pluginId: slot.pluginId });
     },
+    experimental_openComposerTypeahead: (typeaheadId) =>
+      openComposerTypeahead(slot.pluginId, typeaheadId),
   };
 }
 

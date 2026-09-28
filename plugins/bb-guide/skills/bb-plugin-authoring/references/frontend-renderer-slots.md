@@ -88,9 +88,12 @@ openWorkspaceFile }` — register a leaf
 - `app.commands.register` → a row in bb's quick palette (Mod+Shift+P), listed
   under "Plugins" beside bb's own commands. Host-rendered chrome, no plugin
   component — registration: `{ id, title, defaultShortcut?, isAvailable?, run }`. Both callbacks
-  receive `{ threadId, projectId, openPanel }`, where `threadId` and
+  receive `{ threadId, projectId, openPanel,
+  experimental_openComposerTypeahead }`, where `threadId` and
   `projectId` are null on surfaces without one and `openPanel` matches
-  `messageAction`'s. `isAvailable` is called for palette listing and keyboard invocation — keep
+  `messageAction`'s. `experimental_openComposerTypeahead(typeaheadId)` opens
+  one of the plugin's `experimental_typeaheads` in the most recently focused
+  composer and returns false when there is none or the id does not apply. `isAvailable` is called for palette listing and keyboard invocation — keep
   it cheap and synchronous — and hides the row when it returns false; a row
   that needs a thread should use it, because the palette opens anywhere and
   `openPanel` declines (returning false) unless a thread view is focused.

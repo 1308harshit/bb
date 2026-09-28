@@ -75,6 +75,7 @@ describe("app.commands.register", () => {
         threadId: "thread-1",
         projectId: "project-1",
         openPanel: vi.fn(() => true),
+        experimental_openComposerTypeahead: vi.fn(() => true),
       };
       const command = collected.commandPaletteActions[0]!;
       expect(command.isAvailable?.(context)).toBe(true);

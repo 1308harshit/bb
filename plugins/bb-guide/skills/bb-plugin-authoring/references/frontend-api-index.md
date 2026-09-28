@@ -39,6 +39,8 @@ Read the installed SDK declarations for the exact current signatures.
 - `experimental_useFixedTabTarget`
 - `useComposer`
 - `useComposers`
+- `experimental_useComposerTypeahead` — `close()` for an open
+  `experimental_typeaheads` component
 - `useComposerView` — deprecated, runtime-only for older plugins; use `useComposer`
 - `experimental_useSidebarThreads`
 - `experimental_useSidebarThreadActions`
@@ -222,6 +224,8 @@ Read the installed SDK declarations for the exact current signatures.
 - `ComposerCustomization`
 - `ComposerPlusMenuItem`
 - `ComposerSendMenuItem`
+- `ComposerTypeaheadApi`
+- `ComposerTypeaheadRegistration`
 - `ComposerSubmitOptions`
 - `ComposerSelection`
 - `ComposerRichTextSpec`

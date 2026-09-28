@@ -5,7 +5,7 @@ import type {
   PromptMentionResource,
   PromptTextMention,
 } from "@bb/domain";
-import type { ComposerView } from "@get-bb/plugin-sdk";
+import type { ComposerTypeaheadApi, ComposerView } from "@get-bb/plugin-sdk";
 import type { Node as ProseMirrorNode, Slice } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import { useEditor, type Editor } from "@tiptap/react";
@@ -57,7 +57,15 @@ import {
   TooltipTrigger,
 } from "@bb/shared-ui/tooltip";
 import { ComposerActionsSlot } from "@/components/plugin/PluginComposerActions";
-import { useResolvedComposerEditor } from "@/components/plugin/composer-slot-hooks";
+import {
+  useResolvedComposerEditor,
+  useResolvedComposerTypeaheads,
+} from "@/components/plugin/composer-slot-hooks";
+import {
+  markComposerTypeaheadOpenerFocused,
+  PluginComposerTypeaheadMount,
+  registerComposerTypeaheadOpener,
+} from "@/components/plugin/ComposerTypeaheadHost";
 import {
   composerScopeIdentity,
   PluginComposerViewProvider,
@@ -2471,6 +2479,95 @@ export function PromptBoxInternal({
     onCommandQueryChange(null, null);
   }, [activeTrigger, onCommandQueryChange, onMentionQueryChange]);
 
+  const pluginTypeaheads = useResolvedComposerTypeaheads(
+    suppressPluginComposerCustomizations ? null : composerView.scope.kind,
+  );
+  const [openTypeaheadKey, setOpenTypeaheadKey] = useState<string | null>(
+    null,
+  );
+  const openTypeaheadKeyRef = useRef(openTypeaheadKey);
+  openTypeaheadKeyRef.current = openTypeaheadKey;
+  const openTypeaheadContribution =
+    openTypeaheadKey === null
+      ? null
+      : (pluginTypeaheads.find(
+          (contribution) => contribution.key === openTypeaheadKey,
+        ) ?? null);
+
+  const openPluginTypeahead = useCallback(
+    (key: string) => {
+      dismissActiveTrigger();
+      setOpenTypeaheadKey(key);
+    },
+    [dismissActiveTrigger],
+  );
+
+  const closePluginTypeahead = useCallback((restoreFocus: boolean) => {
+    openTypeaheadKeyRef.current = null;
+    setOpenTypeaheadKey(null);
+    const currentEditor = editorRef.current;
+    if (!restoreFocus || !currentEditor || currentEditor.isDestroyed) return;
+    currentEditor.commands.focus();
+  }, []);
+
+  const typeaheadApi = useMemo<ComposerTypeaheadApi>(
+    () => ({ close: () => closePluginTypeahead(true) }),
+    [closePluginTypeahead],
+  );
+
+  const [typeaheadOpenerOwner] = useState(() =>
+    Symbol("composer-typeahead-opener"),
+  );
+  const pluginTypeaheadsRef = useRef(pluginTypeaheads);
+  pluginTypeaheadsRef.current = pluginTypeaheads;
+  useEffect(
+    () =>
+      registerComposerTypeaheadOpener(typeaheadOpenerOwner, {
+        open: (pluginId, typeaheadId) => {
+          const contribution = pluginTypeaheadsRef.current.find(
+            (candidate) =>
+              candidate.pluginId === pluginId &&
+              candidate.typeahead.id === typeaheadId,
+          );
+          if (contribution === undefined) return false;
+          openPluginTypeahead(contribution.key);
+          return true;
+        },
+      }),
+    [openPluginTypeahead, typeaheadOpenerOwner],
+  );
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const handleFocusIn = (event: FocusEvent) => {
+      markComposerTypeaheadOpenerFocused(typeaheadOpenerOwner);
+      const currentEditor = editorRef.current;
+      if (
+        openTypeaheadKeyRef.current !== null &&
+        event.target instanceof Node &&
+        currentEditor !== null &&
+        !currentEditor.isDestroyed &&
+        currentEditor.view.dom.contains(event.target)
+      ) {
+        closePluginTypeahead(false);
+      }
+    };
+    form.addEventListener("focusin", handleFocusIn);
+    return () => form.removeEventListener("focusin", handleFocusIn);
+  }, [closePluginTypeahead, typeaheadOpenerOwner]);
+  useEffect(() => {
+    if (openTypeaheadKey === null) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (typeaheadMenuRef.current?.contains(event.target) === true) return;
+      if (formRef.current?.contains(event.target) === true) return;
+      closePluginTypeahead(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [closePluginTypeahead, openTypeaheadKey]);
+
   const focusEnd = useCallback(() => {
     if (isPointerCoarse) {
       pendingFocusEndRef.current = false;
@@ -3367,7 +3464,8 @@ export function PromptBoxInternal({
             />
           </div>
 
-          {showTypeaheadMenu ? (
+          {showTypeaheadMenu ||
+          openTypeaheadContribution !== null ? (
             <div
               ref={typeaheadMenuRef}
               data-promptbox-typeahead-menu=""
@@ -3378,15 +3476,22 @@ export function PromptBoxInternal({
                   : "top-full mt-2",
               )}
             >
-              <MentionMenu
-                state={typeaheadMenuState}
-                selectedIndex={selectedIndex}
-                onApply={applyTrigger}
-                onDismiss={isPointerCoarse ? dismissActiveTrigger : undefined}
-                onCommandLoadMore={
-                  canLoadMoreCommands ? loadMoreCommands : undefined
-                }
-              />
+              {openTypeaheadContribution !== null ? (
+                <PluginComposerTypeaheadMount
+                  contribution={openTypeaheadContribution}
+                  api={typeaheadApi}
+                />
+              ) : (
+                <MentionMenu
+                  state={typeaheadMenuState}
+                  selectedIndex={selectedIndex}
+                  onApply={applyTrigger}
+                  onDismiss={isPointerCoarse ? dismissActiveTrigger : undefined}
+                  onCommandLoadMore={
+                    canLoadMoreCommands ? loadMoreCommands : undefined
+                  }
+                />
+              )}
             </div>
           ) : null}
 
@@ -3467,6 +3572,8 @@ export function PromptBoxInternal({
                     includePluginContributions={
                       !suppressPluginComposerCustomizations
                     }
+                    typeaheads={pluginTypeaheads}
+                    onOpenTypeahead={openPluginTypeahead}
                   />
                   {footerStart}
                 </div>

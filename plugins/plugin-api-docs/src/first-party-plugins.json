@@ -110,6 +110,11 @@
     "icon": "Lock"
   },
   {
+    "id": "prompt-library",
+    "name": "Prompt Library",
+    "icon": "Clock"
+  },
+  {
     "id": "scheduled-send",
     "name": "Send later",
     "icon": "Calendar"

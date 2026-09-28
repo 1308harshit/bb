@@ -144,7 +144,7 @@ composer.insert("Please summarize this.", { at: "end", block: true });
 Composer customizations:
 
 - Register with `app.composer.customize({ id, scopes?, actions?, plusMenu?,
-sendMenu?, banners?, richText? })`. Omitted `scopes` means all thread,
+sendMenu?, banners?, richText?, experimental_typeaheads? })`. Omitted `scopes` means all thread,
   queued-message, and new-thread composers.
 - `actions` and `banners` are plugin React components. `useComposer()` inside
   them is bound to the composer that mounted the component. Actions render
@@ -157,6 +157,19 @@ sendMenu?, banners?, richText? })`. Omitted `scopes` means all thread,
   Each item supplies `id`, `label`, optional `icon`, `description`, and
   `disabled` (a boolean or a function of the composer), plus
   `run({ composer })`.
+- `experimental_typeaheads` are plugin-rendered pickers the host opens in the
+  composer's typeahead container, where the built-in @-mention and `/` menus
+  appear (above or below the composer). Each `ComposerTypeaheadRegistration`
+  supplies `id`, `label`, optional `icon` and `description`, `plusMenu`
+  (defaults to true: a host-rendered `+` menu row that opens it), and
+  `component`. One typeahead is open per composer; opening one closes the
+  built-in mention menu. The component owns its focus, keys, and data.
+  `useComposer()` inside it is the composer that opened it: `insert` lands at
+  the editor's kept cursor and `replace` restores a whole draft.
+  `experimental_useComposerTypeahead().close()` closes it and focuses the
+  editor without moving the cursor. Open it from a command with
+  `context.experimental_openComposerTypeahead(id)`, which targets the most
+  recently focused composer. Bundled example: `plugins/prompt-library`.
 - `richText.effects` rules return plain-text `{ from, to }` ranges and a class
   name from plugin CSS. Decorations are paint-only and never mutate the draft.
 - A `messageAction`'s `run` receives `context.composer`: the composer of the

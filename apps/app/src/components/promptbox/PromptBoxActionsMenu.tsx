@@ -13,7 +13,9 @@ import {
   type PluginComposerPlusMenuContribution,
   type PluginComposerPlusMenuSelection,
 } from "@/components/plugin/PluginComposerActions";
+import { PluginIcon } from "@/components/plugin/PluginIcon";
 import { useResolvedComposerPlusMenuItems } from "@/components/plugin/composer-slot-hooks";
+import type { ResolvedComposerTypeahead } from "@/lib/plugin-slot-resolvers";
 import { useOptionalPluginComposerView } from "@/components/plugin/plugin-composer-host";
 import { Icon, type IconName } from "@bb/shared-ui/icon";
 import { COARSE_POINTER_PROMPT_ICON_ACTION_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
@@ -34,6 +36,8 @@ interface PromptBoxActionsMenuProps {
   onAttach?: () => void;
   onAction: (action: PromptBoxAction) => void;
   pluginItems?: readonly PluginComposerPlusMenuContribution[];
+  typeaheads?: readonly ResolvedComposerTypeahead[];
+  onOpenTypeahead?: (key: string) => void;
 }
 
 export function ComposerPlusMenuSlot({
@@ -120,6 +124,8 @@ export function PromptBoxActionsMenu({
   onAttach,
   onAction,
   pluginItems = [],
+  typeaheads = [],
+  onOpenTypeahead,
 }: PromptBoxActionsMenuProps) {
   const selectedItemRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -156,7 +162,19 @@ export function PromptBoxActionsMenu({
     [],
   );
 
-  if (visibleActions.length === 0 && !onAttach && pluginItems.length === 0) {
+  const typeaheadItems =
+    onOpenTypeahead === undefined
+      ? []
+      : typeaheads.filter(
+          (contribution) => contribution.typeahead.plusMenu !== false,
+        );
+
+  if (
+    visibleActions.length === 0 &&
+    !onAttach &&
+    pluginItems.length === 0 &&
+    typeaheadItems.length === 0
+  ) {
     return null;
   }
 
@@ -239,7 +257,22 @@ export function PromptBoxActionsMenu({
             </DropdownMenuItem>
           );
         })}
-        {pluginItems.length > 0 ? <DropdownMenuSeparator /> : null}
+        {pluginItems.length > 0 || typeaheadItems.length > 0 ? (
+          <DropdownMenuSeparator />
+        ) : null}
+        {typeaheadItems.map(({ key, pluginId, typeahead }) => (
+          <DropdownMenuItem
+            key={key}
+            aria-description={typeahead.description}
+            onSelect={() => {
+              selectedItemRef.current = true;
+              onOpenTypeahead?.(key);
+            }}
+          >
+            <PluginIcon pluginId={pluginId} icon={typeahead.icon ?? null} />
+            {typeahead.label}
+          </DropdownMenuItem>
+        ))}
         {pluginItems.map((contribution) => (
           <PluginComposerPlusMenuEntry
             key={contribution.key}

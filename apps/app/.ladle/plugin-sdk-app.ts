@@ -28,6 +28,7 @@ export const {
   experimental_useFixedTabTarget,
   useComposer,
   useComposerView,
+  experimental_useComposerTypeahead,
   experimental_useSidebarThreads,
   experimental_useSidebarThreadActions,
   experimental_useSidebarThreadPullRequest,

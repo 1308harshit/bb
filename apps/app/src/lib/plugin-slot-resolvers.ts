@@ -1,6 +1,7 @@
 import type {
   ComposerCustomization,
   ComposerPlusMenuItem,
+  ComposerTypeaheadRegistration,
   PluginComposerScope,
 } from "@get-bb/plugin-sdk";
 import type {
@@ -37,6 +38,10 @@ interface ResolvedComposerBanner extends ResolvedComposerContribution {
 
 export interface ResolvedComposerPlusMenuItem extends ResolvedComposerContribution {
   item: ComposerPlusMenuItem;
+}
+
+export interface ResolvedComposerTypeahead extends ResolvedComposerContribution {
+  typeahead: ComposerTypeaheadRegistration;
 }
 
 interface ResolvedComposerEditorEffects extends ResolvedComposerContribution {
@@ -143,6 +148,23 @@ export function resolveComposerSendMenuItems(
       resolved.push({
         ...resolvedComposerContribution(customization, item.id),
         item,
+      });
+    }
+  }
+  return resolved;
+}
+
+export function resolveComposerTypeaheads(
+  customizations: readonly PluginComposerCustomizationSlot[],
+  scopeKind: PluginComposerScope["kind"],
+): readonly ResolvedComposerTypeahead[] {
+  const resolved: ResolvedComposerTypeahead[] = [];
+  for (const customization of customizations) {
+    if (!composerCustomizationApplies(customization, scopeKind)) continue;
+    for (const typeahead of customization.experimental_typeaheads ?? []) {
+      resolved.push({
+        ...resolvedComposerContribution(customization, typeahead.id),
+        typeahead,
       });
     }
   }

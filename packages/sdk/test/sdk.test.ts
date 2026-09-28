@@ -107,6 +107,42 @@ function createFetchQueue(
 }
 
 describe("@bb/sdk", () => {
+  it("searches prompt history with an explicit scope", async () => {
+    const response = [
+      {
+        id: "phist_1",
+        createdAt: 10,
+        input: [{ type: "text", text: "Fix auth", mentions: [] }],
+        projectId: "proj_1",
+        threadId: "thr_1",
+      },
+    ];
+    const queue = createFetchQueue([{ body: response }]);
+    const sdk = createBbSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://bb.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    await expect(
+      sdk.promptHistory.search({
+        scope: "project",
+        projectId: "proj_1",
+        query: "auth flow",
+        limit: "25",
+      }),
+    ).resolves.toEqual(response);
+    expect(queue.requests).toEqual([
+      {
+        bodyText: undefined,
+        method: "GET",
+        url: "http://bb.test/api/v1/prompt-history/search?scope=project&projectId=proj_1&query=auth+flow&limit=25",
+      },
+    ]);
+  });
+
   it("creates a DigitalOcean machine through the SDK without a project", async () => {
     const host = {
       id: "host_do",

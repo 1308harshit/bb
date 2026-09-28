@@ -29,10 +29,14 @@ export {
 } from "./thread-sections.js";
 export {
   createPromptHistoryEntry,
+  listPromptHistoryCandidates,
   listStoredProjectPromptHistoryRows,
   listStoredThreadPromptHistoryRows,
 } from "./prompt-history.js";
-export type { StoredPromptHistoryEntryRow } from "./prompt-history.js";
+export type {
+  ListPromptHistoryCandidatesArgs,
+  StoredPromptHistoryEntryRow,
+} from "./prompt-history.js";
 
 export {
   getProjectExecutionDefaults,

@@ -183,7 +183,7 @@ await slot.behavior.setComposerScope(
 );
 slot.inspection.rpcCalls;
 slot.inspection.navigateCalls;
-slot.inspection.composer; // text, visuals, quotes, mentions, and focus activity
+slot.inspection.composer; // text, visuals, quotes, mentions, focus activity, typeahead closes
 slot.lifecycle.unmount();
 await contentScripts.lifecycle.dispose();
 ```

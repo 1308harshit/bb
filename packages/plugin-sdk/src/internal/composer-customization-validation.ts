@@ -243,7 +243,12 @@ function parseRegions(
   onRejected: RejectionReporter,
 ): Pick<
   ComposerCustomization,
-  "actions" | "banners" | "plusMenu" | "sendMenu" | "richText"
+  | "actions"
+  | "banners"
+  | "plusMenu"
+  | "sendMenu"
+  | "richText"
+  | "experimental_typeaheads"
 > {
   const actions = parseContributionArray<
     NonNullable<ComposerCustomization["actions"]>[number]
@@ -282,6 +287,36 @@ function parseRegions(
     registration.sendMenu,
     onRejected,
     parseMenuItem,
+  );
+
+  const typeaheads = parseContributionArray<
+    NonNullable<ComposerCustomization["experimental_typeaheads"]>[number]
+  >(
+    `${kind}.experimental_typeaheads`,
+    registration.experimental_typeaheads,
+    onRejected,
+    (entryKind, value) => {
+      const entry = value as Record<string, unknown> | null;
+      const id = requireSlotId(entryKind, entry?.id);
+      const icon = requireOptionalString(entryKind, "icon", entry?.icon);
+      const description = requireOptionalString(
+        entryKind,
+        "description",
+        entry?.description,
+      );
+      const plusMenu = entry?.plusMenu;
+      if (plusMenu !== undefined && typeof plusMenu !== "boolean") {
+        throw new Error(`${entryKind}: "plusMenu" must be a boolean when set`);
+      }
+      return {
+        id,
+        label: requireNonEmptyString(entryKind, "label", entry?.label),
+        ...(icon !== undefined ? { icon } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(plusMenu !== undefined ? { plusMenu } : {}),
+        component: requireComponent(entryKind, entry?.component),
+      };
+    },
   );
 
   let richText: ComposerCustomization["richText"];
@@ -340,6 +375,9 @@ function parseRegions(
     ...(plusMenu !== undefined ? { plusMenu } : {}),
     ...(sendMenu !== undefined ? { sendMenu } : {}),
     ...(richText !== undefined ? { richText } : {}),
+    ...(typeaheads !== undefined
+      ? { experimental_typeaheads: typeaheads }
+      : {}),
   };
 }
 
