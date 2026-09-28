@@ -343,6 +343,7 @@ export {
   listOpenTurnInputAcceptedRowsByThreadIds,
   listOpenBackgroundTaskItemRowsForHost,
   listOpenBackgroundTaskItemRowsForThread,
+  listThreadIdsStoppedSinceLastTurnStart,
   listThreadIdsWithLatestHostDaemonRestartInterruption,
   listThreadTurnInterruptionEventStates,
   MissingStoredTurnStartedError,
@@ -416,7 +417,7 @@ export {
   getLatestSessionForHost,
   getSessionById,
   heartbeatSession,
-  listLatestSessionsForHosts,
+  listLatestClosedSessionsForHosts,
 } from "./sessions.js";
 export type { HostDaemonSessionRow } from "./sessions.js";
 
