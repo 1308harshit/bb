@@ -883,27 +883,43 @@ describe("@bb/sdk", () => {
     ]);
   });
 
-  it("serializes parentage filters for a paged thread list", async () => {
-    const queue = createFetchQueue([
-      { body: { threads: [], nextCursor: null } },
-    ]);
-    const sdk = createBbSdk({
-      transport: createHttpTransport({
-        baseUrl: "http://bb.test",
-        fetch: queue.fetch,
-        runtime: "node",
-      }),
-    });
-
-    await sdk.threads.list({
-      hasParent: true,
+  it.each([
+    {
       parentThreadId: "thr_parent",
-      pageSize: 20,
-    });
-    expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/threads?parentThreadId=thr_parent&hasParent=true&pageSize=20",
-    );
-  });
+      sectionId: "sec_123",
+      query:
+        "parentThreadId=thr_parent&hasParent=true&sectionId=sec_123&pageSize=20",
+    },
+    {
+      parentThreadId: "",
+      sectionId: null,
+      query: "parentThreadId=&hasParent=true&sectionId=&pageSize=20",
+    },
+  ])(
+    "serializes paged thread list filters: $query",
+    async ({ parentThreadId, sectionId, query }) => {
+      const queue = createFetchQueue([
+        { body: { threads: [], nextCursor: null } },
+      ]);
+      const sdk = createBbSdk({
+        transport: createHttpTransport({
+          baseUrl: "http://bb.test",
+          fetch: queue.fetch,
+          runtime: "node",
+        }),
+      });
+
+      await sdk.threads.list({
+        hasParent: true,
+        parentThreadId,
+        sectionId,
+        pageSize: 20,
+      });
+      expect(queue.requests[0]?.url).toBe(
+        `http://bb.test/api/v1/threads?${query}`,
+      );
+    },
+  );
 
   it("bounds status children while reporting the full child count", async () => {
     const activeChildren = Array.from({ length: 20 }, (_, index) => ({
@@ -954,25 +970,42 @@ describe("@bb/sdk", () => {
     ]);
   });
 
-  it("keeps the legacy array response for callers compiled without pageSize", async () => {
-    const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
-      transport: createHttpTransport({
-        baseUrl: "http://bb.test",
-        fetch: queue.fetch,
-        runtime: "node",
-      }),
-    });
-    const legacyList = sdk.threads.list as unknown as (args: {
-      limit: number;
-      offset: number;
-    }) => Promise<unknown>;
+  it.each([
+    { filters: {}, query: "limit=5&offset=10" },
+    {
+      filters: { parentThreadId: "", sectionId: "" },
+      query: "limit=5&offset=10",
+    },
+    {
+      filters: { parentThreadId: "thr_parent", sectionId: "sec_123" },
+      query: "parentThreadId=thr_parent&sectionId=sec_123&limit=5&offset=10",
+    },
+  ])(
+    "preserves legacy thread list behavior for $filters",
+    async ({ filters, query }) => {
+      const queue = createFetchQueue([{ body: [] }]);
+      const sdk = createBbSdk({
+        transport: createHttpTransport({
+          baseUrl: "http://bb.test",
+          fetch: queue.fetch,
+          runtime: "node",
+        }),
+      });
+      const legacyList = sdk.threads.list as unknown as (args: {
+        limit: number;
+        offset: number;
+        parentThreadId?: string;
+        sectionId?: string;
+      }) => Promise<unknown>;
 
-    await expect(legacyList({ limit: 5, offset: 10 })).resolves.toEqual([]);
-    expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/threads?limit=5&offset=10",
-    );
-  });
+      await expect(
+        legacyList({ ...filters, limit: 5, offset: 10 }),
+      ).resolves.toEqual([]);
+      expect(queue.requests[0]?.url).toBe(
+        `http://bb.test/api/v1/threads?${query}`,
+      );
+    },
+  );
 
   it("routes bounded thread mention resolution through one HTTP request", async () => {
     const resolved = [

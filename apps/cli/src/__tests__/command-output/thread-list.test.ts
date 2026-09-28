@@ -206,7 +206,7 @@ describe("bb thread list command output", () => {
     await runCommand(["thread", "list", "--archived"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: { archived: "true", pageSize: "50" },
+      query: { archived: "true", order: "archived", pageSize: "50" },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
       "",

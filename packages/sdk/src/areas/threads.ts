@@ -635,6 +635,14 @@ export interface ThreadsArea {
 }
 
 function listQuery(args: ThreadListArgs | undefined): ThreadListQuery {
+  const parentThreadId =
+    args?.pageSize === undefined
+      ? args?.parentThreadId || undefined
+      : args.parentThreadId;
+  const sectionId =
+    args?.pageSize === undefined
+      ? args?.sectionId || undefined
+      : args.sectionId;
   const legacy = args as
     | (ThreadListArgs & {
         limit?: number;
@@ -646,16 +654,12 @@ function listQuery(args: ThreadListArgs | undefined): ThreadListQuery {
     ...(args?.projectId ? { projectId: args.projectId } : {}),
     ...(args?.environmentId ? { environmentId: args.environmentId } : {}),
     ...(args?.hostId ? { hostId: args.hostId } : {}),
-    ...(args?.parentThreadId !== undefined
-      ? { parentThreadId: args.parentThreadId }
-      : {}),
+    ...(parentThreadId !== undefined ? { parentThreadId } : {}),
     ...(args?.hasParent === undefined
       ? {}
       : { hasParent: args.hasParent ? ("true" as const) : ("false" as const) }),
     ...(args?.sourceThreadId ? { sourceThreadId: args.sourceThreadId } : {}),
-    ...(args?.sectionId !== undefined
-      ? { sectionId: args.sectionId ?? "" }
-      : {}),
+    ...(sectionId !== undefined ? { sectionId: sectionId ?? "" } : {}),
     ...(args?.originKind ? { originKind: args.originKind } : {}),
     ...(args?.originPluginId ? { originPluginId: args.originPluginId } : {}),
     ...(args?.archived === undefined

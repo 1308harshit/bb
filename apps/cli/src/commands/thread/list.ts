@@ -109,7 +109,9 @@ export function registerListCommand(
           ...(environmentId ? { environmentId } : {}),
           ...(hostId ? { hostId } : {}),
           ...(parentThreadId ? { parentThreadId } : {}),
-          ...(opts.archived ? { archived: true } : {}),
+          ...(opts.archived
+            ? { archived: true, order: "archived" as const }
+            : {}),
           ...(sectionId ? { sectionId } : {}),
           ...(opts.unsectioned ? { sectionId: null } : {}),
           ...(opts.includeHidden ? { includeHidden: true } : {}),
