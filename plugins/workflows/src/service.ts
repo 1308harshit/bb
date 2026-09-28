@@ -106,7 +106,6 @@ const NOTIFICATION_RETRY_BASE_MS = 1_000;
 const NOTIFICATION_RETRY_MAX_MS = 60 * 60 * 1_000;
 const PROVIDER_RETRY_DELAYS_MS = [1_000, 4_000] as const;
 const RETENTION_SWEEP_RUNS = 20;
-const RECOVERY_SCAN_INTERVAL_MS = 30_000;
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -362,6 +361,7 @@ export interface WorkflowService {
   runWorker(signal: AbortSignal): Promise<void>;
   onThreadIdle(threadId: string, output: string | null): void;
   onThreadFailed(threadId: string, error: string | null): void;
+  onThreadArchived(threadId: string): void;
   onThreadDeleted(threadId: string): void;
   onOriginUnavailable(threadId: string): Promise<void>;
   submitStructuredResult(
@@ -424,9 +424,6 @@ export function createWorkflowService(
   }
 
   const spawningCalls = new Set<string>();
-  let discoveryCursor: string | undefined;
-  let nextDiscoveryAt = 0;
-  let nextOriginReconcileAt = 0;
 
   async function onOriginUnavailable(threadId: string): Promise<void> {
     const stops = listActiveRunsForOriginThread(db, threadId).map((run) =>
@@ -464,8 +461,6 @@ export function createWorkflowService(
   }
 
   async function reconcileOrigins(): Promise<void> {
-    if (Date.now() < nextOriginReconcileAt) return;
-    nextOriginReconcileAt = Date.now() + RECOVERY_SCAN_INTERVAL_MS;
     for (const threadId of workerOrigins(db, Date.now())) {
       try {
         if (await originUnavailable(threadId))
@@ -486,39 +481,39 @@ export function createWorkflowService(
   });
 
   async function discoverWorkers(): Promise<void> {
-    if (Date.now() < nextDiscoveryAt && spawningCalls.size === 0) return;
-    nextDiscoveryAt = Date.now() + RECOVERY_SCAN_INTERVAL_MS;
-    const threads = await bb.sdk.threads.list({
-      originPluginId: bb.pluginId,
-      includeHidden: true,
-      archived: false,
-      pageSize: 100,
-      ...(discoveryCursor ? { cursor: discoveryCursor } : {}),
-    });
-    for (const thread of threads.threads) {
-      if (hasWorker(db, thread.id)) continue;
-      try {
-        const metadata = ownershipSchema.safeParse(
-          await bb.sdk.threads.getPluginMetadata({ threadId: thread.id }),
-        );
-        if (!metadata.success) continue;
-        const owner = metadata.data;
-        ownWorker(
-          db,
-          thread.id,
-          owner.runId,
-          owner.callId,
-          owner.originThreadId,
-        );
-      } catch (error) {
-        if (!isMissingThread(error))
-          bb.log.warn(
-            `Could not discover workflow worker ${thread.id}: ${message(error)}`,
+    let cursor: string | undefined;
+    do {
+      const page = await bb.sdk.threads.list({
+        originPluginId: bb.pluginId,
+        includeHidden: true,
+        archived: false,
+        pageSize: 100,
+        ...(cursor ? { cursor } : {}),
+      });
+      for (const thread of page.threads) {
+        if (hasWorker(db, thread.id)) continue;
+        try {
+          const metadata = ownershipSchema.safeParse(
+            await bb.sdk.threads.getPluginMetadata({ threadId: thread.id }),
           );
+          if (!metadata.success) continue;
+          const owner = metadata.data;
+          ownWorker(
+            db,
+            thread.id,
+            owner.runId,
+            owner.callId,
+            owner.originThreadId,
+          );
+        } catch (error) {
+          if (!isMissingThread(error))
+            bb.log.warn(
+              `Could not discover workflow worker ${thread.id}: ${message(error)}`,
+            );
+        }
       }
-    }
-    discoveryCursor = threads.nextCursor ?? undefined;
-    if (discoveryCursor !== undefined) nextDiscoveryAt = Date.now() + 1_000;
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
   }
 
   async function cleanupWorkers(): Promise<void> {
@@ -1527,7 +1522,7 @@ export function createWorkflowService(
   }
 
   async function reconcileRunningCalls(): Promise<void> {
-    for (const call of listRunningCalls(db, 100)) {
+    for (const call of listRunningCalls(db)) {
       const threadId = call.childThreadId!;
       try {
         const thread = await bb.sdk.threads.get({ threadId });
@@ -1599,10 +1594,7 @@ export function createWorkflowService(
         );
       }
     };
-    await isolated("discover-workers", discoverWorkers);
-    await isolated("reconcile-origins", reconcileOrigins);
     await isolated("cleanup-workers", cleanupWorkers);
-    await isolated("reconcile-workers", reconcileRunningCalls);
     await isolated("enforce-timeouts", () => enforceTimeouts(now));
     await isolated("retention", () => sweepExpiredRuns(now));
   }
@@ -1617,6 +1609,19 @@ export function createWorkflowService(
       { once: true },
     );
     await stopChildren(recoverInterruptedRuns(db));
+    for (const [name, operation] of [
+      ["discover-workers", discoverWorkers],
+      ["reconcile-origins", reconcileOrigins],
+      ["reconcile-workers", reconcileRunningCalls],
+    ] as const) {
+      try {
+        await operation();
+      } catch (error) {
+        bb.log.error(
+          `Workflow startup reconciliation ${name} failed: ${message(error)}`,
+        );
+      }
+    }
     const active = new Set<Promise<void>>();
     let nextMaintenanceAt = 0;
     while (!signal.aborted) {
@@ -1686,6 +1691,8 @@ export function createWorkflowService(
     onOriginUnavailable,
     onThreadFailed: (threadId, error) =>
       failThreadCall(threadId, error ?? "Workflow worker failed"),
+    onThreadArchived: (threadId) =>
+      failThreadCall(threadId, "Workflow worker was archived"),
     onThreadDeleted: (threadId) =>
       failThreadCall(threadId, "Workflow worker was deleted"),
     submitStructuredResult,
