@@ -451,3 +451,8 @@ upload date. The server fetches only public metadata, caches it for five minutes
 and returns `android: null` if unavailable or inconsistent. Download links remain
 usable during metadata failures. iOS version and release date are shown in TestFlight.
 Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on.
+
+Storage & retention is a default-disabled bundled plugin. Enable it
+with `bb plugin enable storage-retention`.
+Its sidebar panel and `bb storage` commands own retention policies and machine
+cleanup. See the plugin’s storage-retention skill for commands and limitations.
