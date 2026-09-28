@@ -885,11 +885,6 @@ export function prefetchThreadQueuedMessages({
   });
 }
 
-interface ThreadResultCacheArgs {
-  queryClient: QueryClient;
-  thread: ThreadResponse;
-}
-
 export function applyCreateThreadResult({
   queryClient,
   request,
@@ -935,22 +930,6 @@ export function applyCreateThreadResult({
     });
   }
   refetchThreadListsAfterComposerThreadCreate({ queryClient });
-}
-
-export function applyCreateDraftThreadResult({
-  queryClient,
-  thread,
-}: ThreadResultCacheArgs): void {
-  queryClient.setQueryData<ThreadResponse>(threadQueryKey(thread.id), thread);
-  optimisticallyInsertThread(queryClient, thread);
-  refetchThreadListsAfterComposerThreadCreate({ queryClient });
-}
-
-export function applyThreadDraftUpdateResult({
-  queryClient,
-  thread,
-}: ThreadResultCacheArgs): void {
-  queryClient.setQueryData<ThreadResponse>(threadQueryKey(thread.id), thread);
 }
 
 export async function beginSendThreadMessageTransaction({
