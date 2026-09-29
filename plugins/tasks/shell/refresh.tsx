@@ -11,6 +11,7 @@ import { useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
 
 interface TasksRefreshState {
   generation: number;
+  manualGeneration: number;
   isRefreshing: boolean;
   refresh: () => void;
   beginGenerationWork: () => void;
@@ -21,11 +22,13 @@ const TasksRefreshContext = createContext<TasksRefreshState | null>(null);
 
 interface SharedRefreshSnapshot {
   generation: number;
+  manualGeneration: number;
   isRefreshing: boolean;
 }
 
 let sharedSnapshot: SharedRefreshSnapshot = {
   generation: 0,
+  manualGeneration: 0,
   isRefreshing: false,
 };
 let pendingGenerationWork = 0;
@@ -41,6 +44,7 @@ function emitRefreshChange() {
 function updateSharedSnapshot(next: SharedRefreshSnapshot) {
   if (
     next.generation === sharedSnapshot.generation &&
+    next.manualGeneration === sharedSnapshot.manualGeneration &&
     next.isRefreshing === sharedSnapshot.isRefreshing
   ) {
     return;
@@ -61,10 +65,14 @@ function endGenerationWork() {
   }
 }
 
-function requestRefresh() {
+function requestRefresh(reconnected = false) {
   if (sharedSnapshot.isRefreshing) return;
   const generation = sharedSnapshot.generation + 1;
-  updateSharedSnapshot({ generation, isRefreshing: true });
+  updateSharedSnapshot({
+    generation,
+    manualGeneration: sharedSnapshot.manualGeneration + (reconnected ? 0 : 1),
+    isRefreshing: true,
+  });
   queueMicrotask(() => {
     if (
       sharedSnapshot.generation === generation &&
@@ -95,7 +103,7 @@ function updateConnectionState(registrationId: symbol, state: string) {
   }
   if (next === "reconnecting") hasEstablishedConnection = true;
   if (next === "connected" && previous !== "connected") {
-    if (hasEstablishedConnection) requestRefresh();
+    if (hasEstablishedConnection) requestRefresh(true);
     hasEstablishedConnection = true;
   }
 }
@@ -106,7 +114,11 @@ function removeConnectionState(registrationId: symbol) {
   if (aggregateConnectionState === null) {
     hasEstablishedConnection = false;
     pendingGenerationWork = 0;
-    sharedSnapshot = { generation: 0, isRefreshing: false };
+    sharedSnapshot = {
+      generation: 0,
+      manualGeneration: 0,
+      isRefreshing: false,
+    };
   }
 }
 
@@ -133,8 +145,9 @@ export function TasksRefreshProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       generation: snapshot.generation,
+      manualGeneration: snapshot.manualGeneration,
       isRefreshing: snapshot.isRefreshing,
-      refresh: requestRefresh,
+      refresh: () => requestRefresh(),
       beginGenerationWork,
       endGenerationWork,
     }),

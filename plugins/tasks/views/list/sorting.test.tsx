@@ -1,9 +1,10 @@
+import { withReadBatches } from "../../read-test-fixtures.js";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { COMPACT_VIEWPORT_QUERY } from "@/components/ui/hooks/use-compact-viewport";
-import type { Task } from "../../shared/contract.js";
+import { tasksRpcContract, type Task } from "../../shared/contract.js";
 import { makeTask } from "../../test-fixtures.js";
 
 window.matchMedia = (query: string) => ({
@@ -70,22 +71,28 @@ const tasks = [
   task(4, "done", "high", "2026-07-18"),
 ];
 
-function renderList() {
+function renderList(
+  listTasks = (_input: { cursor?: string; sort?: string }) => ({
+    tasks,
+    nextCursor: null as string | null,
+  }),
+) {
   return renderSlot(
     app.navPanels[0]!,
     { subPath: PROJECT_ID },
     {
-      rpc: {
+      rpc: withReadBatches({
         listProjects: () => ({ projects: [project] }),
         listFolders: () => ({ folders: [] }),
         listPresets: () => ({ presets: [] }),
         sidebarSummary: () => ({ projects: [] }),
         listLabels: () => ({ labels: [] }),
-        listTasks: () => ({ tasks }),
+        listTasks: (input) =>
+          listTasks(tasksRpcContract.listTasks.input.parse(input)),
         listTaskThreads: () => ({ taskThreads: [] }),
         listComments: () => ({ comments: [] }),
         listAttachments: () => ({ attachments: [] }),
-      },
+      }),
     },
   );
 }
@@ -160,4 +167,28 @@ describe("list sorting (compact viewport)", () => {
       ),
     );
   });
+});
+
+it("loads a second page only on demand and starts over when sorting changes", async () => {
+  const requests: { cursor?: string; sort?: string }[] = [];
+  const slot = renderList((input) => {
+    requests.push(input);
+    return {
+      tasks: input.cursor ? [tasks[1]!] : [tasks[0]!],
+      nextCursor: input.cursor ? null : "next",
+    };
+  });
+  await slot.findByText("TSK-1");
+  expect(slot.queryByText("TSK-2")).toBeNull();
+  expect(requests).toHaveLength(1);
+  fireEvent.click(slot.getByRole("button", { name: "Load more tasks" }));
+  await slot.findByText("TSK-2");
+  expect(requests).toHaveLength(2);
+  expect(requests[1]?.cursor).toBe("next");
+  await selectSort(slot, "Priority");
+  await waitFor(() =>
+    expect(requests.at(-1)).toMatchObject({ sort: "priority" }),
+  );
+  expect(requests.at(-1)?.cursor).toBeUndefined();
+  await waitFor(() => expect(slot.queryByText("TSK-2")).toBeNull());
 });
