@@ -352,6 +352,9 @@ type ExpectedStatusKey = "get";
 
 type ExpectedSystemKey =
   | "acknowledgeAppUpdate"
+  | "androidApp"
+  | "androidAppPreparation"
+  | "prepareAndroidApp"
   | "appUpdate"
   | "applyAppUpdate"
   | "setMachineEnvironmentVariable"

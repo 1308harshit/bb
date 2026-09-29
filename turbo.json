@@ -301,6 +301,9 @@
       "persistent": true,
       "passThroughEnv": ["*"]
     },
+    "@bb/mobile#theme:generate": {
+      "cache": false
+    },
     "@bb/mobile#test": {
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
@@ -313,6 +316,15 @@
     "@bb/mobile#dev": {
       "cache": false,
       "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/mobile#build:android:local": {
+      "cache": false,
+      "outputs": ["build-output/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/mobile#e2e:android": {
+      "cache": false,
       "passThroughEnv": ["*"]
     },
     "storybook": {

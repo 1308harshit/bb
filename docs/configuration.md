@@ -1164,6 +1164,13 @@ ports).
 
 ### Pairing the bb mobile app
 
+Android source builds optionally read `GOOGLE_SERVICES_JSON`, an absolute path
+to the Firebase Android configuration file. Without it, they use
+`apps/mobile/google-services.json` when present; without either, the app builds
+without Firebase push configuration. For EAS, configure it as a file environment
+variable. Android build, signing, and Play submission instructions are in
+[`apps/mobile/README.md`](../apps/mobile/README.md#android-production-setup).
+
 The bb mobile app reaches a paired bb through the same connect route. It
 enrolls as a connect **machine** — its own credential on the getbb.app account,
 separate from the server's pairing secret and individually revocable — so
@@ -1798,3 +1805,58 @@ directories are also searched. On macOS, discovery searches Application Support.
 The desktop app's own profile is excluded. See `bb guide browser` for search
 bounds, encryption limitations, and the `import-sources` / `import-cookies`
 commands. No additional BB setting is required to enable discovery.
+
+### Android App experiment
+
+Enable **Android App** in Settings → Experiments, or run
+`bb settings experiment androidTesting true`. The Android App section appears
+below the flags. **Download APK** fetches the build from the public
+`get-bb/bb` GitHub release tagged `android-testing`, verifies its SHA256 and size,
+and downloads it. Users and their servers need no Android tools for this path.
+The server caches completed APKs, checks the release manifest on each request,
+and reuses the cache when unchanged or GitHub is unavailable. Failed integrity
+checks never replace a cached APK. Concurrent requests share the in-flight work.
+
+If there is no release or usable cache, the page offers **Build on this server**.
+Local builds never start automatically. Configure `BB_ANDROID_SOURCE_DIR` with
+an absolute path to a dedicated bb source checkout on the server host. Install
+its dependencies with pnpm, install JDK 17 or newer, and set `ANDROID_HOME` or
+`ANDROID_SDK_ROOT` to an Android SDK with build-tools. These tools must be on the
+server process's PATH; restart the server after changing its environment.
+The fallback supports macOS/Linux and builds an arm64 APK using the checkout's
+local build script and debug signing key. Builds modify generated files in that
+checkout and can take several minutes. Local and release signing keys can differ;
+Android cannot update an installed app with an APK signed by a different key.
+Failures point to missing tools or `android-testing/build.log` in the server data
+directory. Local builds time out after 30 minutes. In-flight status is held in
+memory; completed APKs survive restarts.
+
+CLI equivalents (wait for completion, and exit nonzero on failure):
+
+```sh
+bb settings android-app-prepare github --json
+bb settings android-app-prepare local --json
+bb settings android-app --json
+```
+
+SDK: `system.prepareAndroidApp({ source: "github" | "local" })` starts work,
+`system.androidAppPreparation()` reads status, and `system.androidApp()` reads
+the cached build metadata. The HTTP routes are POST `/api/v1/system/android-app/prepare`,
+GET `/api/v1/system/android-app/preparation`, and GET `/api/v1/system/android-app`.
+The preparation routes and `/install/bb-android.apk` are disabled when the
+experiment is off. Through bb connect, they require the normal account session.
+
+To publish centrally, run the **Mobile Android (EAS)** workflow with profile
+`preview` and **publish** enabled. EAS builds the signed APK; the workflow verifies
+it and uploads its checksum-named APK before `latest.json` to the `android-testing`
+GitHub prerelease. It requires configured EAS credentials/`EXPO_TOKEN`; it does not
+submit to Play. Preview builds increment the remote Android version code.
+The first release must be published before release downloads are available.
+
+For manual publication, run
+`node apps/mobile/scripts/publish-android-apk.mjs APK OUTPUT_DIR` from a source
+checkout with Android SDK build-tools. Upload `OUTPUT_DIR/android-testing/*.apk`
+to the release, then upload `OUTPUT_DIR/android-testing/latest.json` last.
+Alternatively use a server data directory as OUTPUT_DIR to seed that server's cache.
+Keep signing keys consistent for updates. Old cached artifacts are retained so
+active downloads can finish.
