@@ -608,6 +608,24 @@ describe("ThreadRow", () => {
     expect(slot.inspection.sidebarActionCalls).toEqual([]);
   });
 
+  it("does not select a menu item when the opening right click is released over it", async () => {
+    const slot = renderThreadRow();
+    fireEvent.contextMenu(screen.getByRole("link", { name: "Open Thread" }));
+    const pin = await screen.findByRole("menuitem", { name: "Pin" });
+
+    fireEvent.pointerUp(pin, { button: 2, pointerType: "mouse" });
+
+    expect(slot.inspection.sidebarActionCalls).toEqual([]);
+    expect(screen.getByRole("menuitem", { name: "Pin" })).toBe(pin);
+
+    fireEvent.click(pin);
+    await waitFor(() =>
+      expect(slot.inspection.sidebarActionCalls).toEqual([
+        { method: "setPinned", threadId: "thr_test", pinned: true },
+      ]),
+    );
+  });
+
   const splitWorkingCases: Array<{
     label: string;
     pluginStatus?: PluginSidebarThreadRowStatus;
