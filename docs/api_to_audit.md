@@ -3549,12 +3549,14 @@ aborts transport only; no server cancellation protocol is implied. Optional posi
 The observer starting a shared request supplies its deadline; timeout rejects even
 if a transport ignores abort, and a late response cannot overwrite a retry.
 
-Consumers: Tasks list pagination and individual reads, GitHub lists/details/pickers,
+Consumers: Tasks detail navigation, active summaries and individual reads, GitHub lists/details/pickers,
 Automations overview/detail/run history, Workflows active runs/details, Account Pool
 status/configuration, Connect status/mobile-pairing availability, Docs notebook,
 Memory, Keep Awake, Concurrency Limit, Modal launch options, worktree discovery,
 Monaco file tree, and Theme Preview catalog. Tasks composite labels/metadata/activity use batched
-RPCs instead of client fan-out. The app
+RPCs instead of client fan-out for labels, initial board metadata, and activity.
+Tasks list/board loaders retain their incremental signal patches and open-first
+loading; they are not migrated to the shared infinite-query lifecycle. The app
 harness uses the same query implementation with an isolated QueryClient per
 rendered slot. Existing SDK/CLI RPC invocation remains the non-React surface.
 

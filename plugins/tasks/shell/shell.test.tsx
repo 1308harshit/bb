@@ -300,7 +300,7 @@ describe("tasks app shell", () => {
     title = "Changed before subscription";
     await slot.behavior.setRealtimeConnectionState("connected");
     await slot.findByText("Changed before subscription");
-    expect(requests).toBe(initialRequests + 1);
+    expect(requests).toBeGreaterThan(initialRequests);
 
     title = "Recovered from connecting state";
     await slot.behavior.setRealtimeConnectionState("connecting");

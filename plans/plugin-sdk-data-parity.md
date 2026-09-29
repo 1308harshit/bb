@@ -272,3 +272,19 @@ Live checks in the isolated dev store:
 The synthetic projects are removed and Plugin Guide's previous disabled state is
 restored after verification. This is bounded request/query evidence, not a claim
 of end-to-end latency parity or redesigned thread/environment list pagination.
+
+## Integration with the current main branch
+
+Main independently landed open-first Tasks loading, incremental list/board
+signal patches, and row windowing in #4442. The final PR preserves those loaders
+and their regression tests rather than replacing them with the earlier on-demand
+list pagination pilot described above. Shared query hooks still serve detail
+navigation, active summaries, labels, and the other migrated consumers. Initial
+board metadata remains batched; subsequent card changes retain targeted reads.
+The list-only load-more test was removed with that unshipped UI behavior; SDK
+infinite-query and Automations pagination coverage remains.
+
+The authoring skill now inventories all new hooks and query types. Its 22-test
+server documentation suite passes. The SDK version is 0.6.3 after the latest
+main version bump. Historical live pagination and list/board request-count
+measurements above describe the pilot, not the retained incremental loaders.

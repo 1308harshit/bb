@@ -135,7 +135,6 @@ export function ListFilterBar({
   onSortChange,
   labelOptions,
   taskCount,
-  hasMore,
 }: {
   filters: ListFilterState;
   onChange: (filters: ListFilterState) => void;
@@ -143,7 +142,6 @@ export function ListFilterBar({
   onSortChange: (sort: TaskSort) => void;
   labelOptions: readonly LabelFilterOption[];
   taskCount: number | undefined;
-  hasMore: boolean;
 }) {
   const keepOpen = (event: Event) => event.preventDefault();
   const showLabelChip =
@@ -286,7 +284,7 @@ export function ListFilterBar({
       <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-subtle-foreground">
         {taskCount === undefined
           ? ""
-          : `${taskCount}${hasMore ? "+" : ""} ${taskCount === 1 ? "task" : "tasks"}`}
+          : `${taskCount} ${taskCount === 1 ? "task" : "tasks"}`}
       </span>
     </div>
   );

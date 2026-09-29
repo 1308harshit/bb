@@ -35,7 +35,6 @@ let pendingGenerationWork = 0;
 const refreshListeners = new Set<() => void>();
 const connectionStates = new Map<symbol, string>();
 let aggregateConnectionState: string | null = null;
-let hasEstablishedConnection = false;
 
 function emitRefreshChange() {
   for (const listener of refreshListeners) listener();
@@ -97,14 +96,9 @@ function updateConnectionState(registrationId: symbol, state: string) {
   const next = aggregateConnection();
   const previous = aggregateConnectionState;
   aggregateConnectionState = next;
-  if (wasUninitialized) {
-    hasEstablishedConnection = state !== "connecting";
-    return;
-  }
-  if (next === "reconnecting") hasEstablishedConnection = true;
+  if (wasUninitialized) return;
   if (next === "connected" && previous !== "connected") {
-    if (hasEstablishedConnection) requestRefresh(true);
-    hasEstablishedConnection = true;
+    requestRefresh(true);
   }
 }
 
@@ -112,7 +106,6 @@ function removeConnectionState(registrationId: symbol) {
   connectionStates.delete(registrationId);
   aggregateConnectionState = aggregateConnection();
   if (aggregateConnectionState === null) {
-    hasEstablishedConnection = false;
     pendingGenerationWork = 0;
     sharedSnapshot = {
       generation: 0,
