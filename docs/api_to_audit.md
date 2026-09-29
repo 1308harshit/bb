@@ -3498,8 +3498,17 @@ explicit mention ranges. Decide whether command application merits a shared
 public operation. These operations edit client-local drafts; existing SDK/CLI
 thread creation and send surfaces still accept structured inputs.
 
-
 Core history conversion is centralized in the composer adapter; quoting operates
 on text and attachments directly without a mention-format round trip. Persisted
 and editor mention formats remain unchanged, while the action layer reads one
 complete draft snapshot instead of separate content and attachment getters.
+
+## Thread creation placement
+
+`PluginSidebarThreadActions.openNewThread` accepts `experimental_placement`
+with explicit `sectionId: string | null` and `pinned: boolean`. It overrides
+the legacy section option. Omission clears prior composer placement and uses
+the legacy section or the general thread list, unpinned. The composer sends
+this placement with normal and scheduled creation. Audit pinned groups, custom sections, project/machine groups,
+route transitions, draft recovery, and third-party sidebar compatibility
+before stabilizing this option.

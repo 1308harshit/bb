@@ -1,7 +1,5 @@
 import { appendQuoteAndAttachmentsToDraft } from "@bb/client-core";
-import {
-  createCoreComposerActions,
-} from "@/lib/plugin-composer-handle";
+import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
 import {
   useCallback,
   useEffect,
@@ -1208,6 +1206,7 @@ function ThreadDetailViewInternal(props: ThreadRoutePathArgs) {
     projectId,
     environmentId: thread?.environmentId ?? "",
     sectionId: thread?.sectionId ?? null,
+    pinned: thread?.pinnedAt != null,
   });
   const { providers: registeredEnvironmentProviders } =
     useSystemEnvironmentProviders();

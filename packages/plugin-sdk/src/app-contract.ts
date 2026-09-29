@@ -1438,6 +1438,9 @@ export interface PluginSidebarThreadActions {
    * `sectionId` files the new thread under that section, and
    * `environmentId` reuses that environment (the "New thread in
    * environment" affordance), both exactly as bb's own list does.
+   * `experimental_placement` explicitly selects the section and pin state,
+   * overriding `sectionId`. Omitting placement starts unpinned, outside sections
+   * unless `sectionId` is supplied; previous composer placement is cleared.
    * `hostId` selects a machine for a new environment when it
    * is known and supports an environment provider. `environmentId` wins when
    * both are supplied.
@@ -1445,6 +1448,7 @@ export interface PluginSidebarThreadActions {
   openNewThread(options?: {
     projectId?: string;
     sectionId?: string;
+    experimental_placement?: { sectionId: string | null; pinned: boolean };
     environmentId?: string;
     hostId?: string;
     focusPrompt?: boolean;
