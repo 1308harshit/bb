@@ -290,18 +290,6 @@ export function RootComposeRightPanelToggle({
   const rightPanelLabel = isOpen ? "Hide right panel" : "Show right panel";
   const rightPanelIconName = RIGHT_PANEL_TOGGLE_ICON_NAME;
 
-  useEffect(() => {
-    if (typeof window.requestIdleCallback === "function") {
-      const idleCallback = window.requestIdleCallback(
-        preloadThreadSecondaryPanel,
-        { timeout: 1000 },
-      );
-      return () => window.cancelIdleCallback(idleCallback);
-    }
-    const timeout = window.setTimeout(preloadThreadSecondaryPanel, 1000);
-    return () => window.clearTimeout(timeout);
-  }, []);
-
   return (
     <Button
       type="button"
@@ -313,6 +301,7 @@ export function RootComposeRightPanelToggle({
       }
       aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
       aria-expanded={isOpen}
+      onPointerEnter={preloadThreadSecondaryPanel}
       onFocus={preloadThreadSecondaryPanel}
       onPointerDown={preloadThreadSecondaryPanel}
       onClick={onToggle}

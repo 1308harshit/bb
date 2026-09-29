@@ -79,10 +79,10 @@ import type {
   WorkspaceChangedFilesSection,
 } from "@/components/workspace/workspace-change-summary";
 import {
-  QueuedMessagesList,
+  LazyQueuedMessagesList,
   QueuedMessagesPendingCard,
   type QueuedMessageInlineEditor,
-} from "@/components/promptbox/banner/QueuedMessagesList";
+} from "@/components/promptbox/banner/LazyQueuedMessagesList";
 import { ThreadEnvironmentSummary } from "@/components/promptbox/ThreadEnvironmentSummary";
 import type { MachineLabelHost } from "@/components/machines/MachineLabel";
 import type { MachineProviderPresentation } from "@/components/plugin/MachineProviderIcon";
@@ -2083,7 +2083,7 @@ export function ThreadDetailPromptArea({
         {shouldHideComposer ? null : queuedMessagesPending ? (
           <QueuedMessagesPendingCard queuedMessageCount={queuedMessageCount} />
         ) : (
-          <QueuedMessagesList
+          <LazyQueuedMessagesList
             attachedToComposer={true}
             queuedMessages={queuedMessages}
             resolveMentionLink={resolveMentionLink}
