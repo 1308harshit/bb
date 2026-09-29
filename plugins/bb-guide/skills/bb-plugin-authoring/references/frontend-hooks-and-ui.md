@@ -73,6 +73,14 @@ experimental_openFilePreview(options), experimental_openFileExternally(options) 
     each `ComposerMention` carries its range and everything needed to
     recreate the pill (`kind` thread, project, section, path, command, or
     plugin with `pluginId`, `provider` and `id`).
+  - Selection: `selection` is the current picker snapshot and updates reactively
+    when the user or `setSelection` changes it. It contains the provider, model,
+    reasoning level, service tier, and permission mode where available, plus
+    project and environment in a new-thread composer. Queued-message and
+    sent-message editors report their read-only pickers: the thread's provider
+    with the queued message's or the thread composer's settings. Missing keys
+    mean the corresponding picker has no selected value; `null` means this
+    composer has no pickers. Use `isSubmittingBlocked` for submission readiness.
   - Editing: `insert(parts, { at?, block? })` inserts text and pills at the
     current selection (default) or at `"end"`; `block: true` places the content
     on its own paragraph. `replace(next)` atomically sets text and mentions;
@@ -99,7 +107,8 @@ experimental_openFilePreview(options), experimental_openFileExternally(options) 
     and sent-message editors reject.
   - `setSelection({ projectId?, environment?, providerId?, model?,
 reasoningLevel?, serviceTier?, permissionMode? })` sets the pickers as if
-    picked by hand and resolves with the settled selection; it rejects in a
+    picked by hand and resolves with the settled selection; omitted fields keep
+    their current values. It rejects in a
     queued-message editor. `onSubmitted(listener)` observes successful local
     submissions.
   - Lifetime: a handle writes to its own composer's draft. Thread and
@@ -119,7 +128,7 @@ reasoningLevel?, serviceTier?, permissionMode? })` sets the pickers as if
   `insert`, `focus` or `submit` on the chosen one. Handles are the same
   `PluginComposerApi` with the same lifetime rule; `setTextEffect` and
   `setInputLock` have no effect here. Re-renders when the list or a listed
-  draft changes.
+  draft or selection changes.
 - `experimental_useCodeTheme()` → `{ mode, name, theme }` — the code theme bb
   is currently rendering with. `mode` is `"light" | "dark"`, `name` is the
   registered theme name for that mode, and `theme` is the resolved **VS Code
@@ -154,9 +163,11 @@ sendMenu?, banners?, richText? })`. Omitted `scopes` means all thread,
 - `plusMenu` rows (the `+` menu) and `sendMenu` rows (the menu beside the send
   button, shown only while the composer can submit) are host-rendered so
   keyboard navigation, focus restoration, and mobile layout remain correct.
-  Each item supplies `id`, `label`, optional `icon`, `description`, and
-  `disabled` (a boolean or a function of the composer), plus
-  `run({ composer })`.
+  Each item supplies `id`, `label`, optional `icon` (drawn instead of the
+  plugin's branding icon), `description`, and `disabled` (a boolean or a
+  function of the composer, re-evaluated when the draft or selection changes),
+  plus `run({ composer })`. `plusMenu` rows also appear in the sent-message
+  editor (scope `thread`), where the other customizations do not mount.
 - `richText.effects` rules return plain-text `{ from, to }` ranges and a class
   name from plugin CSS. Decorations are paint-only and never mutate the draft.
 - A `messageAction`'s `run` receives `context.composer`: the composer of the

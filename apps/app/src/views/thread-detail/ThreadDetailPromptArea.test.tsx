@@ -1093,6 +1093,15 @@ describe("ThreadDetailPromptArea", () => {
     expect(
       inlineEditor.getByTestId("plugin-customizations-suppressed").textContent,
     ).toBe("true");
+    fireEvent.click(
+      inlineEditor.getByRole("button", { name: "Capture plugin host" }),
+    );
+    expect(mocks.pluginComposerHost?.getSelection?.()).toEqual({
+      providerId: "codex",
+      model: "gpt-5",
+      reasoningLevel: "medium",
+      permissionMode: "auto",
+    });
     expect(
       (
         inlineEditor.getByRole("textbox", {
@@ -1652,6 +1661,15 @@ describe("ThreadDetailPromptArea", () => {
     expect(inlineEditor.getByTestId("permission-read-only").textContent).toBe(
       "true",
     );
+    fireEvent.click(
+      inlineEditor.getByRole("button", { name: "Capture plugin host" }),
+    );
+    expect(mocks.pluginComposerHost?.getSelection?.()).toEqual({
+      providerId: "codex",
+      model: "queued-model",
+      reasoningLevel: "high",
+      permissionMode: "full",
+    });
   });
 
   it("dismisses an inline edit when its thread changes or its live row disappears", async () => {
@@ -2076,6 +2094,7 @@ describe("ThreadDetailPromptArea", () => {
       reasoningLevel: "medium",
       permissionMode: "auto",
     });
+    expect(host!.getSelection?.()).toEqual(result);
     expect(screen.getByTestId("submit-label").textContent).toBe("New thread");
     expect(screen.getByTestId("command-suggestions").textContent).toBe(
       "claude-code:new-thread",

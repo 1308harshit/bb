@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { registerComposerMenuPlugins } from "@/test/fixtures/composer-menu";
 import { resolveThreadMentionDropTarget } from "@/lib/thread-mention-drop";
 import type { PromptTextMention } from "@bb/domain";
 import type { TiptapEditorHTMLElement } from "@tiptap/core";
@@ -8,6 +9,7 @@ import { EditorView } from "@tiptap/pm/view";
 import {
   createRef,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentProps,
@@ -60,10 +62,6 @@ import {
 } from "@/lib/plugin-logos";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 import {
-  AUTOMATION_PROMPT_ACTION,
-  CREATE_PLUGIN_PROMPT_ACTION,
-} from "./PromptBoxActionsMenu";
-import {
   INERT_TYPEAHEAD_COMMAND_CONFIG,
   PromptBoxInternal,
   arePromptEditorValuesEqual,
@@ -112,8 +110,6 @@ const promptActions: readonly PromptBoxAction[] = [
     command: { trigger: "/", name: "goal", trailingText: " " },
     text: "/goal ",
   },
-  AUTOMATION_PROMPT_ACTION,
-  CREATE_PLUGIN_PROMPT_ACTION,
 ];
 
 function createPromptBoxProps(
@@ -281,6 +277,7 @@ function renderPromptBox(
     onAttachFiles?: (files: File[]) => Promise<void> | void;
   } = {},
 ) {
+  registerComposerMenuPlugins();
   const changes: PromptChange[] = [];
   const onMentionQueryChange = vi.fn();
   const onCommandQueryChange = vi.fn();
@@ -292,32 +289,57 @@ function renderPromptBox(
     const [mentionRanges, setMentionRanges] = useState<PromptTextMention[]>(
       options.initialMentionRanges ?? [],
     );
+    const draft = useMemo(
+      () => ({ text: value, mentions: mentionRanges, attachments: [] }),
+      [value, mentionRanges],
+    );
+    const host = useMemo<PluginComposerHost>(
+      () => ({
+        scope: { kind: "new-thread", projectId: null },
+        textEffectKey: "prompt-action-composer",
+        getCurrent: () => draft,
+        subscribeDraft: () => () => {},
+        setDraft: (next) => {
+          changes.push({ value: next.text, mentions: next.mentions });
+          setValue(next.text);
+          setMentionRanges(next.mentions);
+        },
+        focus: () => getPromptEditorElement().focus(),
+      }),
+      [draft],
+    );
     return (
-      <PromptBoxInternal
-        value={value}
-        mentionRanges={mentionRanges}
-        onChange={(nextValue, nextMentions) => {
-          changes.push({ mentions: nextMentions, value: nextValue });
-          setValue(nextValue);
-          setMentionRanges(nextMentions);
-        }}
-        onSubmit={onSubmit}
-        typeahead={buildTypeaheadConfig({
-          mentionTriggers: options.mentionTriggers,
-          mentionSuggestions: options.mentionSuggestions,
-          onMentionQueryChange,
-          commandSuggestions: options.commandSuggestions,
-          onCommandQueryChange,
-        })}
-        mentionMenuPlacement="bottom"
-        attachments={{ onAttachFiles: options.onAttachFiles }}
-        promptActions={promptActions}
-        promptBoxRef={promptBoxRef}
-      />
+      <PluginComposerHostProvider value={host}>
+        <PromptBoxInternal
+          value={value}
+          mentionRanges={mentionRanges}
+          onChange={(nextValue, nextMentions) => {
+            changes.push({ mentions: nextMentions, value: nextValue });
+            setValue(nextValue);
+            setMentionRanges(nextMentions);
+          }}
+          onSubmit={onSubmit}
+          typeahead={buildTypeaheadConfig({
+            mentionTriggers: options.mentionTriggers,
+            mentionSuggestions: options.mentionSuggestions,
+            onMentionQueryChange,
+            commandSuggestions: options.commandSuggestions,
+            onCommandQueryChange,
+          })}
+          mentionMenuPlacement="bottom"
+          attachments={{ onAttachFiles: options.onAttachFiles }}
+          promptActions={promptActions}
+          promptBoxRef={promptBoxRef}
+        />
+      </PluginComposerHostProvider>
     );
   }
 
-  render(<PromptBoxHarness />);
+  render(
+    <MemoryRouter>
+      <PromptBoxHarness />
+    </MemoryRouter>,
+  );
   return {
     changes,
     onMentionQueryChange,
@@ -601,7 +623,7 @@ describe("PromptBoxInternal controlled value sync", () => {
     ).toBe(false);
   });
 
-  it("suppresses and restores plugin customizations without remounting the editor", () => {
+  it("suppresses and restores plugin customizations without remounting the editor, keeping plus-menu rows", () => {
     setPluginSlotRegistrations(
       "pending-test",
       pluginRegistrationSet([
@@ -632,7 +654,7 @@ describe("PromptBoxInternal controlled value sync", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Plugin action" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Prompt actions" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Prompt actions" })).toBeTruthy();
     expect(getPromptEditorElement()).toBe(editor);
 
     view.rerender(
@@ -4611,70 +4633,6 @@ describe("PromptBoxInternal prompt actions", () => {
     expect(changes).toHaveLength(0);
   });
 
-  it("replaces an active skills command token with plan mode", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("Start /");
-
-    await focusPromptEnd(promptBoxRef);
-    await selectPromptAction("Plan");
-
-    await waitFor(() => expect(latestValue(changes)).toBe("Start /plan "));
-    expect(latestChange(changes)?.mentions).toEqual([
-      {
-        start: "Start ".length,
-        end: "Start /plan".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "plan",
-          source: "command",
-          origin: "user",
-          label: "plan",
-          argumentHint: null,
-        },
-      },
-    ]);
-  });
-
-  it("replaces an active partial skills command token with plan mode", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("Start /pl");
-
-    await focusPromptEnd(promptBoxRef);
-    await selectPromptAction("Plan");
-
-    await waitFor(() => expect(latestValue(changes)).toBe("Start /plan "));
-    expect(latestChange(changes)?.mentions).toEqual([
-      {
-        start: "Start ".length,
-        end: "Start /plan".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "plan",
-          source: "command",
-          origin: "user",
-          label: "plan",
-          argumentHint: null,
-        },
-      },
-    ]);
-  });
-
-  it.each([
-    ["Start /", "Plan", "Start /plan "],
-    ["Start /p", "Plan", "Start /plan "],
-    ["Start /g", "Goal", "Start /goal "],
-  ])(
-    "replaces an active partial slash token %s with %s",
-    async (initialValue, actionLabel, expectedValue) => {
-      const { changes, promptBoxRef } = renderPromptBox(initialValue);
-
-      await focusPromptEnd(promptBoxRef);
-      await selectPromptAction(actionLabel);
-
-      await waitFor(() => expect(latestValue(changes)).toBe(expectedValue));
-    },
-  );
-
   it("inserts goal mode as a command pill", async () => {
     const { changes, promptBoxRef } = renderPromptBox("");
 
@@ -4702,52 +4660,78 @@ describe("PromptBoxInternal prompt actions", () => {
     ]);
   });
 
-  it("inserts automation mode as a command pill", async () => {
+  it("starts the draft with the automation prompt", async () => {
     const { changes, promptBoxRef } = renderPromptBox("");
 
     await focusPromptEnd(promptBoxRef);
     await selectPromptAction("Automation");
 
-    await waitFor(() => expect(latestValue(changes)).toBe("/automation "));
-    expect(latestChange(changes)?.mentions).toEqual([
-      {
-        start: 0,
-        end: "/automation".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "automation",
-          source: "command",
-          origin: "user",
-          label: "automation",
-          argumentHint: null,
-        },
-      },
-    ]);
-  });
-
-  it("seeds the plugin prompt as plain text and returns focus", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("");
-
-    await focusPromptEnd(promptBoxRef);
-    await selectPromptAction("Plugin");
-
     await waitFor(() =>
-      expect(latestValue(changes)).toBe(CREATE_PLUGIN_PROMPT_ACTION.text),
+      expect(latestValue(changes)).toBe("Create a new bb automation to "),
     );
     expect(latestChange(changes)?.mentions).toEqual([]);
   });
 
-  it("does not duplicate command text immediately before the cursor", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("Start /goal ");
+  it("puts plan before existing text and keeps later pills on their text", async () => {
+    const project = {
+      kind: "project",
+      projectId: "proj_1",
+      label: "bb",
+    } as const;
+    const { changes, promptBoxRef } = renderPromptBox("fix @bb", {
+      initialMentionRanges: [{ start: 4, end: 7, resource: project }],
+    });
 
     await focusPromptEnd(promptBoxRef);
-    await selectPromptAction("Goal");
+    await selectPromptAction("Plan");
 
-    expect(changes).toHaveLength(0);
+    await waitFor(() => expect(latestValue(changes)).toBe("/plan fix @bb"));
+    expect(latestChange(changes)?.mentions).toEqual([
+      {
+        start: 0,
+        end: "/plan".length,
+        resource: {
+          kind: "command",
+          trigger: "/",
+          name: "plan",
+          source: "command",
+          origin: "user",
+          label: "plan",
+          argumentHint: null,
+        },
+      },
+      {
+        start: "/plan fix ".length,
+        end: "/plan fix @bb".length,
+        resource: project,
+      },
+    ]);
   });
 
-  it("replaces a just-selected plan action with goal at the cursor", async () => {
+  it("replaces a leading command with the plugin prompt once", async () => {
+    const { changes, promptBoxRef } = renderPromptBox("");
+
+    await focusPromptEnd(promptBoxRef);
+    await selectPromptAction("Plan");
+    await waitFor(() => expect(latestValue(changes)).toBe("/plan "));
+    await waitForPromptFocus();
+    await act(async () => {
+      promptBoxRef.current?.insertTextAtCursor("wraps CI");
+    });
+    await waitFor(() => expect(latestValue(changes)).toBe("/plan wraps CI"));
+
+    await selectPromptAction("Plugin");
+    await waitFor(() =>
+      expect(latestValue(changes)).toBe("Create a new bb plugin that wraps CI"),
+    );
+    expect(latestChange(changes)?.mentions).toEqual([]);
+
+    await selectPromptAction("Plugin");
+
+    expect(latestValue(changes)).toBe("Create a new bb plugin that wraps CI");
+  });
+
+  it("replaces a leading plan command with goal", async () => {
     const { changes, promptBoxRef } = renderPromptBox("");
 
     await focusPromptEnd(promptBoxRef);
@@ -4775,38 +4759,9 @@ describe("PromptBoxInternal prompt actions", () => {
     ]);
   });
 
-  it("replaces a just-selected skills trigger with plan at the cursor", async () => {
+  it("pastes prompt action command tokens as plan and goal pills", async () => {
     const { changes, promptBoxRef } = renderPromptBox("");
-
-    await focusPromptEnd(promptBoxRef);
-    await selectPromptAction("Skills");
-    await waitFor(() => expect(latestValue(changes)).toBe("/"));
-    await waitForPromptFocus();
-
-    await selectPromptAction("Plan");
-
-    await waitFor(() => expect(latestValue(changes)).toBe("/plan "));
-    expect(latestChange(changes)?.mentions).toEqual([
-      {
-        start: 0,
-        end: "/plan".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "plan",
-          source: "command",
-          origin: "user",
-          label: "plan",
-          argumentHint: null,
-        },
-      },
-    ]);
-  });
-
-  it("pastes prompt action command tokens as goal, plan, and automation pills", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("");
-    const text =
-      "/plan inspect first\n/goal finish the change\n/automation keep checking";
+    const text = "/plan inspect first\n/goal finish the change";
 
     await focusPromptEnd(promptBoxRef);
     pastePlainText(text);
@@ -4839,37 +4794,10 @@ describe("PromptBoxInternal prompt actions", () => {
           argumentHint: null,
         },
       },
-      {
-        start: "/plan inspect first\n/goal finish the change\n".length,
-        end: "/plan inspect first\n/goal finish the change\n/automation".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "automation",
-          source: "command",
-          origin: "user",
-          label: "automation",
-          argumentHint: null,
-        },
-      },
     ]);
   });
 
-  it("replaces a just-selected goal action with skills at the cursor", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("");
-
-    await focusPromptEnd(promptBoxRef);
-    await selectPromptAction("Goal");
-    await waitFor(() => expect(latestValue(changes)).toBe("/goal "));
-    await waitForPromptFocus();
-
-    await selectPromptAction("Skills");
-
-    await waitFor(() => expect(latestValue(changes)).toBe("/"));
-    expect(latestChange(changes)?.mentions).toEqual([]);
-  });
-
-  it("replaces a just-selected goal action with automation at the cursor", async () => {
+  it("replaces a leading goal command with the automation prompt", async () => {
     const { changes, promptBoxRef } = renderPromptBox("");
 
     await focusPromptEnd(promptBoxRef);
@@ -4879,57 +4807,10 @@ describe("PromptBoxInternal prompt actions", () => {
 
     await selectPromptAction("Automation");
 
-    await waitFor(() => expect(latestValue(changes)).toBe("/automation "));
-    expect(latestChange(changes)?.mentions).toEqual([
-      {
-        start: 0,
-        end: "/automation".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "automation",
-          source: "command",
-          origin: "user",
-          label: "automation",
-          argumentHint: null,
-        },
-      },
-    ]);
-  });
-
-  it("selects automation from slash typeahead as a command pill", async () => {
-    const { changes, promptBoxRef } = renderPromptBox("/auto", {
-      commandSuggestions: [
-        {
-          kind: "command",
-          name: "automation",
-          source: "command",
-          origin: "user",
-          description: null,
-          argumentHint: null,
-        },
-      ],
-    });
-
-    await focusPromptEnd(promptBoxRef);
-    await selectCommandSuggestion("automation");
-
-    await waitFor(() => expect(latestValue(changes)).toBe("/automation "));
-    expect(latestChange(changes)?.mentions).toEqual([
-      {
-        start: 0,
-        end: "/automation".length,
-        resource: {
-          kind: "command",
-          trigger: "/",
-          name: "automation",
-          source: "command",
-          origin: "user",
-          label: "automation",
-          argumentHint: null,
-        },
-      },
-    ]);
+    await waitFor(() =>
+      expect(latestValue(changes)).toBe("Create a new bb automation to "),
+    );
+    expect(latestChange(changes)?.mentions).toEqual([]);
   });
 
   it("selects a slash typeahead command as a command pill", async () => {
@@ -4967,7 +4848,7 @@ describe("PromptBoxInternal prompt actions", () => {
     ]);
   });
 
-  it("keeps typed content after a prompt action when selecting another action", async () => {
+  it("keeps typed content when another command replaces the leading one", async () => {
     const { changes, promptBoxRef } = renderPromptBox("");
 
     await focusPromptEnd(promptBoxRef);
@@ -4982,8 +4863,7 @@ describe("PromptBoxInternal prompt actions", () => {
 
     await selectPromptAction("Goal");
 
-    await waitFor(() => expect(latestValue(changes)).toContain("clean up"));
-    expect(latestValue(changes)).not.toBe("/goal ");
+    await waitFor(() => expect(latestValue(changes)).toBe("/goal clean up"));
   });
 });
 

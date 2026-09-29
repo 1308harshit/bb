@@ -56,6 +56,7 @@ import { ThreadPendingInteractionBanner } from "@/components/thread/pending-inte
 import {
   type PluginComposerHost,
   useComposerHostDraftNotifier,
+  useComposerHostSelection,
   usePublishPluginComposerHost,
 } from "@/components/plugin/plugin-composer-host";
 import {
@@ -175,6 +176,7 @@ export interface ThreadDetailSentMessageEdit {
 
 const THREAD_DETAIL_COMPOSER_TEXTAREA_ID = "thread-detail-follow-up-composer";
 const EMPTY_QUEUED_MESSAGES: readonly ThreadQueuedMessage[] = [];
+const NO_INLINE_EDITOR_SELECTION: ExperimentalComposerSelection = {};
 
 interface ThreadDetailPromptAreaProps {
   activeBackgroundAgentCount: number;
@@ -994,6 +996,27 @@ export function ThreadDetailPromptArea({
       changeServiceTier: setServiceTier,
       changePermissionMode: setPermissionMode,
     }));
+  const composerSelection = useMemo(
+    () =>
+      readExecutionSelection({
+        selectedProviderId,
+        selectedThreadModel: effectiveSelectedModel,
+        reasoningLevel,
+        serviceTier,
+        supportsServiceTier,
+        permissionMode,
+      }),
+    [
+      effectiveSelectedModel,
+      permissionMode,
+      reasoningLevel,
+      selectedProviderId,
+      serviceTier,
+      supportsServiceTier,
+    ],
+  );
+  const { getSelection, subscribeSelection } =
+    useComposerHostSelection(promptDraft.storageKey, composerSelection);
   const pendingSelectionRef = useRef<Promise<unknown>>(Promise.resolve());
   const applySelection = useCallback(
     async (
@@ -1073,6 +1096,8 @@ export function ThreadDetailPromptArea({
       textEffectKey: promptDraft.storageKey,
       getCurrent: promptDraft.getCurrent,
       subscribeDraft: promptDraft.subscribe,
+      getSelection,
+      subscribeSelection,
       setDraft: promptDraft.setDraft,
       focus: focusBottomPluginComposer,
       submit: submitProgrammaticallyThroughRef,
@@ -1080,11 +1105,13 @@ export function ThreadDetailPromptArea({
     }),
     [
       focusBottomPluginComposer,
+      getSelection,
       promptDraft.getCurrent,
       promptDraft.setDraft,
       promptDraft.storageKey,
       promptDraft.subscribe,
       setSelection,
+      subscribeSelection,
       submitProgrammaticallyThroughRef,
       thread.id,
     ],
@@ -1743,6 +1770,24 @@ export function ThreadDetailPromptArea({
   const inlineEditSessionId = inlineEditingQueuedMessage?.editSessionId ?? null;
   const inlineEditQueuedMessageId =
     inlineEditingQueuedMessage?.queuedMessageId ?? null;
+  const queuedMessageSelection = useMemo(
+    () =>
+      inlineEditingQueuedMessage
+        ? readExecutionSelection({
+            selectedProviderId: thread.providerId,
+            selectedThreadModel: inlineEditingQueuedMessage.model,
+            reasoningLevel: inlineEditingQueuedMessage.reasoningLevel,
+            serviceTier: inlineEditingQueuedMessage.serviceTier,
+            supportsServiceTier,
+            permissionMode: inlineEditingQueuedMessage.permissionMode,
+          })
+        : NO_INLINE_EDITOR_SELECTION,
+    [inlineEditingQueuedMessage, supportsServiceTier, thread.providerId],
+  );
+  const queuedMessageComposerSelection = useComposerHostSelection(
+    `queued-message:${thread.id}:${inlineEditQueuedMessageId}:${inlineEditSessionId}`,
+    queuedMessageSelection,
+  );
   const queuedMessagePluginComposerHost =
     useMemo<PluginComposerHost | null>(() => {
       if (inlineEditSessionId === null || inlineEditQueuedMessageId === null) {
@@ -1766,6 +1811,8 @@ export function ThreadDetailPromptArea({
             ENDED_EDIT_SESSION_DRAFT,
           ),
         subscribeDraft: subscribeInlineQueuedDraft,
+        getSelection: queuedMessageComposerSelection.getSelection,
+        subscribeSelection: queuedMessageComposerSelection.subscribeSelection,
         setDraft: (draft) =>
           writeInlineQueuedMessageDraft(
             inlineEditingQueuedMessageRef,
@@ -1786,6 +1833,7 @@ export function ThreadDetailPromptArea({
       inlineEditQueuedMessageId,
       inlineEditSessionId,
       inlineEditingQueuedMessageRef,
+      queuedMessageComposerSelection,
       subscribeInlineQueuedDraft,
       thread.id,
     ]);
@@ -1873,6 +1921,29 @@ export function ThreadDetailPromptArea({
       : normalPluginComposerHost,
   );
   const sentMessageEditOperationId = sentMessageEdit?.operationId ?? null;
+  const sentMessageSelection = useMemo(
+    () =>
+      readExecutionSelection({
+        selectedProviderId: thread.providerId,
+        selectedThreadModel: effectiveSelectedModel,
+        reasoningLevel,
+        serviceTier,
+        supportsServiceTier,
+        permissionMode,
+      }),
+    [
+      effectiveSelectedModel,
+      permissionMode,
+      reasoningLevel,
+      serviceTier,
+      supportsServiceTier,
+      thread.providerId,
+    ],
+  );
+  const sentMessageComposerSelection = useComposerHostSelection(
+    `sent-message:${thread.id}:${sentMessageEditOperationId}`,
+    sentMessageSelection,
+  );
   const sentMessagePluginComposerHost =
     useMemo<PluginComposerHost | null>(() => {
       if (sentMessageEditOperationId === null) {
@@ -1889,6 +1960,8 @@ export function ThreadDetailPromptArea({
             ENDED_EDIT_SESSION_DRAFT,
           ),
         subscribeDraft: subscribeSentMessageEditDraft,
+        getSelection: sentMessageComposerSelection.getSelection,
+        subscribeSelection: sentMessageComposerSelection.subscribeSelection,
         setDraft: (nextDraft) =>
           writeSentMessageEditDraft(sentMessageEditRef, operationId, nextDraft),
         isAvailable: () =>
@@ -1897,6 +1970,7 @@ export function ThreadDetailPromptArea({
       };
     }, [
       focusInlinePluginComposer,
+      sentMessageComposerSelection,
       sentMessageEditOperationId,
       sentMessageEditRef,
       subscribeSentMessageEditDraft,
