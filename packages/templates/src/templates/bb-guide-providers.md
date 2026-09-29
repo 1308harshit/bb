@@ -126,7 +126,9 @@ bb applies the selected model to the ACP session before the first prompt.
 Native reasoning discovery is bounded to five seconds and reuses the initial
 model's advertised choices. Models without discovered choices have an empty
 supportedReasoningEfforts array in the CLI/SDK catalog and no reasoning picker;
-bb leaves their agent reasoning setting unchanged instead of sending Medium.
+bb leaves their agent reasoning setting unchanged instead of sending an inferred
+Medium default. An explicit --reasoning-level from the CLI or reasoningLevel
+from the SDK is still sent, even when catalog discovery has not found choices.
 
 OpenCode Go quotas appear in Provider usage for the selected machine after
 signing in to Go in OpenCode on that machine. Inspect the same five-hour,
@@ -191,4 +193,4 @@ The bb user and project roots keep higher precedence than matching shared roots.
 OpenCode ACP declares support for the built-in /compact command. Cursor ACP does
 not expose compatible manual compaction through ACP.
 
-Use --selected-model to discover an unprobed model's reasoning choices and include a selected-only model. Discovery leaves reasoning unset while unknown; ACP probes only the requested model and caches the result.
+Use --selected-model to discover an unprobed model's reasoning choices and include a selected-only model. Discovery leaves inferred reasoning unset while unknown; ACP probes only the requested model and caches the result.

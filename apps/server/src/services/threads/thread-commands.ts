@@ -40,7 +40,6 @@ import {
   type ExistingThreadExecutionInputRequest,
 } from "./thread-execution-plan.js";
 import { clampPermissionModeToHost } from "../hosts/permission-ceiling.js";
-import { resolveCatalogReasoningLevel } from "../providers/catalog-reasoning.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";
 import { resolveProviderPlanCommand } from "../providers/provider-plan-command.js";
 import { workspaceContextFromPath } from "../environments/workspace-command-target.js";
@@ -125,7 +124,6 @@ interface RuntimeExecutionOptionsArgs {
   deps: Pick<AppDeps, "db" | "providerRegistry">;
   execution: ResolvedThreadExecutionOptions;
   hostId: string;
-  workspacePath: string;
   input: PromptInput[];
   permissionEscalation: PermissionEscalation;
   projectId: string;
@@ -215,15 +213,7 @@ function toRuntimeExecutionOptions(
   const base = {
     model: args.execution.model,
     serviceTier: args.execution.serviceTier,
-    reasoningLevel: resolveCatalogReasoningLevel(args.deps.db, {
-      hostId: args.hostId,
-      providerId: args.providerId,
-      model: args.execution.model,
-      reasoningLevel: args.execution.reasoningLevel,
-      workspacePath: args.workspacePath,
-      catalogScope: args.deps.providerRegistry.get(args.providerId)?.info
-        .capabilities.modelCatalogScope,
-    }),
+    reasoningLevel: args.execution.reasoningLevel,
     ...(promptMode !== undefined ? { promptMode } : {}),
     providerOptions,
   };
@@ -255,7 +245,14 @@ function toRuntimeExecutionOptions(
 }
 
 export async function buildExecutionOptions(
-  deps: Pick<AppDeps, "db" | "hub" | "providerRegistry">,
+  deps: Pick<
+    AppDeps,
+    | "db"
+    | "hub"
+    | "providerRegistry"
+    | "pluginHostArtifacts"
+    | "lifecycleDedupers"
+  >,
   request: ExecutionOptionsRequest,
   args: BuildExecutionOptionsArgs,
 ): Promise<ResolvedThreadExecutionOptions> {
@@ -301,7 +298,6 @@ export async function buildThreadStartCommand(
       ...args,
       deps,
       hostId: args.environment.hostId,
-      workspacePath: runtimeContext.workspacePath,
       input: args.input,
       threadId: args.thread.id,
     }),
@@ -336,7 +332,6 @@ function buildPreparedTurnSubmitCommandPayload(
       input: args.input,
       projectId: args.runtimeContext.projectId,
       providerId: args.runtimeContext.providerId,
-      workspacePath: args.runtimeContext.workspacePath,
     }),
     target: args.target,
     resumeContext: {

@@ -63,6 +63,18 @@ type ProviderModelCatalogReadResult =
     };
 
 export interface ProviderModelCatalogStore {
+  getCachedModel(
+    deps: Pick<
+      WorkSessionDeps,
+      "db" | "providerRegistry" | "pluginHostArtifacts"
+    >,
+    args: {
+      hostId: string;
+      providerId: string;
+      cwd: string | null;
+      model: string;
+    },
+  ): AvailableModel | null;
   read(
     deps: WorkSessionDeps,
     args: {
@@ -279,7 +291,7 @@ export function createProviderModelCatalogStore(options: {
   const pendingPushByHost = new Map<string, ReturnType<typeof setTimeout>>();
 
   function loadStoredGood(
-    deps: WorkSessionDeps,
+    deps: Pick<WorkSessionDeps, "db">,
     key: ProviderModelCatalogRowKey,
   ): CatalogGood | null {
     const row = getStoredProviderModelCatalog(deps.db, key);
@@ -302,7 +314,7 @@ export function createProviderModelCatalogStore(options: {
   }
 
   function loadEntry(
-    deps: WorkSessionDeps,
+    deps: Pick<WorkSessionDeps, "db">,
     key: ProviderModelCatalogRowKey,
   ): CatalogEntry {
     const mapKey = JSON.stringify([key.hostId, key.providerId, key.scopeKey]);
@@ -621,6 +633,36 @@ export function createProviderModelCatalogStore(options: {
   }
 
   return {
+    getCachedModel(deps, args) {
+      const provider = deps.providerRegistry.get(args.providerId)?.info;
+      const bridgeLaunch = resolveBridgeLaunchForProviderId(
+        deps,
+        args.providerId,
+      );
+      if (provider === undefined || bridgeLaunch === null) return null;
+      const entry = loadEntry(deps, {
+        hostId: args.hostId,
+        providerId: args.providerId,
+        scopeKey:
+          args.cwd !== null &&
+          providerModelCatalogDependsOnWorkspace(
+            provider.capabilities.modelCatalogScope,
+          )
+            ? args.cwd
+            : "",
+      });
+      const { servable } = currentState(
+        entry,
+        catalogFingerprint(args.providerId, bridgeLaunch),
+      );
+      return (
+        [
+          ...(servable?.models ?? []),
+          ...(servable?.selectedOnlyModels ?? []),
+        ].find((model) => model.model === args.model) ?? null
+      );
+    },
+
     async read(deps, args) {
       const bridgeLaunch = requireBridgeLaunchForProviderId(
         deps,

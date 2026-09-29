@@ -25,7 +25,10 @@ models within a five-second budget, trying configured priority models first.
 Selecting an unprobed model starts a separate discovery session that probes only
 that model, with a five-second timeout. Results are cached by model. While
 loading, or after failure or an unrecognized response, BB shows no reasoning
-selector and leaves the agent reasoning setting unchanged. Failed probes have
+selector and leaves the agent reasoning setting unchanged unless the caller
+explicitly supplies a reasoning level. CLI `--reasoning-level` and SDK
+`reasoningLevel` requests are honored even when reasoning discovery is incomplete.
+Failed probes have
 a 30-second server retry cooldown. Individual probe failures do not stop bulk
 discovery of other models. An empty
 `supportedReasoningEfforts` in `bb provider models <provider-id> --json` means

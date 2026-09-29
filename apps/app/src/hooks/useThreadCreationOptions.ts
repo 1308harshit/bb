@@ -97,8 +97,10 @@ interface ModelReasoningSelection {
   reasoningLevel: ReasoningLevel;
 }
 
-interface ProviderModelReasoningSelection extends ModelReasoningSelection {
+interface ProviderModelReasoningSelection {
   providerId: string;
+  model: string;
+  reasoningLevel: ReasoningLevel | undefined;
 }
 
 type ProviderModelReasoningSelectionSetter = (
@@ -489,6 +491,7 @@ export function useThreadCreationOptions(
     selectedModel: rawSelectedModel || undefined,
   });
   const selectedCatalog =
+    needsSelectedModelDiscovery &&
     !selectedModelQuery.isPlaceholderData &&
     selectedModelQuery.data?.modelLoadError === null
       ? selectedModelQuery.data
@@ -741,7 +744,11 @@ export function useThreadCreationOptions(
     }: ProviderModelReasoningSelection) => {
       touchedThreadFieldsRef.current.add("selectedProviderId");
       touchedThreadFieldsRef.current.add("selectedModel");
-      touchedThreadFieldsRef.current.add("reasoningLevel");
+      if (nextReasoningLevel === undefined) {
+        touchedThreadFieldsRef.current.delete("reasoningLevel");
+      } else {
+        touchedThreadFieldsRef.current.add("reasoningLevel");
+      }
       if (usesStoredCreateSelections) {
         if (
           effectiveProviderId.length > 0 &&
@@ -769,7 +776,7 @@ export function useThreadCreationOptions(
       }
       localProviderSelectionsRef.current.set(providerId, {
         model,
-        reasoningLevel: nextReasoningLevel,
+        reasoningLevel: nextReasoningLevel ?? reasoningLevel,
       });
       setLocalProvidersUsingDefaults((current) => {
         if (!current.has(providerId)) return current;
@@ -781,7 +788,7 @@ export function useThreadCreationOptions(
         ...currentSelections,
         selectedProviderId: providerId,
         selectedModel: model,
-        reasoningLevel: nextReasoningLevel,
+        reasoningLevel: nextReasoningLevel ?? reasoningLevel,
       }));
     },
     [

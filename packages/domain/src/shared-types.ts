@@ -476,7 +476,7 @@ export const resolvedThreadExecutionOptionsSchema =
   threadExecutionOptionsSchema.extend({
     model: z.string().min(1),
     serviceTier: serviceTierSchema,
-    reasoningLevel: reasoningLevelSchema,
+    reasoningLevel: reasoningLevelSchema.optional(),
     permissionMode: permissionModeSchema,
     source: threadExecutionSourceSchema,
   });
