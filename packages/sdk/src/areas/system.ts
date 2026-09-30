@@ -1,3 +1,4 @@
+import { mobileAppDownloads } from "@bb/domain";
 import type {
   MachineEnvironmentReplace,
   MachineEnvironmentSet,
@@ -23,6 +24,7 @@ import type {
   SystemConfigReloadResponse,
   SystemConfigResponse,
   SystemAndroidAppResponse,
+  SystemMobileAppReleasesResponse,
   AndroidAppPreparation,
   AndroidAppPrepareRequest,
   SystemExecutionOptionsQuery,
@@ -180,6 +182,8 @@ export interface SystemArea {
     input: AndroidAppPrepareRequest,
   ): Promise<AndroidAppPreparation>;
   androidApp(): Promise<SystemAndroidAppResponse>;
+  mobileAppDownloads(): typeof mobileAppDownloads;
+  mobileAppReleases(): Promise<SystemMobileAppReleasesResponse>;
   updateExperiments(args: Experiments): Promise<SystemUpdateExperimentsResult>;
   updateGeneralSettings(
     args: AppSettingsUpdate,
@@ -357,6 +361,14 @@ export function createSystemArea(args: CreateSdkAreaArgs): SystemArea {
       return transport.readJson(
         transport.api.v1.system["android-app"].prepare.$post({ json: input }),
       );
+    },
+    async mobileAppReleases() {
+      return transport.readJson(
+        transport.api.v1.system["mobile-app-releases"].$get(),
+      );
+    },
+    mobileAppDownloads() {
+      return { ...mobileAppDownloads };
     },
     async androidApp() {
       return transport.readJson(transport.api.v1.system["android-app"].$get());
