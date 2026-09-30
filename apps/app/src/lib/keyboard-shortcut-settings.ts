@@ -1,8 +1,9 @@
 import { shortcutsConflict } from "./plugin-command-keybindings";
 import {
-  APP_COMMAND_IDS,
   QUESTION_SELECT_APP_COMMAND_IDS,
   isAppKeybindingAvailableForClient,
+  keyboardPlatform,
+  findAppKeybindingOverride,
   isMacKeyboardPlatform,
   normalizeAppShortcutInputKey,
   type KeyboardCommandId,
@@ -80,14 +81,13 @@ export function getCommandShortcut(
   isDesktop: boolean,
   platform: string,
 ): AppShortcut | null {
-  const isMac = isMacKeyboardPlatform(platform);
   let defaultShortcut: AppShortcut | null = null;
   let available = false;
   for (let index = defaults.length - 1; index >= 0; index -= 1) {
     const binding = defaults[index];
     if (
       binding?.command === command &&
-      isAppKeybindingAvailableForClient(binding, { isDesktop, isMac })
+      isAppKeybindingAvailableForClient(binding, { isDesktop, platform })
     ) {
       available = true;
       defaultShortcut = binding.shortcut;
@@ -95,7 +95,11 @@ export function getCommandShortcut(
     }
   }
   if (!available) return null;
-  const override = overrides.find((candidate) => candidate.command === command);
+  const override = findAppKeybindingOverride(
+    overrides,
+    command,
+    keyboardPlatform(platform),
+  );
   return override === undefined ? defaultShortcut : override.shortcut;
 }
 
@@ -105,57 +109,55 @@ export function isAppCommandAvailableForClient(
   isDesktop: boolean,
   platform: string,
 ): boolean {
-  const isMac = isMacKeyboardPlatform(platform);
   return defaults.some(
     (binding) =>
       binding.command === command &&
-      isAppKeybindingAvailableForClient(binding, { isDesktop, isMac }),
+      isAppKeybindingAvailableForClient(binding, { isDesktop, platform }),
   );
 }
 
 export function setCommandShortcutOverride(
-  defaults: AppDefaultKeybindings,
   overrides: AppKeybindingOverrides,
   command: KeyboardCommandId,
   shortcut: AppShortcut | null,
-  isDesktop: boolean,
   platform: string,
 ): AppKeybindingOverrides {
-  const defaultShortcut = getCommandShortcut(
-    defaults,
-    [],
-    command,
-    isDesktop,
-    platform,
-  );
-  const shouldUseDefault =
-    shortcut !== null &&
-    defaultShortcut !== null &&
-    areAppShortcutsEqual(shortcut, defaultShortcut);
-  const byCommand = new Map(
-    overrides.map((override) => [override.command, override.shortcut]),
-  );
-  if (shouldUseDefault) {
-    byCommand.delete(command);
-  } else {
-    byCommand.set(command, shortcut);
-  }
+  const scope = keyboardPlatform(platform);
   return [
-    ...new Set<KeyboardCommandId>([
-      ...APP_COMMAND_IDS,
-      ...[...byCommand.keys()].sort(),
-    ]),
-  ].flatMap((candidate) => {
-    if (!byCommand.has(candidate)) return [];
-    return [{ command: candidate, shortcut: byCommand.get(candidate) ?? null }];
-  });
+    ...overrides.filter(
+      (override) => override.command !== command || override.platform !== scope,
+    ),
+    { command, shortcut, platform: scope },
+  ];
 }
 
 export function resetCommandShortcutOverride(
   overrides: AppKeybindingOverrides,
   command: KeyboardCommandId,
+  platform: string,
+  defaultShortcut: AppShortcut | null,
 ): AppKeybindingOverrides {
-  return overrides.filter((override) => override.command !== command);
+  const scope = keyboardPlatform(platform);
+  const remaining = overrides.filter(
+    (override) => override.command !== command || override.platform !== scope,
+  );
+  const general = remaining.find(
+    (override) =>
+      override.command === command && override.platform === undefined,
+  );
+  if (
+    general === undefined ||
+    (general.shortcut === null
+      ? defaultShortcut === null
+      : defaultShortcut !== null &&
+        areAppShortcutsEqual(general.shortcut, defaultShortcut))
+  ) {
+    return remaining;
+  }
+  return [
+    ...remaining,
+    { command, platform: scope, shortcut: defaultShortcut },
+  ];
 }
 
 export function getShortcutConflicts(
