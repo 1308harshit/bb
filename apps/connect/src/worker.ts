@@ -293,7 +293,26 @@ export function cacheNamespace(
   return target !== null ? `${routingKey}--${target}` : routingKey;
 }
 
-export default {
+export function gateErrorResponse(request: Request): Response {
+  if (wantsHtml(request)) {
+    return gatePage(
+      `<h1>bb connect hit a temporary problem</h1>
+       <p>This page retries automatically in a few seconds.</p>
+       <button class="btn" onclick="location.reload()">Retry now</button>`,
+      502,
+      5,
+    );
+  }
+  return Response.json(
+    {
+      code: "connect_gate_error",
+      message: "bb connect hit a temporary problem. Try again in a moment.",
+    },
+    { status: 502 },
+  );
+}
+
+const gate = {
   async fetch(
     request: Request,
     env: Env,
@@ -515,5 +534,24 @@ export default {
     return setCookies.length === 0
       ? response
       : withSetCookies(response, setCookies);
+  },
+};
+
+export default {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
+    try {
+      return await gate.fetch(request, env, ctx);
+    } catch (error) {
+      console.error("bb connect: request failed", {
+        method: request.method,
+        path: new URL(request.url).pathname,
+        error,
+      });
+      return gateErrorResponse(request);
+    }
   },
 } satisfies ExportedHandler<Env>;

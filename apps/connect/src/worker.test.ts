@@ -738,15 +738,17 @@ describe("gate replays through a tunnel object restart", () => {
     const { env, ctx, captured } = failingThenOk([
       retryableError("Network connection lost."),
     ]);
-    await expect(
-      worker.fetch(
-        visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
-          headers: machineHeaders,
-        }),
-        env as never,
-        ctx,
-      ),
-    ).rejects.toThrow("Network connection lost.");
+    expect(
+      (
+        await worker.fetch(
+          visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
+            headers: machineHeaders,
+          }),
+          env as never,
+          ctx,
+        )
+      ).status,
+    ).toBe(502);
     expect(captured).toHaveLength(1);
   });
 
@@ -757,15 +759,17 @@ describe("gate replays through a tunnel object restart", () => {
         overloaded: true,
       }),
     ]);
-    await expect(
-      worker.fetch(
-        visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
-          headers: machineHeaders,
-        }),
-        env as never,
-        ctx,
-      ),
-    ).rejects.toThrow("overloaded");
+    expect(
+      (
+        await worker.fetch(
+          visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
+            headers: machineHeaders,
+          }),
+          env as never,
+          ctx,
+        )
+      ).status,
+    ).toBe(502);
     expect(captured).toHaveLength(1);
   });
 
@@ -816,31 +820,35 @@ describe("gate replays through a tunnel object restart", () => {
     const { env, ctx, captured } = failingThenOk([
       new Error(TUNNEL_RESTART_REASON),
     ]);
-    await expect(
-      worker.fetch(
-        visitorRequest("sawyer.getbb.app", "/internal/session/events", {
-          method: "POST",
-          body: "{}",
-          headers: machineHeaders,
-        }),
-        env as never,
-        ctx,
-      ),
-    ).rejects.toThrow(TUNNEL_RESTART_REASON);
+    expect(
+      (
+        await worker.fetch(
+          visitorRequest("sawyer.getbb.app", "/internal/session/events", {
+            method: "POST",
+            body: "{}",
+            headers: machineHeaders,
+          }),
+          env as never,
+          ctx,
+        )
+      ).status,
+    ).toBe(502);
     expect(captured).toHaveLength(1);
   });
 
   it("does not replay an error that is neither a restart nor retryable", async () => {
     const { env, ctx, captured } = failingThenOk([new Error("boom")]);
-    await expect(
-      worker.fetch(
-        visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
-          headers: machineHeaders,
-        }),
-        env as never,
-        ctx,
-      ),
-    ).rejects.toThrow("boom");
+    expect(
+      (
+        await worker.fetch(
+          visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
+            headers: machineHeaders,
+          }),
+          env as never,
+          ctx,
+        )
+      ).status,
+    ).toBe(502);
     expect(captured).toHaveLength(1);
   });
 
@@ -850,15 +858,17 @@ describe("gate replays through a tunnel object restart", () => {
       new Error(TUNNEL_RESTART_REASON),
       new Error(TUNNEL_RESTART_REASON),
     ]);
-    await expect(
-      worker.fetch(
-        visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
-          headers: machineHeaders,
-        }),
-        env as never,
-        ctx,
-      ),
-    ).rejects.toThrow(TUNNEL_RESTART_REASON);
+    expect(
+      (
+        await worker.fetch(
+          visitorRequest("sawyer.getbb.app", "/api/v1/threads", {
+            headers: machineHeaders,
+          }),
+          env as never,
+          ctx,
+        )
+      ).status,
+    ).toBe(502);
     expect(captured).toHaveLength(3);
   });
 });
@@ -2487,5 +2497,55 @@ describe("TunnelDO holds visitors while a lost tunnel redials", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     await dob.fetch(new Request("https://do.internal/__control/close"));
     expect((await held).status).toBe(503);
+  });
+});
+
+describe("gate error response", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockResolveLabel.mockRejectedValue(
+      new Error("D1_ERROR: D1 DB is overloaded. Requests queued for too long."),
+    );
+  });
+
+  it("answers an API caller with a readable JSON 502 and logs the failure", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { env, ctx } = makeEnv(() => new Response("origin"));
+    const response = await worker.fetch(
+      visitorRequest("sawyer.getbb.app", "/api/v1/threads/thr_x/child-summary"),
+      env as never,
+      ctx,
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      code: "connect_gate_error",
+      message: "bb connect hit a temporary problem. Try again in a moment.",
+    });
+    expect(logged).toHaveBeenCalledWith(
+      "bb connect: request failed",
+      expect.objectContaining({
+        method: "GET",
+        path: "/api/v1/threads/thr_x/child-summary",
+      }),
+    );
+    logged.mockRestore();
+  });
+
+  it("gives a browser navigation a page that retries itself", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { env, ctx } = makeEnv(() => new Response("origin"));
+    const response = await worker.fetch(
+      visitorRequest("sawyer.getbb.app", "/", {
+        headers: { accept: "text/html" },
+      }),
+      env as never,
+      ctx,
+    );
+    expect(response.status).toBe(502);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    const body = await response.text();
+    expect(body).toContain("bb connect hit a temporary problem");
+    expect(body).toContain('http-equiv="refresh" content="5"');
+    logged.mockRestore();
   });
 });
