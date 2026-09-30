@@ -1952,12 +1952,6 @@ describe("server-contract clients", () => {
       }).pathname,
     ).toBe("/api/v1/projects/proj_123/paths");
     expect(
-      publicClient.projects[":id"].files.content.$url({
-        param: { id: "proj_123" },
-        query: { path: "src/app.ts" },
-      }).pathname,
-    ).toBe("/api/v1/projects/proj_123/files/content");
-    expect(
       publicClient.threads[":id"].timeline["turn-summary-details"].$url({
         param: { id: "thr_123" },
         query: {
@@ -1986,38 +1980,6 @@ describe("server-contract clients", () => {
         },
       }).pathname,
     ).toBe("/api/v1/threads/thr_123/thread-storage/paths");
-    expect(
-      publicClient.threads[":id"]["thread-storage"].content.$url({
-        param: { id: "thr_123" },
-        query: { path: "notes/plan.md" },
-      }).pathname,
-    ).toBe("/api/v1/threads/thr_123/thread-storage/content");
-    expect(
-      publicClient.threads[":id"]["host-files"].content.$url({
-        param: { id: "thr_123" },
-        query: { path: "/Users/me/notes/plan.md" },
-      }).pathname,
-    ).toBe("/api/v1/threads/thr_123/host-files/content");
-    expect(
-      publicClient.threads[":id"]["thread-storage"].files[":filePath{.+}"].$url(
-        {
-          param: { id: "thr_123", filePath: "reports/a%20b/preview.html" },
-        },
-      ).pathname,
-    ).toBe(
-      "/api/v1/threads/thr_123/thread-storage/files/reports/a%20b/preview.html",
-    );
-    expect(
-      publicClient.threads[":id"].worktree.files[":filePath{.+}"].$url({
-        param: { id: "thr_123", filePath: "public/report.html" },
-      }).pathname,
-    ).toBe("/api/v1/threads/thr_123/worktree/files/public/report.html");
-    expect(
-      publicClient.threads[":id"].files.raw.$url({
-        param: { id: "thr_123" },
-        query: { path: "/Users/me/report.html" },
-      }).pathname,
-    ).toBe("/api/v1/threads/thr_123/files/raw");
     expect(
       publicClient.threads[":id"].interactions.$url({
         param: { id: "thr_123" },
@@ -2052,11 +2014,6 @@ describe("server-contract clients", () => {
     expect(() =>
       contract.threadStorageFilesQuerySchema.parse({ query: longQuery }),
     ).toThrow();
-    expect(
-      contract.threadHostFileContentQuerySchema.parse({
-        path: "/Users/me/notes/plan.md",
-      }),
-    ).toEqual({ path: "/Users/me/notes/plan.md" });
   });
 
   it("keeps project command catalog queries snapshot-only", () => {

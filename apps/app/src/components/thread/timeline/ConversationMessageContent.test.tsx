@@ -61,11 +61,9 @@ describe("ConversationMessageContent assistant images", () => {
       screen
         .getByRole("img", { name: "Generated diagram" })
         .getAttribute("src"),
-    ).toBe(
-      "/api/v1/threads/thr_image/host-files/content?path=%2Fworkspace%2Foutput%2Fdiagram.png",
-    );
+    ).toBe("/api/v1/threads/thr_image/host-files/workspace/output/diagram.png");
     expect(screen.getByLabelText("Clip").getAttribute("src")).toBe(
-      "/api/v1/threads/thr_image/host-files/content?path=%2Fworkspace%2Foutput%2Fclip.mp4",
+      "/api/v1/threads/thr_image/host-files/workspace/output/clip.mp4",
     );
   });
 });
@@ -101,9 +99,7 @@ describe("ConversationMessageContent user images", () => {
 
     expect(
       screen.getByRole("img", { name: "diagram" }).getAttribute("src"),
-    ).toBe(
-      "/api/v1/threads/thr_image/host-files/content?path=%2Fworkspace%2Foutput%2Fdiagram.png",
-    );
+    ).toBe("/api/v1/threads/thr_image/host-files/workspace/output/diagram.png");
   });
 });
 
