@@ -1,3 +1,4 @@
+import { getActiveComposerEditorBridge } from "@/lib/composer-editor-registry";
 import type { PluginCommandContext } from "@get-bb/plugin-sdk";
 import type { PluginThreadPanelOpenHandler } from "@/components/plugin/plugin-thread-panel-navigation";
 import type { PluginCommandPaletteActionSlot } from "@/lib/plugin-slots";
@@ -22,6 +23,8 @@ function actionContext(
   return {
     threadId: args.threadId,
     projectId: args.projectId,
+    experimental_openComposerPopup: (id) =>
+      getActiveComposerEditorBridge()?.openPopup(slot.pluginId, id) ?? false,
     openPanel: (options) => {
       if (args.openThreadPanel === null) {
         console.warn(

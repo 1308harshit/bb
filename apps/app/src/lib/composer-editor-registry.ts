@@ -14,12 +14,29 @@ export interface ComposerEditorBridge {
   pluginCustomizable: boolean;
   state: ComposerEditorState;
   insertAtCursor(value: ComposerEditorInsertValue, block: boolean): boolean;
+  openPopup(pluginId: string, customizationId: string): boolean;
+  closePopup(pluginId: string): boolean;
+  isPopupOpen(): boolean;
 }
 
 const bridgesByKey = new Map<string, ComposerEditorBridge>();
 const bridgeListeners = createKeyedListeners<string>();
 const bridgeListListeners = new Set<() => void>();
 let bridgeList: readonly ComposerEditorBridge[] = [];
+let focusedComposerKey: string | null = null;
+
+export function markComposerEditorFocused(key: string): void {
+  if (bridgesByKey.has(key)) focusedComposerKey = key;
+}
+
+export function getActiveComposerEditorBridge(): ComposerEditorBridge | null {
+  if (focusedComposerKey !== null) {
+    const focused = bridgesByKey.get(focusedComposerKey);
+    if (focused?.pluginCustomizable) return focused;
+  }
+  const eligible = bridgeList.filter((bridge) => bridge.pluginCustomizable);
+  return eligible.length === 1 ? (eligible[0] ?? null) : null;
+}
 
 function notifyBridge(key: string): void {
   bridgeList = [...bridgesByKey.values()];
@@ -42,6 +59,7 @@ export function clearComposerEditorBridge(
 ): void {
   if (bridgesByKey.get(key) !== bridge) return;
   bridgesByKey.delete(key);
+  if (focusedComposerKey === key) focusedComposerKey = null;
   notifyBridge(key);
 }
 
