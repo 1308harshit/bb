@@ -260,6 +260,13 @@ Remote access (bb connect):
 
 Core owns environment retirement and teardown. After the last live thread is archived or deleted, the provider policy sets the retirement deadline. `bb environment show <id>` reports lifecycle phase and teardown status, attempt and failure message. Failed teardown retries automatically; checkout environments do not retire.
 
+`bb environment cleanup <id> [--json]` is an explicit override for removing an
+unused provider-managed environment before its policy would do so. Normal
+retirement and cleanup retries are automatic; this command is not a routine
+end-of-task step. It overrides retention/keep policy and backoff, rejects live
+threads and unmanaged environments, and succeeds if already removed. The request
+is asynchronous; `bb environment show <id>` reports completion.
+
 Explicit environment or project deletion bypasses the retirement grace, including the never-retire policy. Provider cleanup retains the host, path and resource until removal completes; inspect progress with `bb environment show <id>`.
 
 `bb environment providers --json` includes each choice’s `description` and `icon`, as well as its label, inputs, and availability.
