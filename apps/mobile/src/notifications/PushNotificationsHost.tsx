@@ -12,6 +12,7 @@ import {
   parsePushNotificationData,
   resolvePushTargetProfile,
   isPushRegistrationAllowed,
+  shouldOfferPushPrompt,
   type PushNotificationTarget,
 } from "@/data/notifications";
 import type { ServerProfile } from "@/lib/profiles";
@@ -141,6 +142,7 @@ export function PushNotificationsHost() {
           (activeProfile === null || isPushRegistrationAllowed(activeProfile))
         }
         prompted={storeSnapshot.prompted}
+        enabled={activeEnabled}
       />
     </>
   );
@@ -151,11 +153,13 @@ function FirstRunPrompt({
   connected,
   available,
   prompted,
+  enabled,
 }: {
   profile: ServerProfile | null;
   connected: boolean;
   available: boolean;
   prompted: boolean;
+  enabled: boolean;
 }) {
   const sheet = useSheet();
   const controller = getPushRegistrationController();
@@ -175,14 +179,16 @@ function FirstRunPrompt({
     if (!shouldAsk || !profile) return;
     let cancelled = false;
     void notifications.getPermission().then((permission) => {
-      if (cancelled || permission !== "undetermined") return;
+      if (cancelled || !shouldOfferPushPrompt({ permission, enabled })) {
+        return;
+      }
       setPresentedFor(profile.id);
       sheet.present();
     });
     return () => {
       cancelled = true;
     };
-  }, [shouldAsk, profile, notifications, sheet]);
+  }, [shouldAsk, profile, enabled, notifications, sheet]);
 
   return (
     <ActionSheet

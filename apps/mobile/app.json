@@ -92,7 +92,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/android-icon-monochrome.png",
+          "icon": "./assets/android-notification-icon.png",
           "color": "#000000",
           "defaultChannel": "threads"
         }
