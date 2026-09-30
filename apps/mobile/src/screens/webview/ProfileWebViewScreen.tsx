@@ -24,12 +24,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebViewKeyboardFrame } from "./WebViewKeyboardFrame";
 import { WebView, type WebViewProps } from "react-native-webview";
 import { revealApp, useProfiles } from "@/app-shell";
+import { nativeSessionCache } from "@/lib/native";
 import {
   buildShellUrl,
   isExternallyOpenable,
   isShellNavigation,
   resolveShellLoadPath,
   resolveShellScreenState,
+  revealsShellFailure,
   shellPathFromUrl,
   shouldReloadForSession,
   subscribeToShellCommands,
@@ -138,6 +140,7 @@ export function ProfileWebViewScreen() {
     },
   });
 
+  const connectProfileId = profile?.mode === "connect" ? profile.id : null;
   useEffect(
     () =>
       subscribeToShellCommands((command) => {
@@ -145,11 +148,14 @@ export function ProfileWebViewScreen() {
           webViewRef.current?.clearCache(true);
           void CookieManager.clearAll(false);
           void CookieManager.clearAll(true);
+          if (connectProfileId !== null) {
+            void nativeSessionCache.clear(connectProfileId);
+          }
         }
         setLoad({ kind: "loading" });
         setReloadKey((value) => value + 1);
       }),
-    [],
+    [connectProfileId],
   );
 
   const safeArea = useMemo(
@@ -179,12 +185,14 @@ export function ProfileWebViewScreen() {
 
   const previousSession = useRef(session);
   useEffect(() => {
-    if (shouldReloadForSession(previousSession.current, session)) {
+    if (
+      shouldReloadForSession(previousSession.current, session, Date.now(), load)
+    ) {
       setReloadKey((value) => value + 1);
       setLoad({ kind: "loading" });
     }
     previousSession.current = session;
-  }, [session]);
+  }, [load, session]);
 
   const handshake = useMemo<NativeShellHandshake | null>(() => {
     if (profile === null || sourceUrl === null) return null;
@@ -220,9 +228,7 @@ export function ProfileWebViewScreen() {
     load,
   });
 
-  const showsFailure =
-    screen.kind === "error" ||
-    (screen.kind === "webview" && screen.serverErrorStatus !== null);
+  const showsFailure = revealsShellFailure(screen, profile?.mode === "connect");
   useEffect(() => {
     if (showsFailure) revealApp();
   }, [showsFailure]);
