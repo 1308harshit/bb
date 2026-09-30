@@ -224,9 +224,8 @@ identified by its plugin and its id, so two plugins may register the same id;
 pass `--plugin <plugin-id>` to `set` when they do. Automatic tries
 the services bb ships in order: Codex (`codex`, using the Codex CLI login on the
 primary machine), then bb cloud (`bb`, the `bb-ai` plugin, for a signed-in bb
-account). bb cloud is off until you turn it on with `bb ai on` or in Settings →
-bb cloud AI; while off it sends nothing to getbb.app, and `bb ai off` turns it
-off again. Automatic never sends text to a third-party plugin. A service you pick
+account). bb cloud is on by default once you sign in; `bb ai off` turns it off
+(it then sends nothing to getbb.app) and `bb ai on` turns it back on. Automatic never sends text to a third-party plugin. A service you pick
 is used alone; if it fails, titles fall back to the start of the prompt and
 commits to `bb: automated commit`. Each plugin picks its own model.
 
@@ -241,7 +240,7 @@ happens often, run `codex login --with-api-key` on the primary machine, or pick
 another voice service.
 
 bb accepts voice recordings up to 25 MB. A service may set a lower limit;
-Codex transcribes recordings up to 20 MB.
+Codex transcribes recordings up to 20 MB and bb cloud up to 10 MB.
 
 The microphone picker in Settings → Voice Input is client-local. It stores the
 selected browser `MediaDevices` device id in localStorage as
