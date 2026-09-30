@@ -489,6 +489,8 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
       baseRefName: "main",
       headRefName: "feature/host-rpc",
       updatedAt: "2026-06-16T12:30:00Z",
+      autoMerge: false,
+      inMergeQueue: false,
       checks: [
         {
           name: "test",
