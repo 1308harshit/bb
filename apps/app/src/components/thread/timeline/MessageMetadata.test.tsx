@@ -1,26 +1,37 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { use, useEffect, useState } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ExperimentalMessageMetadataProps } from "@get-bb/plugin-sdk";
 import type { PluginMessageMetadataSlot } from "@/lib/plugin-slots";
-import { MessageMetadata, resolveMessageMetadata } from "./MessageMetadata";
+import { usePluginId } from "../../plugin/plugin-context";
+import { resetAllCrashedPluginSlotsForTest } from "../../plugin/PluginSlotMount";
+import { MessageMetadata } from "./MessageMetadata";
 
 afterEach(() => {
   cleanup();
+  resetAllCrashedPluginSlotsForTest();
   vi.restoreAllMocks();
-  vi.useRealTimers();
 });
 
 function slot(
   id: string,
-  resolve: PluginMessageMetadataSlot["resolve"],
+  component: PluginMessageMetadataSlot["component"],
   roles?: PluginMessageMetadataSlot["roles"],
 ): PluginMessageMetadataSlot {
   return {
     id,
     pluginId: "fixture",
     generation: 1,
-    resolve,
+    component,
     ...(roles === undefined ? {} : { roles }),
   };
 }
@@ -29,69 +40,109 @@ const message = {
   id: "msg_1",
   threadId: "thr_1",
   role: "user" as const,
+  initiator: "agent" as const,
+  turnId: "turn_1",
   createdAt: 1_700_000_000_123,
 };
 
+function metadata(
+  slots: readonly PluginMessageMetadataSlot[],
+  props = message,
+) {
+  return (
+    <MemoryRouter>
+      <MessageMetadata slots={slots} {...props} />
+    </MemoryRouter>
+  );
+}
+
 describe("MessageMetadata", () => {
-  it("filters by role before evaluation and preserves registration order", () => {
-    const assistant = vi.fn(() => ({ label: "assistant" }));
-    const values = resolveMessageMetadata(
-      [
-        slot("first", () => ({ label: "first" }), ["user"]),
+  it("filters roles before mounting and supplies origin, time, turn identity and plugin context", () => {
+    const assistant = vi.fn(() => <span>Assistant metadata</span>);
+    function Identity({ message }: ExperimentalMessageMetadataProps) {
+      const pluginId = usePluginId();
+      return (
+        <span title={String(message.createdAt)}>
+          {pluginId}/{message.id}/{message.turnId}/
+          {message.role === "user" ? message.initiator : "assistant"}
+        </span>
+      );
+    }
+    render(
+      metadata([
+        slot("first", () => <span>First</span>),
         slot("assistant", assistant, ["assistant"]),
-        slot("empty", () => null),
-        slot("last", () => ({ label: "last", title: "Exact time" })),
-      ],
-      message,
+        slot("identity", Identity, ["user"]),
+      ]),
     );
     expect(assistant).not.toHaveBeenCalled();
-    expect(values.map((value) => value.label)).toEqual(["first", "last"]);
-    expect(values[1]?.title).toBe("Exact time");
-  });
-
-  it("contains one resolver failure and rejects oversized output", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const values = resolveMessageMetadata(
-      [
-        slot("throws", () => {
-          throw new Error("boom");
-        }),
-        slot("long", () => ({ label: "x".repeat(81) })),
-        slot("valid", () => ({ label: "valid" })),
-      ],
-      message,
+    const identity = screen.getByText("fixture/msg_1/turn_1/agent");
+    expect(identity.title).toBe("1700000000123");
+    expect(screen.getByLabelText("Message metadata").textContent).toBe(
+      "Firstfixture/msg_1/turn_1/agent",
     );
-    expect(values.map((value) => value.label)).toEqual(["valid"]);
-    expect(warn).toHaveBeenCalledTimes(2);
   });
 
-  it("passes exact createdAt and stays stable on an unrelated rerender", () => {
-    const resolve = vi.fn(() => ({ label: "12:00", title: "Time" }));
-    const slots = [slot("time", resolve, ["user"])];
-    const view = render(<MessageMetadata slots={slots} {...message} />);
-    expect(screen.getByText("12:00").getAttribute("title")).toBe("Time");
-    expect(resolve).toHaveBeenCalledWith(message);
-    view.rerender(<MessageMetadata slots={slots} {...message} />);
-    expect(resolve).toHaveBeenCalledTimes(1);
-    view.rerender(
-      <MessageMetadata
-        slots={slots}
-        {...message}
-        createdAt={message.createdAt + 1}
-      />,
-    );
-    expect(resolve).toHaveBeenCalledTimes(2);
-  });
-
-  it("refreshes mounted metadata at the local day boundary", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 8, 22, 23, 59, 59));
-    const resolve = vi.fn(() => ({ label: "relative day" }));
+  it("contains a crashing contribution without hiding sibling metadata", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    function Broken(): never {
+      throw new Error("broken metadata");
+    }
     render(
-      <MessageMetadata slots={[slot("relative", resolve)]} {...message} />,
+      metadata([
+        slot("broken", Broken),
+        slot("healthy", () => <span>Healthy metadata</span>),
+      ]),
     );
-    expect(resolve).toHaveBeenCalledTimes(1);
-    act(() => vi.advanceTimersByTime(2_000));
-    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Healthy metadata")).toBeDefined();
+    expect(screen.queryByText("plugin fixture crashed")).toBeNull();
+  });
+
+  it("keeps sibling contributions visible while asynchronous metadata suspends", async () => {
+    let finish: (() => void) | undefined;
+    const ready = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    function Deferred() {
+      use(ready);
+      return <span>Ready metadata</span>;
+    }
+    await act(async () => {
+      render(
+        metadata([
+          slot("deferred", Deferred),
+          slot("healthy", () => <span>Healthy metadata</span>),
+        ]),
+      );
+    });
+    expect(screen.getByText("Healthy metadata")).toBeDefined();
+    expect(screen.queryByText("Ready metadata")).toBeNull();
+    await act(async () => {
+      finish?.();
+      await ready;
+    });
+    expect(screen.getByText("Ready metadata")).toBeDefined();
+  });
+
+  it("supports React updates and cleans up mounted plugin effects", async () => {
+    let deliver: ((value: string) => void) | undefined;
+    const release = vi.fn();
+    function LiveMetadata() {
+      const [label, setLabel] = useState("Loading stats");
+      useEffect(() => {
+        deliver = setLabel;
+        return release;
+      }, []);
+      return <button onClick={() => setLabel("Updated stats")}>{label}</button>;
+    }
+    const view = render(metadata([slot("live", LiveMetadata)]));
+    await act(async () => {
+      deliver?.("Fetched stats");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Fetched stats" }));
+    expect(screen.getByText("Updated stats")).toBeDefined();
+    view.unmount();
+    expect(release).toHaveBeenCalledTimes(1);
   });
 });

@@ -8,35 +8,48 @@
 
 Requires SDK 0.6.11.
 
-`app.slots.experimental_messageMetadata({ id, roles?, resolve })` registers
-bounded host-rendered text for realized user and assistant conversation rows.
-`resolve({ id, threadId, role, createdAt })` runs synchronously and returns
-`{ label, title? }` or `null`. BB validates roles and output, catches each
-resolver failure, and renders contributions in plugin-id then registration
-order. A label is limited to 80 characters and a title to 160 characters.
-Omitted roles means both; empty or unknown roles fail registration. BB
-invalidates mounted metadata once at local midnight with one shared timer;
-ordinary timeline rerenders can also refresh it. Resolvers never receive
-message text or source sequence numbers, and BB makes no server call.
-Types: `ExperimentalMessageMetadataRegistration`,
-`ExperimentalMessageMetadataContext`, and `ExperimentalMessageMetadata`.
+`app.slots.experimental_messageMetadata({ id, roles?, placement?, component })` mounts
+React metadata above or below realized user and assistant conversation messages,
+including windowing overscan and embedded ThreadChat timelines. `placement`
+accepts "above" or "below"; omission defaults to "below". Above suits timestamps;
+below suits status and statistics. The component
+receives `{ message }` with `id`, `threadId`, `role`, exact `createdAt` in Unix
+milliseconds, and `turnId` (null outside a turn). User messages also expose
+`initiator: "user" | "agent" | "system"`; assistant messages do not. Message
+text and source sequence numbers are excluded, so streaming text does not
+invalidate metadata props. Types: `ExperimentalMessageMetadataRegistration`,
+`ExperimentalMessageMetadataProps`, and `ExperimentalMessageMetadataContext`.
 
-Before stabilizing, audit placement across compact and embedded surfaces,
-output bounds, local-day and timezone behavior, ordering, and whether a
-plugin needs refreshes finer than one day.
+BB supplies plugin context, CSS, muted typography, wrapping, user-right and
+assistant-left alignment, and plugin-id then registration ordering. Each
+contribution has its own error boundary and empty suspense fallback. Plugin
+hooks can fetch or subscribe to data; use shared query caches rather than one
+request per message. Components unmount when their messages are no longer
+realized or the registration is removed. Plugin effects own their cleanup
+and time-based refreshes; BB adds no timer, text length limits, or server calls.
 
-## `PluginMessageActionRegistration.experimental_roles` (`@get-bb/plugin-sdk/app`)
+Before stabilizing, audit compact and embedded placement, variable-height
+metadata and scroll anchoring, unmount cleanup, asynchronous updates,
+origin filtering, and render isolation during streaming and across messages.
+
+## `PluginMessageActionRegistration.experimental_roles` and `.experimental_placements` (`@get-bb/plugin-sdk/app`)
 
 Requires SDK 0.6.11.
 
 The stable `messageAction` registration accepts `experimental_roles`, a
-nonempty array of `"user"` and `"assistant"`. Omitted means both; empty or
-unknown roles fail registration. BB applies it before constructing row
-actions, compact overflow entries, and assistant selection actions, including
-embedded ThreadChat timelines.
+nonempty array of `"user"` and `"assistant"`, and `experimental_placements`,
+a nonempty array of `"message"` and `"selection"`. Omitted fields mean both.
+Empty or unknown values fail registration; duplicates are normalized.
+Role and placement filters intersect. `"message"` covers row action bars
+and compact overflow entries. `"selection"` covers the existing assistant
+text-selection menu; it does not create user-message selection menus.
+BB applies both filters wherever global actions are enabled. Embedded
+ThreadChat currently suppresses global plugin actions in both placements,
+through its internal `includePluginMessageActions={false}` policy.
 
-Before renaming `experimental_roles` to `roles`, audit the policy across
-overflow and selection menus and confirm marketplace plugins adopt it.
+Before renaming these fields to `roles` and `placements`, audit overflow,
+selection-only invocation, backwards-compatible defaults, embedded surfaces,
+and marketplace plugin adoption.
 
 ## `app.commands.register`
 

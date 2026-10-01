@@ -17,7 +17,7 @@ import {
   type PluginHttpAuthMode,
   type PluginCommandContext,
   type PluginCommandRegistration,
-  type ExperimentalMessageMetadataContext,
+  type ExperimentalMessageMetadataProps,
   type PluginMessageActionContext,
   type PluginMessageActionRegistration,
   type PluginMessageDirectiveProps,
@@ -280,7 +280,7 @@ type SlotPropsByName = {
   experimental_diffRenderer: PluginDiffRendererProps;
   messageDirective: PluginMessageDirectiveProps;
   messageAction: PluginMessageActionContext;
-  experimental_messageMetadata: ExperimentalMessageMetadataContext;
+  experimental_messageMetadata: ExperimentalMessageMetadataProps;
   commandPaletteAction: PluginCommandContext;
   experimental_providerIcon: PluginProviderIconRegistration;
   experimental_timelineRenderer: PluginTimelineRendererProps;
@@ -398,7 +398,7 @@ const FRONTEND_SLOT_PROP_FIELDS = {
     "openPanel",
     "composer",
   ],
-  experimental_messageMetadata: ["id", "threadId", "role", "createdAt"],
+  experimental_messageMetadata: ["message"],
   commandPaletteAction: ["threadId", "projectId", "openPanel"],
   experimental_providerIcon: ["providerKind", "providerId", "icon"],
   experimental_timelineRenderer: [

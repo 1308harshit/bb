@@ -742,6 +742,7 @@ const EMPTY_CONSUMER_MESSAGE_ACTIONS: readonly ThreadTimelineConsumerMessageActi
 
 function buildRowPluginMessageActions(args: {
   slots: readonly PluginMessageActionSlot[];
+  placement: "message" | "selection";
   timelineThreadId: string | undefined;
   message: ThreadChatMessageReference;
   selectedText?: string;
@@ -762,8 +763,10 @@ function buildRowPluginMessageActions(args: {
   return slots
     .filter(
       (slot) =>
-        slot.experimental_roles === undefined ||
-        slot.experimental_roles.includes(message.role),
+        (slot.experimental_roles === undefined ||
+          slot.experimental_roles.includes(message.role)) &&
+        (slot.experimental_placements === undefined ||
+          slot.experimental_placements.includes(args.placement)),
     )
     .map((slot) => ({
       key: `${slot.pluginId}/${slot.id}/${slot.generation}`,
@@ -911,6 +914,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
   };
   const rowSlotActions = buildRowPluginMessageActions({
     slots: pluginMessageActions,
+    placement: "message",
     timelineThreadId: threadId,
     message: messageReference,
     openThreadPanel: onOpenPluginPanel,
@@ -927,9 +931,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
     rowConsumerActions.length === 0
       ? rowSlotActions
       : [...(rowSlotActions ?? []), ...rowConsumerActions];
-  const hasMetadata = pluginMessageMetadata.some(
-    (slot) => slot.roles === undefined || slot.roles.includes(row.role),
-  );
   if (row.role === "user") {
     const senderThreadMetadata =
       row.senderThreadId === null
@@ -968,6 +969,16 @@ const ConversationRowContent = memo(function ConversationRowContent({
       : undefined;
     return (
       <>
+        <MessageMetadata
+          placement="above"
+          slots={pluginMessageMetadata}
+          id={row.id}
+          threadId={row.threadId}
+          role={row.role}
+          createdAt={row.createdAt}
+          turnId={row.turnId}
+          initiator={row.initiator}
+        />
         <ConversationMessageContent
           attachments={row.attachments}
           originKind={originKind}
@@ -998,15 +1009,16 @@ const ConversationRowContent = memo(function ConversationRowContent({
           turnRequest={row.turnRequest}
           workspaceRootPath={workspaceRootPath}
         />
-        {hasMetadata ? (
-          <MessageMetadata
-            slots={pluginMessageMetadata}
-            id={row.id}
-            threadId={row.threadId}
-            role={row.role}
-            createdAt={row.createdAt}
-          />
-        ) : null}
+
+        <MessageMetadata
+          slots={pluginMessageMetadata}
+          id={row.id}
+          threadId={row.threadId}
+          role={row.role}
+          createdAt={row.createdAt}
+          turnId={row.turnId}
+          initiator={row.initiator}
+        />
       </>
     );
   }
@@ -1031,6 +1043,15 @@ const ConversationRowContent = memo(function ConversationRowContent({
           );
   return (
     <>
+      <MessageMetadata
+        placement="above"
+        slots={pluginMessageMetadata}
+        id={row.id}
+        threadId={row.threadId}
+        role={row.role}
+        createdAt={row.createdAt}
+        turnId={row.turnId}
+      />
       <ConversationMessageContent
         attachments={row.attachments}
         id={row.id}
@@ -1054,15 +1075,15 @@ const ConversationRowContent = memo(function ConversationRowContent({
         turnId={row.turnId}
         workspaceRootPath={workspaceRootPath}
       />
-      {hasMetadata ? (
-        <MessageMetadata
-          slots={pluginMessageMetadata}
-          id={row.id}
-          threadId={row.threadId}
-          role={row.role}
-          createdAt={row.createdAt}
-        />
-      ) : null}
+
+      <MessageMetadata
+        slots={pluginMessageMetadata}
+        id={row.id}
+        threadId={row.threadId}
+        role={row.role}
+        createdAt={row.createdAt}
+        turnId={row.turnId}
+      />
     </>
   );
 });
@@ -2050,8 +2071,10 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     props.includePluginMessageActions !== false &&
     messageActionSlots.some(
       (slot) =>
-        slot.experimental_roles === undefined ||
-        slot.experimental_roles.includes("assistant"),
+        (slot.experimental_roles === undefined ||
+          slot.experimental_roles.includes("assistant")) &&
+        (slot.experimental_placements === undefined ||
+          slot.experimental_placements.includes("selection")),
     );
   const hasSelectionActions =
     onSelectionAddToChat !== undefined || hasPluginSelectionActions;
@@ -2114,6 +2137,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
           props.includePluginMessageActions === false
             ? EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions
             : messageActionSlots,
+        placement: "selection",
         timelineThreadId,
         message: activeSelection.message,
         selectedText: activeSelection.selection.text,

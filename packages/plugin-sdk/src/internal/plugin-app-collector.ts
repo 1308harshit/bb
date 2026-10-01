@@ -49,6 +49,24 @@ import {
   requireUniqueId,
 } from "./composer-customization-validation.js";
 
+function requireMessagePlacements(
+  kind: string,
+  placements: unknown,
+): readonly ("message" | "selection")[] {
+  if (
+    !Array.isArray(placements) ||
+    placements.length === 0 ||
+    !placements.every(
+      (placement) => placement === "message" || placement === "selection",
+    )
+  ) {
+    throw new Error(
+      `${kind}: "experimental_placements" must be a non-empty array of message or selection`,
+    );
+  }
+  return [...new Set(placements)];
+}
+
 function isMessageRole(role: unknown): role is "user" | "assistant" {
   return role === "user" || role === "assistant";
 }
@@ -885,6 +903,14 @@ export function collectPluginAppRegistrations(
               }
             : {}),
           run: registration.run,
+          ...(registration.experimental_placements === undefined
+            ? {}
+            : {
+                experimental_placements: requireMessagePlacements(
+                  kind,
+                  registration.experimental_placements,
+                ),
+              }),
           ...(registration.experimental_roles === undefined
             ? {}
             : {
@@ -900,17 +926,19 @@ export function collectPluginAppRegistrations(
         const kind = "slots.experimental_messageMetadata";
         const id = requireSlotId(kind, registration?.id);
         requireUniqueId(kind, seenIds.messageMetadata, id);
-        if (typeof registration.resolve !== "function") {
-          throw new Error(`${kind}: "resolve" must be a function`);
+        const placement = registration.placement ?? "below";
+        if (placement !== "above" && placement !== "below") {
+          throw new Error(`${kind}: "placement" must be "above" or "below"`);
         }
         collected.messageMetadata.push({
           id,
+          placement,
           ...(registration.roles === undefined
             ? {}
             : {
                 roles: requireMessageRoles(kind, "roles", registration.roles),
               }),
-          resolve: registration.resolve,
+          component: requireComponent(kind, registration.component),
         });
       },
       commandPaletteAction(registration) {

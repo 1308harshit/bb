@@ -1,118 +1,67 @@
-import { memo, useSyncExternalStore } from "react";
+import { memo, Suspense, useMemo } from "react";
 import { cn } from "@bb/shared-ui/lib/utils";
 import type { ExperimentalMessageMetadataContext } from "@get-bb/plugin-sdk";
 import type { PluginMessageMetadataSlot } from "@/lib/plugin-slots.js";
-
-const listeners = new Set<() => void>();
-let timer: ReturnType<typeof setTimeout> | null = null;
-let localDay = currentLocalDay();
-
-function currentLocalDay(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-}
-
-function scheduleDayBoundary(): void {
-  if (timer !== null) clearTimeout(timer);
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  timer = setTimeout(
-    () => {
-      timer = null;
-      localDay = currentLocalDay();
-      for (const listener of listeners) listener();
-      if (listeners.size > 0) scheduleDayBoundary();
-    },
-    Math.max(1, next.getTime() - now.getTime()),
-  );
-}
-
-function subscribeDay(listener: () => void): () => void {
-  listeners.add(listener);
-  if (listeners.size === 1) scheduleDayBoundary();
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0 && timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  };
-}
-
-function getDay(): string {
-  return localDay;
-}
-
-export function resolveMessageMetadata(
-  slots: readonly PluginMessageMetadataSlot[],
-  message: ExperimentalMessageMetadataContext,
-): readonly { key: string; label: string; title?: string }[] {
-  const results: { key: string; label: string; title?: string }[] = [];
-  for (const slot of slots) {
-    if (slot.roles !== undefined && !slot.roles.includes(message.role))
-      continue;
-    try {
-      const value = slot.resolve(message);
-      if (value === null) continue;
-      if (
-        typeof value.label !== "string" ||
-        value.label.length === 0 ||
-        value.label.length > 80 ||
-        (value.title !== undefined &&
-          (typeof value.title !== "string" || value.title.length > 160))
-      ) {
-        console.warn(
-          `[plugin:${slot.pluginId}] messageMetadata "${slot.id}" returned invalid text`,
-        );
-        continue;
-      }
-      results.push({
-        key: `${slot.pluginId}/${slot.id}/${slot.generation}`,
-        label: value.label,
-        ...(value.title === undefined ? {} : { title: value.title }),
-      });
-    } catch (error) {
-      console.warn(
-        `[plugin:${slot.pluginId}] messageMetadata "${slot.id}" failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-  return results;
-}
+import { PluginSlotMount } from "../../plugin/PluginSlotMount.js";
 
 export const MessageMetadata = memo(function MessageMetadata({
   slots,
+  placement = "below",
   id,
   threadId,
   role,
   createdAt,
+  turnId,
+  initiator,
 }: {
   slots: readonly PluginMessageMetadataSlot[];
+  placement?: "above" | "below";
   id: string;
   threadId: string;
-  role: "user" | "assistant";
   createdAt: number;
-}) {
-  useSyncExternalStore(subscribeDay, getDay, getDay);
-  const values = resolveMessageMetadata(slots, {
-    id,
-    threadId,
-    role,
-    createdAt,
-  });
-  if (values.length === 0) return null;
+  turnId: string | null;
+} & (
+  | { role: "user"; initiator: "user" | "agent" | "system" }
+  | { role: "assistant"; initiator?: never }
+)) {
+  const message = useMemo<ExperimentalMessageMetadataContext>(
+    () => ({
+      id,
+      threadId,
+      createdAt,
+      turnId,
+      ...(role === "user" ? { role, initiator } : { role }),
+    }),
+    [id, threadId, role, createdAt, turnId, initiator],
+  );
+  const contributions = slots.filter(
+    (slot) =>
+      (slot.roles === undefined || slot.roles.includes(role)) &&
+      (slot.placement ?? "below") === placement,
+  );
+  if (contributions.length === 0) return null;
   return (
     <div
       className={cn(
-        "flex w-full flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground",
+        "flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground",
         role === "user" ? "justify-end" : "justify-start",
+        placement === "above" && "mb-1",
       )}
       aria-label="Message metadata"
     >
-      {values.map((value) => (
-        <span key={value.key} title={value.title}>
-          {value.label}
-        </span>
+      {contributions.map((slot) => (
+        <PluginSlotMount
+          key={`${slot.pluginId}/${slot.id}/${slot.generation}`}
+          pluginId={slot.pluginId}
+          slotKind="messageMetadata"
+          slotId={slot.id}
+          instanceId={id}
+          crashFallback={null}
+        >
+          <Suspense fallback={null}>
+            <slot.component message={message} />
+          </Suspense>
+        </PluginSlotMount>
       ))}
     </div>
   );

@@ -1238,7 +1238,7 @@ describe("ThreadTimelineRows actions", () => {
     });
   });
 
-  it("filters plugin message actions by role before action bars render", () => {
+  it("filters plugin message actions by role and placement before action bars render", () => {
     setPluginSlotRegistrations(
       "demo",
       messageActionRegistrationSet([
@@ -1249,6 +1249,12 @@ describe("ThreadTimelineRows actions", () => {
           run: vi.fn(),
         },
         { id: "both", title: "Both", run: vi.fn() },
+        {
+          id: "selection-only",
+          title: "Selection only",
+          experimental_placements: ["selection"],
+          run: vi.fn(),
+        },
       ]),
     );
     const { container } = renderWithRouter(
@@ -1278,6 +1284,7 @@ describe("ThreadTimelineRows actions", () => {
     );
     expect(user?.querySelector('[aria-label="User only"]')).not.toBeNull();
     expect(assistant?.querySelector('[aria-label="User only"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "Selection only" })).toBeNull();
     expect(user?.querySelector('[aria-label="Both"]')).not.toBeNull();
     expect(assistant?.querySelector('[aria-label="Both"]')).not.toBeNull();
   });
@@ -1446,12 +1453,24 @@ describe("ThreadTimelineRows actions", () => {
     );
   });
 
-  it("passes the highlighted text to plugin selection actions", async () => {
+  it("filters selection placements and passes highlighted text to selection-only actions", async () => {
     const run = vi.fn();
     setPluginSlotRegistrations(
       "demo",
       messageActionRegistrationSet([
-        { id: "summarize", title: "Summarize selection", run },
+        {
+          id: "summarize",
+          title: "Summarize selection",
+          experimental_roles: ["assistant"],
+          experimental_placements: ["selection"],
+          run,
+        },
+        {
+          id: "message-only",
+          title: "Message only",
+          experimental_placements: ["message"],
+          run: vi.fn(),
+        },
         {
           id: "user-only-selection",
           title: "User only selection",
@@ -1482,6 +1501,9 @@ describe("ThreadTimelineRows actions", () => {
         workspaceRootPath={undefined}
       />,
     );
+    expect(
+      screen.queryByRole("button", { name: "Summarize selection" }),
+    ).toBeNull();
     const textNode = screen.getByText("Select part of this answer.").firstChild;
     expect(textNode).not.toBeNull();
     mockWindowSelection({ node: textNode!, text: "part of this answer" });
@@ -1499,6 +1521,9 @@ describe("ThreadTimelineRows actions", () => {
       }
       return menuButton;
     });
+    expect(
+      screen.getAllByRole("button", { name: "Message only" }),
+    ).toHaveLength(1);
     fireEvent.click(selectionAction);
 
     expect(run).toHaveBeenCalledTimes(1);
@@ -1574,6 +1599,12 @@ describe("ThreadTimelineRows shared message column width", () => {
           run: vi.fn(),
         },
         { id: "both-overflow", title: "Both overflow", run: vi.fn() },
+        {
+          id: "selection-overflow",
+          title: "Selection overflow",
+          experimental_placements: ["selection"],
+          run: vi.fn(),
+        },
       ]),
     );
     mockSelectionMenuMedia({ isCompactViewport: true, isPointerCoarse: true });
@@ -1646,6 +1677,9 @@ describe("ThreadTimelineRows shared message column width", () => {
     expect(
       earlierMessage?.querySelector('[aria-label="Fork into new thread"]'),
     ).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Selection overflow" }),
+    ).toBeNull();
     expect(
       earlierMessage?.querySelector('[aria-label="User overflow"]'),
     ).toBeNull();

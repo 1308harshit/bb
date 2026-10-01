@@ -263,6 +263,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         bullets: [
           "Appear in the row that shows under messages on hover, or in the toolbar that appears when text in an agent's message is selected",
           "Target user or assistant messages with experimental_roles; omitted means both",
+          "Choose message actions, assistant selection menus, or both with experimental_placements",
           "Receive the message, plus the selected text when the action was run from a selection",
           "Show the action’s explicit icon in both menus, with plugin branding as the fallback for omitted or unknown names",
           "Open one of the plugin's own [side-panel tabs](thread-panel) with what it received",
@@ -278,17 +279,21 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "message-metadata",
         title: "Message metadata",
         summary:
-          "Adds short, host-rendered text beside conversation messages. With this, a plugin can:",
+          "Mounts a React component above or below realized conversation messages. With this, a plugin can:",
         bullets: [
-          "Return a label and optional title from a synchronous resolver receiving id, threadId, role, and exact createdAt",
+          "Receive message identity, exact createdAt, nullable turnId, and user-message initiator without message text",
+          "Use plugin hooks, shared query caches, and React state for asynchronous metadata",
+          "Mount only for realized messages, including overscan; clean up effects when unmounted",
           "Target user or assistant messages with roles; omitted means both",
-          "Rely on bb for placement, ordering, error containment, and a local-day refresh",
+          "Place timestamps above messages or status and statistics below with placement; omitted means below",
+          "Rely on bb for default typography, alignment, ordering, plugin context, CSS, error containment, and an empty suspense fallback",
         ],
         apiSymbols: [
           "ExperimentalMessageMetadataRegistration",
           "ExperimentalMessageMetadataContext",
-          "ExperimentalMessageMetadata",
+          "ExperimentalMessageMetadataProps",
         ],
+        experimental: true,
       },
       {
         id: "pending-interaction",

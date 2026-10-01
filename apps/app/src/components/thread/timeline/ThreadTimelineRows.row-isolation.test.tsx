@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { createElement, type ComponentProps } from "react";
-import { cleanup, render } from "@testing-library/react";
+import type { ExperimentalMessageMetadataProps } from "@get-bb/plugin-sdk";
+import { createElement, useState, type ComponentProps } from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -46,12 +47,67 @@ afterEach(() => {
 });
 
 describe("ThreadTimelineRows row isolation", () => {
-  it("does not resolve metadata again when assistant text streams", () => {
-    const resolve = vi.fn(() => ({ label: "Stable" }));
+  it.each(["user", "assistant"] as const)(
+    "places metadata on either side of a %s message without duplicating contributions",
+    (role) => {
+      setPluginSlotRegistrations(
+        "fixture",
+        makePluginRegistrationSet({
+          messageMetadata: [
+            {
+              id: "time",
+              placement: "above",
+              component: () => <span>Timestamp</span>,
+            },
+            { id: "status", component: () => <span>Status</span> },
+          ],
+        }),
+      );
+      render(
+        <MemoryRouter>
+          <QueryClientProvider client={new QueryClient()}>
+            <ThreadTimelineRows
+              threadId="thr_main"
+              timelineRows={[
+                conversationRow({
+                  id: "placed",
+                  role,
+                  text: "Message body",
+                  threadId: "thr_main",
+                }),
+              ]}
+              threadRuntimeDisplayStatus="idle"
+              workspaceRootPath={undefined}
+            />
+          </QueryClientProvider>
+        </MemoryRouter>,
+      );
+      const body = screen.getByText("Message body");
+      const timestamp = screen.getByText("Timestamp");
+      const status = screen.getByText("Status");
+      expect(
+        timestamp.compareDocumentPosition(body) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        body.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(screen.getAllByText("Timestamp")).toHaveLength(1);
+      expect(screen.getAllByText("Status")).toHaveLength(1);
+    },
+  );
+
+  it("does not rerender metadata when assistant text streams", () => {
+    const component = vi.fn((_: ExperimentalMessageMetadataProps) => {
+      const [label, setLabel] = useState("Stable");
+      return (
+        <button onClick={() => setLabel("Updated metadata")}>{label}</button>
+      );
+    });
     setPluginSlotRegistrations(
       "fixture",
       makePluginRegistrationSet({
-        messageMetadata: [{ id: "stable", resolve }],
+        messageMetadata: [{ id: "stable", component }],
       }),
     );
     const queryClient = new QueryClient();
@@ -76,9 +132,13 @@ describe("ThreadTimelineRows row isolation", () => {
       </MemoryRouter>
     );
     const view = render(renderTimeline("first"));
-    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(component).toHaveBeenCalledTimes(1);
     view.rerender(renderTimeline("first second"));
-    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(component).toHaveBeenCalledTimes(1);
+    renderedMessageTexts.length = 0;
+    fireEvent.click(screen.getByRole("button", { name: "Stable" }));
+    expect(screen.getByText("Updated metadata")).toBeDefined();
+    expect(renderedMessageTexts).toHaveLength(0);
   });
 
   it("re-renders only the rows whose mobile action display flips when a message is appended", () => {

@@ -30,19 +30,19 @@ afterEach(() => {
 
 describe("plugin slot store", () => {
   it("orders message metadata by plugin id then registration and removes it on unload", () => {
-    const resolve = () => ({ label: "time" });
+    const component = () => null;
     setPluginSlotRegistrations(
       "zeta",
       registrationSet({
-        messageMetadata: [{ id: "z", resolve }],
+        messageMetadata: [{ id: "z", component }],
       }),
     );
     setPluginSlotRegistrations(
       "alpha",
       registrationSet({
         messageMetadata: [
-          { id: "first", resolve },
-          { id: "second", resolve },
+          { id: "first", component },
+          { id: "second", component },
         ],
       }),
     );

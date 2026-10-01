@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { ExperimentalMessageMetadataProps } from "@get-bb/plugin-sdk";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -235,12 +236,14 @@ describe("ThreadTimelineRows windowing", () => {
     },
   );
 
-  it("evaluates metadata only for realized rows", async () => {
-    const resolve = vi.fn(({ id }: { id: string }) => ({ label: id }));
+  it("mounts metadata only for realized rows", async () => {
+    const component = vi.fn(({ message }: ExperimentalMessageMetadataProps) => (
+      <span>{message.id}</span>
+    ));
     setPluginSlotRegistrations(
       "fixture",
       makePluginRegistrationSet({
-        messageMetadata: [{ id: "identity", resolve }],
+        messageMetadata: [{ id: "identity", component }],
       }),
     );
     const view = renderTopLevelMessages(100, false);
@@ -249,7 +252,7 @@ describe("ThreadTimelineRows windowing", () => {
       expect(view.container.textContent).not.toContain("Window message 50");
     });
     const resolvedIds = new Set(
-      resolve.mock.calls.map(([message]) => message.id),
+      component.mock.calls.map(([{ message }]) => message.id),
     );
     expect(resolvedIds.has("window-message-50")).toBe(false);
     expect(resolvedIds.size).toBeLessThan(30);

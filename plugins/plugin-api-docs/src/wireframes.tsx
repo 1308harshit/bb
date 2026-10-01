@@ -1230,7 +1230,7 @@ function AppShellWireframeBody({
               </div>
               <Mark
                 id="message-metadata"
-                label="Host-rendered message metadata, always visible"
+                label="React message metadata above or below realized messages"
                 className="inline-flex items-center py-0.5 pr-6 pl-2 text-2xs text-muted-foreground"
               >
                 <PluginGlyph className="mr-1 size-3" />

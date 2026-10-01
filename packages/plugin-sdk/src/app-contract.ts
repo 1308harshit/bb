@@ -1725,28 +1725,32 @@ export interface ThreadChatMessageReference {
 }
 
 /** Stable identity and creation time of one rendered conversation message. */
-export interface ExperimentalMessageMetadataContext extends Pick<
+export type ExperimentalMessageMetadataContext = Pick<
   ThreadChatMessageReference,
-  "id" | "threadId" | "role"
-> {
+  "id" | "threadId"
+> & {
   /** Unix time in milliseconds, supplied by BB's timeline. */
   createdAt: number;
+  /** The containing turn, or null for a message outside a turn. */
+  turnId: string | null;
+} & (
+    | { role: "user"; initiator: "user" | "agent" | "system" }
+    | { role: "assistant" }
+  );
+
+/** Props for a metadata component mounted only beside realized messages. */
+export interface ExperimentalMessageMetadataProps {
+  message: ExperimentalMessageMetadataContext;
 }
 
-/** Bounded text rendered by BB beside a conversation message. */
-export interface ExperimentalMessageMetadata {
-  label: string;
-  title?: string;
-}
-
-/** One synchronous, host-rendered metadata contribution. */
+/** A React contribution above or below a conversation message. */
 export interface ExperimentalMessageMetadataRegistration {
   id: string;
+  /** Omitted means below. Above suits timestamps; below suits status and statistics. */
+  placement?: "above" | "below";
   /** Omitted means both roles. */
   roles?: readonly ("user" | "assistant")[];
-  resolve(
-    message: ExperimentalMessageMetadataContext,
-  ): ExperimentalMessageMetadata | null;
+  component: ComponentType<ExperimentalMessageMetadataProps>;
 }
 
 /**
@@ -1805,6 +1809,8 @@ export interface PluginMessageActionRegistration {
   icon?: BbIconName;
   /** Omitted means both roles. Experimental until the role policy is audited. */
   experimental_roles?: readonly ("user" | "assistant")[];
+  /** Omitted means both. Selection placement currently supports assistant messages only. */
+  experimental_placements?: readonly ("message" | "selection")[];
   /**
    * Runs when the user activates the action. Errors (sync or async) are
    * contained and logged; they never break the timeline.
@@ -2135,7 +2141,7 @@ export interface PluginAppSlots {
   experimental_diffRenderer(registration: PluginDiffRendererRegistration): void;
   messageDirective(registration: PluginMessageDirectiveRegistration): void;
   messageAction(registration: PluginMessageActionRegistration): void;
-  /** Register host-rendered message metadata. Experimental: see docs/api_to_audit.md. */
+  /** Register React message metadata. Experimental: see docs/api_to_audit.md. */
   experimental_messageMetadata(
     registration: ExperimentalMessageMetadataRegistration,
   ): void;

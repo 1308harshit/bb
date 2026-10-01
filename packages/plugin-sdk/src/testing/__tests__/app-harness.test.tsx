@@ -1400,38 +1400,40 @@ describe("loadPluginApp", () => {
     ).rejects.toThrow('slots.messageAction: duplicate id "dup"');
   });
 
-  it("captures message metadata and validates role targeting", async () => {
-    const resolve = vi.fn(() => ({ label: "Yesterday" }));
+  it("validates message metadata components and action targeting", async () => {
+    const component = () => null;
     const captured = await loadPluginApp(
       definePluginApp((builder) => {
         builder.slots.experimental_messageMetadata({
           id: "timestamp",
+          placement: "above",
           roles: ["user"],
-          resolve,
+          component,
         });
         builder.slots.messageAction({
-          id: "user-action",
-          title: "User action",
-          experimental_roles: ["user"],
+          id: "feedback",
+          title: "Feedback",
+          experimental_roles: ["assistant"],
+          experimental_placements: ["selection", "selection"],
           run: () => {},
         });
       }),
     );
-    expect(
-      captured.messageMetadata[0]?.resolve({
-        id: "m1",
-        threadId: "t1",
-        role: "user",
-        createdAt: 123,
-      }),
-    ).toEqual({ label: "Yesterday" });
-    expect(resolve).toHaveBeenCalledWith({
-      id: "m1",
-      threadId: "t1",
-      role: "user",
-      createdAt: 123,
-    });
-    expect(captured.messageActions[0]?.experimental_roles).toEqual(["user"]);
+    expect(captured.messageActions[0]?.experimental_placements).toEqual([
+      "selection",
+    ]);
+
+    await expect(
+      loadPluginApp(
+        definePluginApp((builder) => {
+          builder.slots.experimental_messageMetadata({
+            id: "bad-placement",
+            placement: "outside" as never,
+            component,
+          });
+        }),
+      ),
+    ).rejects.toThrow('"placement" must be "above" or "below"');
 
     for (const roles of [[], ["other"]]) {
       await expect(
@@ -1440,7 +1442,7 @@ describe("loadPluginApp", () => {
             builder.slots.experimental_messageMetadata({
               id: "bad",
               roles: roles as never,
-              resolve,
+              component,
             });
           }),
         ),
@@ -1458,21 +1460,35 @@ describe("loadPluginApp", () => {
         ),
       ).rejects.toThrow('"experimental_roles" must be a non-empty array');
     }
+    for (const placements of [[], ["other"], "selection"]) {
+      await expect(
+        loadPluginApp(
+          definePluginApp((builder) => {
+            builder.slots.messageAction({
+              id: "bad",
+              title: "Bad",
+              experimental_placements: placements as never,
+              run: () => {},
+            });
+          }),
+        ),
+      ).rejects.toThrow('"experimental_placements" must be a non-empty array');
+    }
     await expect(
       loadPluginApp(
         definePluginApp((builder) => {
           builder.slots.experimental_messageMetadata({
             id: "bad",
-            resolve: undefined as never,
+            component: undefined as never,
           });
         }),
       ),
-    ).rejects.toThrow('"resolve" must be a function');
+    ).rejects.toThrow('"component" must be a React component');
     await expect(
       loadPluginApp(
         definePluginApp((builder) => {
-          builder.slots.experimental_messageMetadata({ id: "dup", resolve });
-          builder.slots.experimental_messageMetadata({ id: "dup", resolve });
+          builder.slots.experimental_messageMetadata({ id: "dup", component });
+          builder.slots.experimental_messageMetadata({ id: "dup", component });
         }),
       ),
     ).rejects.toThrow('slots.experimental_messageMetadata: duplicate id "dup"');
