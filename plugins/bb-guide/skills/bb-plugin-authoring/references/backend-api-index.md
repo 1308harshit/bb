@@ -19,6 +19,8 @@ Read the installed declarations for exact current signatures.
 - `ComposerCustomization`
 - `ComposerPlusMenuItem`
 - `ComposerSendMenuItem`
+- `ComposerTypeaheadApi`
+- `ComposerTypeaheadRegistration`
 - `ComposerRichTextSpec`
 - `ComposerDraft`
 - `ComposerMention`

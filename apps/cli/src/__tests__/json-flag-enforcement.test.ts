@@ -7,6 +7,7 @@ import { registerProviderCommands } from "../commands/provider.js";
 import { registerMachineCommands } from "../commands/machine.js";
 import { registerServerCommands } from "../commands/server.js";
 import { registerThreadCommands } from "../commands/thread/index.js";
+import { registerHistoryCommands } from "../commands/history.js";
 const EXCLUDED_COMMANDS = new Set<string>();
 
 function collectLeafCommands(
@@ -37,6 +38,7 @@ describe("CLI --json flag enforcement", () => {
     registerMachineCommands(program, getUrl);
     registerServerCommands(program, getUrl);
     registerThreadCommands(program, getUrl);
+    registerHistoryCommands(program, getUrl);
 
     const commands = collectLeafCommands(program);
     const missing: string[] = [];

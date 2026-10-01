@@ -191,6 +191,25 @@ describe("bb project command output", () => {
     expect(get).toHaveBeenCalledWith({ query: {} });
   });
 
+  it("searches project prompt history when --query is present", async () => {
+    const search = vi.fn(async () => []);
+    stubServerApi({ "v1.prompt-history.search.$get": search });
+
+    await runCommand(
+      ["project", "history", "proj-1", "--query", "auth flow", "--limit", "12"],
+      register,
+    );
+
+    expect(search).toHaveBeenCalledWith({
+      query: {
+        scope: "project",
+        projectId: "proj-1",
+        query: "auth flow",
+        limit: "12",
+      },
+    });
+  });
+
   it("bb project list can include the personal project", async () => {
     const projects = [{ id: "proj_personal", name: "Personal" }];
     const get = vi.fn(async () => projects);

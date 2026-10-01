@@ -1,9 +1,11 @@
 import {
   createPromptHistoryEntry,
+  listPromptHistoryCandidates,
   listQueuedThreadMessages,
   listStoredProjectPromptHistoryRows,
   listStoredThreadPromptHistoryRows,
   type DbQueryConnection,
+  type ListPromptHistoryCandidatesArgs,
   type QueuedThreadMessageRow,
   type StoredPromptHistoryEntryRow,
 } from "@bb/db";
@@ -11,6 +13,7 @@ import {
   promptInputSchema,
   takeVisiblePromptHistoryEntries,
   type PromptHistoryEntry,
+  type PromptHistorySearchEntry,
   type PromptHistoryScope,
   type Thread,
   type ThreadTurnInitiator,
@@ -212,6 +215,39 @@ export function listThreadPromptHistory(
     acceptedEntries,
     args.limit,
   );
+}
+
+export function searchPromptHistory(
+  deps: PromptHistoryServiceDeps,
+  args: ListPromptHistoryCandidatesArgs,
+): PromptHistorySearchEntry[] {
+  const entries: PromptHistorySearchEntry[] = [];
+  const seenInputs = new Set<string>();
+  for (const row of listPromptHistoryCandidates(deps.db, args)) {
+    try {
+      const input = parseStoredPromptHistoryInput(row).filter(
+        (item) => item.visibility !== "agent-only",
+      );
+      if (input.length === 0) {
+        continue;
+      }
+      const inputKey = JSON.stringify(input);
+      if (seenInputs.has(inputKey)) {
+        continue;
+      }
+      seenInputs.add(inputKey);
+      entries.push({
+        id: row.id,
+        createdAt: row.createdAt,
+        input,
+        projectId: row.projectId,
+        threadId: row.threadId,
+      });
+    } catch {
+      continue;
+    }
+  }
+  return entries;
 }
 
 export function recordAcceptedPromptHistoryEntry(

@@ -42,6 +42,7 @@ interface SearchOptions extends JsonOptions {
 
 interface HistoryOptions extends JsonOptions {
   limit?: string;
+  query?: string;
 }
 
 interface QueueListOptions extends JsonOptions {
@@ -254,13 +255,21 @@ export function registerOrganizationCommands(
     .command("history <id>")
     .description("List a thread's prompt history")
     .option("--limit <count>", "Maximum history entries")
+    .option("--query <query>", "Search prompt history in this thread")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: HistoryOptions) => {
-        const result = await createCliBbSdk(getUrl()).threads.promptHistory({
-          threadId: id,
-          limit: parsePositiveInteger(opts.limit, "--limit"),
-        });
+        const limit = parsePositiveInteger(opts.limit, "--limit");
+        const sdk = createCliBbSdk(getUrl());
+        const result =
+          opts.query === undefined
+            ? await sdk.threads.promptHistory({ threadId: id, limit })
+            : await sdk.promptHistory.search({
+                scope: "thread",
+                threadId: id,
+                query: opts.query,
+                limit,
+              });
         if (outputJson(opts, result)) return;
         printHumanJson(result);
       }),

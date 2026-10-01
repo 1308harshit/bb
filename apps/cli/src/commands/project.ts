@@ -37,6 +37,7 @@ interface ProjectShowCommandOptions {
 interface ProjectHistoryCommandOptions {
   json?: boolean;
   limit?: string;
+  query?: string;
 }
 
 interface ProjectReorderCommandOptions {
@@ -345,16 +346,26 @@ export function registerProjectCommands(
     .command("history <id>")
     .description("List a project's prompt history")
     .option("--limit <count>", "Maximum history entries")
+    .option("--query <query>", "Search prompt history in this project")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: ProjectHistoryCommandOptions) => {
         if (opts.limit !== undefined && !/^\d+$/u.test(opts.limit)) {
           throw new Error("--limit must be a positive integer.");
         }
-        const result = await createCliBbSdk(getUrl()).projects.promptHistory({
-          projectId: id,
-          ...(opts.limit ? { limit: opts.limit } : {}),
-        });
+        const sdk = createCliBbSdk(getUrl());
+        const result =
+          opts.query === undefined
+            ? await sdk.projects.promptHistory({
+                projectId: id,
+                ...(opts.limit ? { limit: opts.limit } : {}),
+              })
+            : await sdk.promptHistory.search({
+                scope: "project",
+                projectId: id,
+                query: opts.query,
+                ...(opts.limit ? { limit: opts.limit } : {}),
+              });
         if (outputJson(opts, result)) return;
         console.log(JSON.stringify(result, null, 2));
       }),
