@@ -1,7 +1,7 @@
 import type { TimelineConversationAttachments } from "@bb/server-contract";
 import type { ThreadTimelinePluginMessageAction } from "@/components/thread/timeline/types";
 import type { PromptMentionResource, PromptTextMention } from "@bb/domain";
-import type { TimelineTitleLink } from "@bb/thread-view";
+import type { ThreadLinkTarget } from "@/components/thread/timeline/TimelineTitleView";
 import { renderTemplate } from "@bb/templates";
 import type { ReactNode } from "react";
 import { ConversationMessageContent } from "@/components/thread/timeline/ConversationMessageContent";
@@ -39,11 +39,8 @@ function TimelineStage({
 
 const resolveImageSrc = (path: string) => path;
 
-function resolveThreadLink(link: TimelineTitleLink): string | null {
-  switch (link.kind) {
-    case "thread":
-      return `/projects/proj_demo/threads/${link.threadId}`;
-  }
+function resolveThreadLink(target: ThreadLinkTarget): string | null {
+  return `/projects/proj_demo/threads/${target.threadId}`;
 }
 
 const acceptedMessage = {

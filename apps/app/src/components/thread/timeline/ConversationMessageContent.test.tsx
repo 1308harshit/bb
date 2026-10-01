@@ -407,10 +407,8 @@ describe("ConversationMessageContent user thread mentions", () => {
               originKind={null}
               initiator="user"
               mentions={[]}
-              resolveSegmentLinkHref={(link) =>
-                link.kind === "thread"
-                  ? `/projects/proj_current/threads/${link.threadId}`
-                  : null
+              resolveSegmentLinkHref={(target) =>
+                `/projects/proj_current/threads/${target.threadId}`
               }
               senderThreadId={null}
               senderThreadTitle={null}

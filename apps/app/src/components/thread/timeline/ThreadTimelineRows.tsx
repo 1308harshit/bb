@@ -122,6 +122,7 @@ import {
 } from "./timeline-row-containment.js";
 import { NESTED_TIMELINE_GROUP_LINE_CLASS_NAME } from "./timeline-nested-group-line.js";
 import { getThreadRoutePath } from "@/lib/route-paths";
+import { useThreadTitleMentionResources } from "@/components/thread/ThreadTitleMentions";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import { useThreadTimelineTurnSummaryDetails } from "@/hooks/queries/thread-queries";
 import { type ThreadTimelineTurnSummaryDetailsQueryIdentity } from "@/hooks/queries/query-keys";
@@ -2024,13 +2025,26 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     () => buildMessageDirectiveRegistry(messageDirectiveSlots),
     [messageDirectiveSlots],
   );
+  const { threadById: mentionThreadById } = useThreadTitleMentionResources();
   const resolveSegmentLinkHref = useMemo<TimelineTitleLinkResolver>(() => {
-    return (link) => {
-      return projectId !== undefined
-        ? getThreadRoutePath({ projectId, threadId: link.threadId })
-        : null;
+    return (target) => {
+      const targetProjectId =
+        mentionThreadById.get(target.threadId)?.projectId ?? projectId;
+      if (targetProjectId === undefined) {
+        return null;
+      }
+      return target.messageSeq === null
+        ? getThreadRoutePath({
+            projectId: targetProjectId,
+            threadId: target.threadId,
+          })
+        : getMessageLinkPath({
+            projectId: targetProjectId,
+            threadId: target.threadId,
+            seq: target.messageSeq,
+          });
     };
-  }, [projectId]);
+  }, [mentionThreadById, projectId]);
   const onSelectionAddToChat = props.onSelectionAddToChat;
   const timelineThreadId = props.threadId;
   const hasPluginSelectionActions =
