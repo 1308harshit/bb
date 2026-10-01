@@ -1,7 +1,7 @@
 import bundledCatalog from "../../../server/src/generated/bb-official-marketplace/marketplace.json";
 
 import {
-  parseMarketplaceV2Manifest,
+  parseBundledMarketplaceManifest,
   type MarketplaceV2Entry,
   type MarketplaceV2Manifest,
 } from "./marketplace-v2.js";
@@ -124,6 +124,6 @@ export function withBundledPlugins(
 let parsedBundledMarketplace: MarketplaceV2Manifest | undefined;
 
 export function bundledMarketplace(): MarketplaceV2Manifest {
-  parsedBundledMarketplace ??= parseMarketplaceV2Manifest(bundledCatalog);
+  parsedBundledMarketplace ??= parseBundledMarketplaceManifest(bundledCatalog);
   return parsedBundledMarketplace;
 }

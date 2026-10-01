@@ -220,9 +220,9 @@ function PluginArtwork({
     );
   }
   const url = marketplaceAssetUrl(entry.icon.url);
-  const isSvg = new URL(url, "https://getbb.app").pathname
-    .toLowerCase()
-    .endsWith(".svg");
+  const isSvg =
+    url.startsWith("data:image/svg+xml") ||
+    new URL(url, "https://getbb.app").pathname.toLowerCase().endsWith(".svg");
   return (
     <span className={className} aria-hidden>
       {isSvg ? (
