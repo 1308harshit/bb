@@ -14,7 +14,6 @@ import { useComposedRefs } from "@radix-ui/react-compose-refs";
 import { TimelineImageGallery } from "./TimelineImageGallery";
 import type {
   PromptInput,
-  ThreadOriginKind,
   ThreadRuntimeDisplayStatus,
 } from "@bb/domain";
 import type {
@@ -54,7 +53,6 @@ import type {
   ThreadTimelineEditMessageHandler,
   ThreadTimelineInlineMessageEditor,
   ThreadTimelineForkMessageHandler,
-  ThreadTimelineSendToMainMessageHandler,
   ThreadTimelineLinkHandler,
   ThreadTimelineLocalFileLinkHandler,
   ThreadTimelineOpenPluginPanelHandler,
@@ -153,12 +151,10 @@ import {
 export interface ThreadTimelineRowsProps {
   initialExpanded?: ReadonlySet<string>;
   canSpawnChild?: boolean;
-  threadOriginKind?: ThreadOriginKind | null;
   onForkMessage?: ThreadTimelineForkMessageHandler;
   onEditMessage?: ThreadTimelineEditMessageHandler;
   inlineMessageEditor?: ThreadTimelineInlineMessageEditor;
   onMessageAddToChat?: ThreadTimelineAddToChatHandler;
-  onSendToMainMessage?: ThreadTimelineSendToMainMessageHandler;
   onSelectionAddToChat?: ThreadTimelineAddToChatHandler;
   consumerMessageActions?: readonly ThreadTimelineConsumerMessageAction[];
   includePluginMessageActions?: boolean;
@@ -189,7 +185,6 @@ interface TimelineRendererStaticContextValue {
   onEditMessage: ThreadTimelineEditMessageHandler | undefined;
   inlineMessageEditor: ThreadTimelineInlineMessageEditor | undefined;
   onMessageAddToChat: ThreadTimelineAddToChatHandler | undefined;
-  onSendToMainMessage: ThreadTimelineSendToMainMessageHandler | undefined;
   onSelectionAddToChat: ThreadTimelineAddToChatHandler | undefined;
   pluginMessageActions: readonly PluginMessageActionSlot[];
   pluginMessageMetadata: readonly PluginMessageMetadataSlot[];
@@ -201,7 +196,6 @@ interface TimelineRendererStaticContextValue {
         message: ThreadChatMessageReference,
       ) => void)
     | undefined;
-  threadOriginKind: ThreadOriginKind | null;
   onOpenLink: ThreadTimelineLinkHandler | undefined;
   onOpenLocalFileLink: ThreadTimelineLocalFileLinkHandler | undefined;
   onOpenPluginPanel: ThreadTimelineOpenPluginPanelHandler | undefined;
@@ -630,15 +624,6 @@ function timelineRowsListGapClassName(
   }
 }
 
-function isForkSeedAnchorRow(row: TimelineConversationViewRow): boolean {
-  return (
-    row.role === "user" &&
-    row.initiator === "agent" &&
-    row.senderThreadId !== null &&
-    row.turnId === null
-  );
-}
-
 function findLastActionableAssistantMessageId(
   rows: readonly ThreadTimelineViewRow[],
 ): string | null {
@@ -879,13 +864,11 @@ const ConversationRowContent = memo(function ConversationRowContent({
     onEditMessage,
     onForkMessage,
     onMessageAddToChat,
-    onSendToMainMessage,
     onSelectionAddToChat,
     pluginMessageActions,
     pluginMessageMetadata,
     consumerMessageActions,
     reportProseSelection,
-    threadOriginKind,
     onOpenLink,
     onOpenLocalFileLink,
     onOpenPluginPanel,
@@ -936,7 +919,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
       row.senderThreadId === null
         ? null
         : (senderThreadMetadataById.get(row.senderThreadId) ?? null);
-    const originKind = isForkSeedAnchorRow(row) ? threadOriginKind : null;
     const canEditMessage =
       onEditMessage !== undefined &&
       row.initiator === "user" &&
@@ -981,7 +963,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
         />
         <ConversationMessageContent
           attachments={row.attachments}
-          originKind={originKind}
           initiator={row.initiator}
           mentions={row.mentions}
           mobileActionDisplay={mobileActionDisplay}
@@ -1026,10 +1007,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
     onForkMessage === undefined
       ? undefined
       : () => onForkMessage({ sourceSeqEnd: row.sourceSeqEnd });
-  const onSendToMain =
-    onSendToMainMessage === undefined
-      ? undefined
-      : () => onSendToMainMessage({ messageText: row.text });
   const onSelectProse =
     reportProseSelection === undefined
       ? undefined
@@ -1057,7 +1034,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
         id={row.id}
         onAddToChat={onMessageAddToChat}
         onFork={onFork}
-        onSendToMain={onSendToMain}
         forkDisabled={!canSpawnChild}
         onSelectProse={onSelectProse}
         onOpenLink={onOpenLink}
@@ -2161,7 +2137,6 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       onEditMessage: props.onEditMessage,
       inlineMessageEditor: props.inlineMessageEditor,
       onMessageAddToChat: props.onMessageAddToChat,
-      onSendToMainMessage: props.onSendToMainMessage,
       onSelectionAddToChat: selectionAddToChatHandler,
       pluginMessageActions:
         timelineThreadId === undefined ||
@@ -2172,7 +2147,6 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       consumerMessageActions:
         props.consumerMessageActions ?? EMPTY_CONSUMER_MESSAGE_ACTIONS,
       reportProseSelection,
-      threadOriginKind: props.threadOriginKind ?? null,
       onOpenLink: props.onOpenLink,
       onOpenLocalFileLink: props.onOpenLocalFileLink,
       onOpenPluginPanel: props.onOpenPluginPanel,
@@ -2192,14 +2166,12 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       props.onEditMessage,
       props.inlineMessageEditor,
       props.onMessageAddToChat,
-      props.onSendToMainMessage,
       selectionAddToChatHandler,
       messageActionSlots,
       messageMetadataSlots,
       props.includePluginMessageActions,
       props.consumerMessageActions,
       reportProseSelection,
-      props.threadOriginKind,
       timelineThreadId,
       props.onOpenLink,
       props.onOpenLocalFileLink,

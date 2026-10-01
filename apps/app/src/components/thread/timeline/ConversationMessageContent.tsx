@@ -4,7 +4,7 @@ import type {
   TimelineRowBase,
   TimelineUserConversationRow,
 } from "@bb/server-contract";
-import type { PromptTextMention, ThreadOriginKind } from "@bb/domain";
+import type { PromptTextMention } from "@bb/domain";
 import { fileNameFromPath } from "@bb/thread-view";
 import { cn } from "@bb/shared-ui/lib/utils";
 import {
@@ -87,7 +87,6 @@ interface ConversationMessageContentBaseProps {
 interface ConversationMessageContentUserProps extends ConversationMessageContentBaseProps {
   role: "user";
   mobileActionDisplay?: "inline" | "overflow";
-  originKind: ThreadOriginKind | null;
   initiator: TimelineUserConversationRow["initiator"];
   mentions: readonly PromptTextMention[];
   onAddToChat?: ThreadTimelineAddToChatHandler;
@@ -133,7 +132,6 @@ interface ConversationMessageContentAssistantProps
   onOpenLink?: ThreadTimelineLinkHandler;
   onAddToChat?: ThreadTimelineAddToChatHandler;
   onFork?: () => void;
-  onSendToMain?: () => void;
   forkDisabled?: boolean;
   onSelectProse?: (selection: MessageProseSelection | null) => void;
   showActions: boolean;
@@ -149,7 +147,6 @@ type ConversationMessageContentProps =
 interface UserConversationMessageProps {
   addToChatAttachments: readonly PromptDraftAttachment[];
   attachmentItems: ConversationAttachmentItems;
-  originKind: ThreadOriginKind | null;
   pluginActions?: readonly ThreadTimelinePluginMessageAction[];
   initiator: TimelineUserConversationRow["initiator"];
   mentions: readonly PromptTextMention[];
@@ -180,7 +177,6 @@ interface AssistantConversationMessageProps extends AssistantMessageRowIdentity 
   pluginActions?: readonly ThreadTimelinePluginMessageAction[];
   onAddToChat?: ThreadTimelineAddToChatHandler;
   onFork?: () => void;
-  onSendToMain?: () => void;
   forkDisabled?: boolean;
   onSelectProse?: (selection: MessageProseSelection | null) => void;
   onOpenLink?: ThreadTimelineLinkHandler;
@@ -316,13 +312,11 @@ function buildAddToChatAttachments(
       type: "localImage" as const,
       path,
       name: fileNameFromPath(path),
-      sizeBytes: 0,
     })),
     ...attachments.localFilePaths.map((path) => ({
       type: "localFile" as const,
       path,
       name: fileNameFromPath(path),
-      sizeBytes: 0,
     })),
   ];
 }
@@ -330,7 +324,6 @@ function buildAddToChatAttachments(
 function UserConversationMessage({
   addToChatAttachments,
   attachmentItems,
-  originKind,
   initiator,
   mentions,
   mobileActionDisplay,
@@ -374,7 +367,6 @@ function UserConversationMessage({
           sourceProjectId: senderThreadProjectId,
           sourceThreadId: senderThreadId,
           sourceIsPluginSideChat: senderIsPluginSideChat,
-          originKind,
         }
       : initiator === "system"
         ? {
@@ -383,7 +375,6 @@ function UserConversationMessage({
             sourceProjectId: null,
             sourceThreadId: null,
             sourceIsPluginSideChat: false,
-            originKind: null,
           }
         : null;
   if (generatedSource !== null) {
@@ -473,7 +464,6 @@ function AssistantConversationMessage({
   id,
   onAddToChat,
   onFork,
-  onSendToMain,
   forkDisabled,
   onSelectProse,
   onOpenLink,
@@ -614,7 +604,6 @@ function AssistantConversationMessage({
           copyImageUrl={attachmentItems.imageItems[0]?.src}
           onAddToChat={onAddToChat}
           onFork={onFork}
-          onSendToMain={onSendToMain}
           disabled={forkDisabled}
           pluginActions={pluginActions}
         />
@@ -653,7 +642,6 @@ export function ConversationMessageContent(
       <UserConversationMessage
         addToChatAttachments={addToChatAttachments}
         attachmentItems={attachmentItems}
-        originKind={props.originKind}
         pluginActions={props.pluginActions}
         initiator={props.initiator}
         mentions={props.mentions}
@@ -688,7 +676,6 @@ export function ConversationMessageContent(
       pluginActions={props.pluginActions}
       onAddToChat={props.onAddToChat}
       onFork={props.onFork}
-      onSendToMain={props.onSendToMain}
       forkDisabled={props.forkDisabled}
       onSelectProse={props.onSelectProse}
       onOpenLink={props.onOpenLink}

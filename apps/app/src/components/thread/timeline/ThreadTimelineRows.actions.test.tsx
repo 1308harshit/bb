@@ -517,24 +517,6 @@ describe("ThreadTimelineRows actions", () => {
     ).toBeNull();
   });
 
-  it("renders send-to-main on assistant rows when the timeline supplies a handler", () => {
-    const markup = toMarkup(
-      <ThreadTimelineRows
-        timelineRows={[
-          conversationRow({
-            role: "assistant",
-            text: "Use this answer in the main chat.",
-          }),
-        ]}
-        threadRuntimeDisplayStatus="idle"
-        onSendToMainMessage={() => undefined}
-        workspaceRootPath={undefined}
-      />,
-    );
-
-    expect(markup).toContain('aria-label="Send to main thread"');
-  });
-
   it("hides assistant message actions inside completed turn summaries", () => {
     const markup = toMarkup(
       <ThreadTimelineRows
@@ -682,13 +664,11 @@ describe("ThreadTimelineRows actions", () => {
           type: "localImage",
           path: "uploads/screenshot.png",
           name: "screenshot.png",
-          sizeBytes: 0,
         },
         {
           type: "localFile",
           path: "uploads/spec.md",
           name: "spec.md",
-          sizeBytes: 0,
         },
       ],
     );
@@ -748,13 +728,11 @@ describe("ThreadTimelineRows actions", () => {
           type: "localImage",
           path: "uploads/screenshot.png",
           name: "screenshot.png",
-          sizeBytes: 0,
         },
         {
           type: "localFile",
           path: "uploads/spec.md",
           name: "spec.md",
-          sizeBytes: 0,
         },
       ],
     );
@@ -790,7 +768,6 @@ describe("ThreadTimelineRows actions", () => {
         type: "localFile",
         path: "uploads/spec.md",
         name: "spec.md",
-        sizeBytes: 0,
       },
     ]);
   });

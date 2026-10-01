@@ -156,7 +156,6 @@ export function Overview() {
             <ConversationMessageContent
               role="user"
               initiator="system"
-              originKind={null}
               senderThreadId={null}
               senderThreadTitle={null}
               senderIsPluginSideChat={false}
@@ -180,7 +179,6 @@ export function Overview() {
           <ConversationMessageContent
             role="user"
             initiator="agent"
-            originKind={null}
             senderThreadId="thr_worker2"
             senderThreadTitle="Worker 2"
             senderIsPluginSideChat={false}
@@ -203,7 +201,6 @@ export function Overview() {
           <ConversationMessageContent
             role="user"
             initiator="system"
-            originKind={null}
             senderThreadId={null}
             senderThreadTitle={null}
             senderIsPluginSideChat={false}
@@ -233,7 +230,6 @@ export function ClippedAgentMessage() {
           <ConversationMessageContent
             role="user"
             initiator="agent"
-            originKind={null}
             senderThreadId="thr_host_hermes"
             senderThreadTitle="Host Hermes on Flue"
             senderIsPluginSideChat={false}

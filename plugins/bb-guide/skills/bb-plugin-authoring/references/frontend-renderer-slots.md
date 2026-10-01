@@ -82,8 +82,8 @@ openWorkspaceFile }` — register a leaf
   unmount. Metadata unmounts outside the realized window. Plugins own date
   refreshes; there is no host midnight timer or text-length limit.
 
-- `messageAction` → an action on chat messages: an icon button in the
-  per-message action bar (user and assistant messages) and an entry in the
+- `messageAction` → an action on chat messages: by default an icon button in
+  the per-message action bar (user and assistant messages) and an entry in the
   assistant-message text-selection menu. Host-rendered chrome, no plugin
   component — registration: `{ id, title, icon?, experimental_roles?, experimental_placements?, run }`.
   `experimental_placements` is a nonempty array of `"message"` and/or

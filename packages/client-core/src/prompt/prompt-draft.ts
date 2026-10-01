@@ -3,13 +3,14 @@ import {
   type PromptInput,
   type PromptTextMention,
 } from "@bb/domain";
-import {
-  uploadedPromptAttachmentSchema,
-  type UploadedPromptAttachment,
-} from "@bb/server-contract";
+import { uploadedPromptAttachmentSchema } from "@bb/server-contract";
 import { z } from "zod";
 
-export type PromptDraftAttachment = UploadedPromptAttachment;
+const promptDraftAttachmentSchema = uploadedPromptAttachmentSchema.extend({
+  sizeBytes: z.number().nonnegative().optional(),
+});
+
+export type PromptDraftAttachment = z.infer<typeof promptDraftAttachmentSchema>;
 
 export interface PromptDraftState {
   text: string;
@@ -33,8 +34,14 @@ const promptDraftStorageSchema = z.object({
     .default([])
     .transform((items) =>
       items.flatMap((item) => {
-        const result = uploadedPromptAttachmentSchema.safeParse(item);
-        return result.success ? [result.data] : [];
+        const result = promptDraftAttachmentSchema.safeParse(item);
+        if (!result.success) return [];
+        const { sizeBytes, ...attachment } = result.data;
+        return [
+          sizeBytes === undefined || sizeBytes === 0
+            ? attachment
+            : { ...attachment, sizeBytes },
+        ];
       }),
     ),
 });
@@ -227,7 +234,9 @@ export function promptDraftToInput(draft: PromptDraftState): PromptInput[] {
       type: "localFile",
       path: attachment.path,
       name: attachment.name,
-      ...(attachment.sizeBytes > 0 ? { sizeBytes: attachment.sizeBytes } : {}),
+      ...(attachment.sizeBytes === undefined
+        ? {}
+        : { sizeBytes: attachment.sizeBytes }),
       ...(attachment.mimeType ? { mimeType: attachment.mimeType } : {}),
     });
   }
@@ -273,7 +282,6 @@ export function promptInputToDraft(
         type: "localImage",
         path: chunk.path,
         name: getFileNameFromPath(chunk.path),
-        sizeBytes: 0,
       });
       continue;
     }
@@ -283,7 +291,9 @@ export function promptInputToDraft(
         type: "localFile",
         path: chunk.path,
         name: chunk.name ?? getFileNameFromPath(chunk.path),
-        sizeBytes: chunk.sizeBytes ?? 0,
+        ...(chunk.sizeBytes === undefined
+          ? {}
+          : { sizeBytes: chunk.sizeBytes }),
         ...(chunk.mimeType ? { mimeType: chunk.mimeType } : {}),
       });
     }

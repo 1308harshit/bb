@@ -20,6 +20,29 @@ describe("prompt draft helpers", () => {
     });
   });
 
+  it("treats a stored zero attachment size as unknown", () => {
+    const parsed = parsePromptDraftStorage(
+      JSON.stringify({
+        text: "",
+        attachments: [
+          {
+            type: "localFile",
+            path: "/tmp/spec.md",
+            name: "spec.md",
+            sizeBytes: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(parsed.attachments).toEqual([
+      { type: "localFile", path: "/tmp/spec.md", name: "spec.md" },
+    ]);
+    expect(promptDraftToInput(parsed)).toEqual([
+      { type: "localFile", path: "/tmp/spec.md", name: "spec.md" },
+    ]);
+  });
+
   it("parses structured drafts with attachments", () => {
     const parsed = parsePromptDraftStorage(
       JSON.stringify({
@@ -105,7 +128,7 @@ describe("prompt draft helpers", () => {
     ]);
   });
 
-  it("omits zero-size localFile size when mapping draft attachments to prompt input", () => {
+  it("omits unknown localFile size when mapping draft attachments to prompt input", () => {
     const input = promptDraftToInput({
       text: "",
       mentions: [],
@@ -114,7 +137,6 @@ describe("prompt draft helpers", () => {
           type: "localFile",
           path: "uploads/spec.md",
           name: "spec.md",
-          sizeBytes: 0,
         },
       ],
     });
@@ -190,7 +212,6 @@ describe("prompt draft helpers", () => {
           type: "localImage",
           path: "/tmp/screenshot.png",
           name: "screenshot.png",
-          sizeBytes: 0,
         },
         {
           type: "localFile",

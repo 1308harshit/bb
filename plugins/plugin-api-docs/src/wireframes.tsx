@@ -629,9 +629,6 @@ const MESSAGE_ACTION_RENDERERS: Record<string, () => ReactNode> = {
   "add-to-chat": () => (
     <MiniIcon icon="MessageSquarePlus" className="size-3.5" />
   ),
-  "send-to-main-thread": () => (
-    <MiniIcon icon="ArrowTurnBackward" className="size-3.5" />
-  ),
   fork: () => <MiniIcon icon="Fork" className="size-3.5" />,
   "plugin-actions": () => <PluginGlyph className="size-3.5" />,
 };

@@ -318,38 +318,6 @@ describe("MessageActionBar", () => {
     expect(screen.getByRole("button", { name: "Copy message" })).toBeTruthy();
   });
 
-  it("omits the send-to-main action when no handler is supplied", () => {
-    render(
-      <MessageActionBar
-        messageText="An answer."
-        alignment="start"
-        mobileActionDisplay="overflow"
-      />,
-    );
-
-    expect(
-      screen.queryByRole("button", { name: "Send to main thread" }),
-    ).toBeNull();
-  });
-
-  it("send-to-main is not gated by the fork/side-chat depth `disabled` flag", () => {
-    const onSendToMain = vi.fn();
-    render(
-      <MessageActionBar
-        messageText="An answer."
-        alignment="start"
-        mobileActionDisplay="overflow"
-        onSendToMain={onSendToMain}
-        disabled
-      />,
-    );
-
-    const button = screen.getByRole("button", { name: "Send to main thread" });
-    expect(button.hasAttribute("disabled")).toBe(false);
-    fireEvent.click(button);
-    expect(onSendToMain).toHaveBeenCalledTimes(1);
-  });
-
   it("uses an anchored popover instead of a bottom drawer on mobile", () => {
     mockMobileCoarsePointer();
     const onAddToChat = vi.fn();

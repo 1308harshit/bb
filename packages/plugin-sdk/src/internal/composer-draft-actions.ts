@@ -53,7 +53,7 @@ const attachmentsSchema = z.array(
     path: z.string().min(1),
     name: z.string(),
     mimeType: z.string().optional(),
-    sizeBytes: z.number().nonnegative(),
+    sizeBytes: z.number().nonnegative().optional(),
   }),
 );
 const replacementSchema = z

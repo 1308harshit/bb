@@ -245,7 +245,6 @@ describe("docs anatomy manifest", () => {
           onAddToChat={() => {}}
           onEdit={() => {}}
           onFork={() => {}}
-          onSendToMain={() => {}}
           pluginActions={[
             {
               key: "anatomy-plugin-action",
@@ -263,7 +262,6 @@ describe("docs anatomy manifest", () => {
       copy: "Copy message",
       edit: "Edit message",
       "add-to-chat": "Add to chat",
-      "send-to-main-thread": "Send to main thread",
       fork: "Fork into new thread",
       "plugin-actions": "Anatomy message action",
     };

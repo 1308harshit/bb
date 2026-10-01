@@ -536,7 +536,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -564,7 +563,6 @@ export function Overview() {
           <TimelineStage>
             <ConversationMessageContent
               role="user"
-              originKind={null}
               initiator="user"
               senderThreadId={null}
               senderThreadTitle={null}
@@ -586,7 +584,6 @@ export function Overview() {
         <TimelineStage>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -605,7 +602,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -627,7 +623,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -650,7 +645,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -672,7 +666,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -694,7 +687,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -713,7 +705,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -736,7 +727,6 @@ export function Overview() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -766,7 +756,6 @@ export function Overview() {
         <TimelineStage>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="agent"
             resolveSegmentLinkHref={resolveThreadLink}
             senderThreadId="thr_ux3h8sxg65"
@@ -784,12 +773,11 @@ export function Overview() {
       </StoryRow>
       <StoryRow
         label="from a side chat"
-        hint='a message handed back from a side chat reads "Replying to side chat"'
+        hint='a message handed back from a side chat reads "Message from side chat"'
       >
         <TimelineStage>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="agent"
             resolveSegmentLinkHref={resolveThreadLink}
             onTitleAction={() => () => undefined}
@@ -813,7 +801,6 @@ export function Overview() {
         <div className="flex w-full max-w-[760px] flex-col gap-3">
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="agent"
             resolveSegmentLinkHref={resolveThreadLink}
             senderThreadId="thr_h4u3fgr6be"
@@ -829,7 +816,6 @@ export function Overview() {
           />
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="system"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -851,7 +837,6 @@ export function Overview() {
         <TimelineStage>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="system"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -873,7 +858,6 @@ export function Overview() {
         <TimelineStage>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="system"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -895,7 +879,6 @@ export function Overview() {
         <TimelineStage>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="system"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -950,7 +933,6 @@ export function ActionOverflow() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -971,7 +953,6 @@ export function ActionOverflow() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -994,7 +975,6 @@ export function ActionOverflow() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -1018,7 +998,6 @@ export function ActionOverflow() {
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
             role="user"
-            originKind={null}
             initiator="user"
             senderThreadId={null}
             senderThreadTitle={null}
@@ -1050,7 +1029,6 @@ export function ParentChildSystemMessages() {
               initiator="system"
               senderThreadId={null}
               senderThreadTitle={null}
-              originKind={null}
               senderIsPluginSideChat={false}
               resolveSegmentLinkHref={resolveThreadLink}
               systemMessageKind="unlabeled"
