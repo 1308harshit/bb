@@ -2647,6 +2647,61 @@ describe("createRealtimeCacheEffects", () => {
     effects.dispose();
   });
 
+  it("marks only the timeline and loaded turn details stale when an unviewed thread's history is compacted", async () => {
+    vi.useFakeTimers();
+    const { effects, queryClient } = createRealtimeEffectsTestContext();
+    const timelineKey = threadTimelineQueryKey("thr_1");
+    const outlineKey = threadConversationOutlineQueryKey("thr_1");
+    const turnDetailsKey = threadTimelineTurnSummaryDetailsQueryKey({
+      threadId: "thr_1",
+      turnId: "turn_1",
+      sourceSeqStart: 1,
+      sourceSeqEnd: 2,
+    });
+    const threadKey = threadQueryKey("thr_1");
+    const sidebarNavigationKey = sidebarNavigationQueryKey();
+    const threadSearchKey = threadSearchQueryKey({
+      limitPerGroup: 20,
+      query: "needle",
+    });
+    const promptHistoryKey = threadPromptHistoryQueryKey("thr_1");
+    queryClient.setQueryData(timelineKey, { rows: [] });
+    queryClient.setQueryData(outlineKey, { items: [] });
+    queryClient.setQueryData(turnDetailsKey, { rows: [] });
+    queryClient.setQueryData(threadKey, { id: "thr_1" });
+    queryClient.setQueryData(sidebarNavigationKey, {
+      projects: [],
+      personalProject: { threads: [] },
+    });
+    queryClient.setQueryData(threadSearchKey, {
+      active: { results: [], total: 0 },
+      archived: { results: [], total: 0 },
+    });
+    queryClient.setQueryData(promptHistoryKey, []);
+
+    effects.handleChanged({
+      type: "changed",
+      entity: "thread",
+      id: "thr_1",
+      changes: ["history-compacted"],
+    });
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(queryClient.getQueryState(timelineKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(turnDetailsKey)?.isInvalidated).toBe(true);
+    for (const queryKey of [
+      outlineKey,
+      threadKey,
+      sidebarNavigationKey,
+      threadSearchKey,
+      promptHistoryKey,
+    ]) {
+      expect(queryClient.getQueryState(queryKey)?.isInvalidated).toBe(false);
+    }
+
+    effects.dispose();
+  });
+
   it("invalidates cached thread terminals for terminal changes", () => {
     vi.useFakeTimers();
     const { effects, queryClient, terminalKey } =
