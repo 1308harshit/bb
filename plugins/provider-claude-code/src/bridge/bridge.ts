@@ -439,6 +439,27 @@ function applyChromeSetting(
   }
 }
 
+function applyContextWindowSetting(
+  attachment: ThreadAttachment,
+  disabled: boolean | undefined,
+): void {
+  const sessionOptions = attachment.sessionConstructionConfig.sessionOptions;
+  if (disabled === undefined || sessionOptions.disable1MContext === disabled) {
+    return;
+  }
+  sessionOptions.disable1MContext = disabled;
+  attachment.sessionOptions.env = {
+    ...attachment.sessionOptions.env,
+    CLAUDE_CODE_DISABLE_1M_CONTEXT: disabled ? "1" : "0",
+  };
+  if (attachment.residentSession) {
+    attachment.residentSession.restartBeforeNextTurn = {
+      reason: "Claude Code 1M context setting changed",
+      showRuntimeNote: false,
+    };
+  }
+}
+
 function createForwardToolCall(getThreadId: () => string): ToolCallForwarder {
   return (toolName, args) => {
     const threadId = getThreadId();
@@ -856,8 +877,8 @@ function toSessionConstructionConfig(
       additionalWorkspaceWriteRoots: params.additionalWorkspaceWriteRoots,
       baseInstructions: params.baseInstructions,
       chromeEnabled: params.chromeEnabled,
+      disable1MContext: params.disable1MContext,
       cwd: params.cwd,
-      disallowedTools: params.disallowedTools,
       instructionMode: params.instructionMode,
       permissionMode: params.permissionMode,
       permissionScope: params.permissionScope,
@@ -1528,7 +1549,13 @@ function applyTurnEnvironment(
     ...attachment.sessionConstructionConfig,
     config,
   };
-  attachment.sessionOptions.env = buildSessionEnv(envOverrides);
+  attachment.sessionOptions.env = {
+    ...buildSessionEnv(envOverrides),
+    CLAUDE_CODE_DISABLE_1M_CONTEXT: attachment.sessionConstructionConfig
+      .sessionOptions.disable1MContext
+      ? "1"
+      : "0",
+  };
   if (attachment.residentSession) {
     attachment.residentSession.restartBeforeNextTurn = {
       reason:
@@ -2022,7 +2049,10 @@ async function handleRequest(request: ClaudeCodeJsonRpcRequest): Promise<void> {
       sendResult(request.id, await getClaudeProviderUsage());
       break;
     case "provider/installation/status":
-      sendResult(request.id, await getClaudeProviderInstallationStatus());
+      sendResult(
+        request.id,
+        await getClaudeProviderInstallationStatus(request.params.checkUpdates),
+      );
       break;
     case "provider/installation/run":
       sendResult(
@@ -2243,7 +2273,6 @@ function toClaudeSessionParams(
     options: params.options,
     instructionMode: params.instructionMode,
     dynamicTools: params.dynamicTools,
-    disallowedTools: params.disallowedTools,
     skillRoots: configuredSkillRoots ?? undefined,
   });
 }
@@ -2266,6 +2295,7 @@ async function runTurnInput(
       applyTurnEnvironment(attachment, params.config);
     }
     applyChromeSetting(attachment, params.chromeEnabled);
+    applyContextWindowSetting(attachment, params.disable1MContext);
   }
 
   const threadSession = await getWritableThreadSession(params.threadId, intent);

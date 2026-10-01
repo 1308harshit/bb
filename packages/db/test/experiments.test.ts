@@ -17,7 +17,7 @@ describe("experiments", () => {
 
       const experiments = {
         ...defaultExperiments,
-        mobileApp: true,
+        changelogPreview: true,
       };
       setExperiments(db, experiments);
       db.$client
@@ -38,9 +38,7 @@ describe("experiments", () => {
         "changelogPreview",
         "futureExperiment",
         "legacyJitiPluginLoader",
-        "mobileApp",
         "serverMove",
-        "sidebarProgressiveDisclosure",
       ]);
     } finally {
       db.$client.close();

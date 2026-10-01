@@ -33,7 +33,6 @@ export interface SdkSessionOptions {
   hooks?: Options["hooks"];
   mcpServers?: Record<string, McpSdkServerConfigWithInstance>;
   allowedTools?: string[];
-  disallowedTools?: string[];
   canUseTool?: CanUseTool;
   env?: NodeJS.ProcessEnv;
   pathToClaudeCodeExecutable?: Options["pathToClaudeCodeExecutable"];
@@ -258,9 +257,6 @@ export class SdkSession {
       ...(this.options.allowedTools
         ? { allowedTools: this.options.allowedTools }
         : {}),
-      ...(this.options.disallowedTools
-        ? { disallowedTools: this.options.disallowedTools }
-        : {}),
       ...(this.options.canUseTool
         ? { canUseTool: this.options.canUseTool }
         : {}),
@@ -283,7 +279,10 @@ export class SdkSession {
       ...(this.options.plugins ? { plugins: this.options.plugins } : {}),
       ...(this.options.thinking ? { thinking: this.options.thinking } : {}),
       ...(this.options.settings ? { settings: this.options.settings } : {}),
-      ...(this.options.extraArgs ? { extraArgs: this.options.extraArgs } : {}),
+      extraArgs: {
+        ...this.options.extraArgs,
+        "replay-user-messages": null,
+      },
     };
 
     try {
@@ -349,16 +348,17 @@ export class SdkSession {
   async closeGracefully(timeoutMs: number): Promise<void> {
     this.inputDone = true;
     this.rejectQueuedInputs("Claude SDK session closed before input consumed");
-    this.resolveInputDone();
 
-    if (!this.query) {
+    const query = this.query;
+    if (!query) {
+      this.resolveInputDone();
       return;
     }
 
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
-        this.completion,
+        this.interruptAndDrain(query),
         new Promise<void>((_, reject) => {
           timeout = setTimeout(() => {
             reject(
@@ -376,6 +376,12 @@ export class SdkSession {
         clearTimeout(timeout);
       }
     }
+  }
+
+  private async interruptAndDrain(query: Query): Promise<void> {
+    await query.interrupt();
+    this.resolveInputDone();
+    await this.completion;
   }
 
   private createInputIterable(): AsyncIterable<SDKUserMessage> {

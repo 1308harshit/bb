@@ -12,6 +12,7 @@ const EXECUTION_CONTEXT = {
   claudeCodePermissionMode: "plan",
   workflowsEnabled: true,
   chromeEnabled: true,
+  disable1MContext: false,
   memoryEnabled: false,
   providerSubagentsEnabled: false,
   instructions: "Session instructions",
@@ -27,6 +28,7 @@ function toCanonicalWireOptions(options: typeof EXECUTION_CONTEXT) {
     claudeCodePermissionMode,
     workflowsEnabled,
     chromeEnabled,
+    disable1MContext,
     memoryEnabled,
     providerSubagentsEnabled,
     ...core
@@ -37,6 +39,7 @@ function toCanonicalWireOptions(options: typeof EXECUTION_CONTEXT) {
       claudeCodePermissionMode,
       workflowsEnabled,
       chromeEnabled,
+      disable1MContext,
       memoryEnabled,
       providerSubagentsEnabled,
     },
@@ -73,7 +76,6 @@ describe("buildClaudeSessionParams", () => {
       dynamicTools: [
         { name: "tool", description: "desc", inputSchema: { type: "object" } },
       ],
-      disallowedTools: ["WebSearch"],
       options: toCanonicalWireOptions(EXECUTION_CONTEXT),
     });
 
@@ -88,7 +90,6 @@ describe("buildClaudeSessionParams", () => {
       model: "claude-sonnet-5",
       reasoningLevel: "high",
       serviceTier: "default",
-      disallowedTools: ["WebSearch"],
       config: { envVars: { BB_TEST: "1" } },
     });
     expect(params.baseInstructions).toContain("Session instructions");
@@ -106,6 +107,7 @@ describe("buildClaudeSessionParams", () => {
       chromeEnabled: false,
       permissionMode: "bypassPermissions",
       approvedPlanPermissionMode: "bypassPermissions",
+      permissionEscalation: null,
     });
 
     expect(
@@ -229,7 +231,6 @@ describe("claude session option passthrough", () => {
           },
         },
       ],
-      disallowedTools: ["ExitPlanMode", "NotebookEdit", "Task"],
     });
 
     expect(params).toMatchObject({
@@ -254,7 +255,6 @@ describe("claude session option passthrough", () => {
           },
         },
       ],
-      disallowedTools: ["ExitPlanMode", "NotebookEdit", "Task"],
     });
     expect(params).toMatchObject({
       config: {
@@ -265,45 +265,6 @@ describe("claude session option passthrough", () => {
       (params as { config: { envVars: Record<string, string> } }).config
         .envVars,
     ).not.toHaveProperty("BAD.KEY");
-  });
-
-  it("maps automatic review to Claude auto", () => {
-    const params = buildClaudeSessionParams({
-      threadId: "bb-thread-1",
-      cwd: "/tmp/worktree",
-      instructionMode: "append",
-      options: {
-        ...WORKSPACE_AUTO_POLICY,
-        permissionEscalation: "deny",
-        providerOptions: {
-          workflowsEnabled: false,
-        },
-      },
-    });
-
-    expect(params).toMatchObject({
-      permissionMode: "auto",
-      permissionEscalation: "deny",
-    });
-  });
-
-  it("ignores escalation in full permission mode", () => {
-    const params = buildClaudeSessionParams({
-      threadId: "bb-thread-1",
-      cwd: "/tmp/worktree",
-      instructionMode: "append",
-      options: {
-        ...FULL_POLICY,
-        providerOptions: {
-          workflowsEnabled: false,
-        },
-      },
-    });
-
-    expect(params).toMatchObject({
-      permissionMode: "bypassPermissions",
-      permissionEscalation: null,
-    });
   });
 });
 

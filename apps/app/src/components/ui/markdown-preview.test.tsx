@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { LazyMarkdownHtml } from "./lazy-markdown-html";
+
 import {
   act,
   cleanup,
@@ -8,7 +10,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { highlightMarkdownCode } from "./markdown-code-highlight";
 import { MarkdownPreview } from "./markdown-preview";
 import {
@@ -28,6 +30,8 @@ const workspaceLinkRouting = {
     onOpenLink: vi.fn(() => true),
   },
 } satisfies MarkdownLinkRouting;
+
+beforeAll(() => LazyMarkdownHtml.preload());
 
 afterEach(() => {
   cleanup();
@@ -336,6 +340,29 @@ describe("MarkdownPreview", () => {
     expect(screen.getByText("src/app.ts").tagName).toBe("CODE");
   });
 
+  it("preserves inline commands ending in Markdown paths as code", () => {
+    render(
+      <MarkdownPreview
+        content={
+          "Added `orange` and ran `cat things.md`:\n\n```text\nasdf\napple\npear\norange\n```\n\n`cat /workspace/things.md` and `git diff docs/guide.markdown:4`. See [my notes](<notes/my notes.md>)."
+        }
+        linkRouting={workspaceLinkRouting}
+      />,
+    );
+
+    for (const command of [
+      "cat things.md",
+      "cat /workspace/things.md",
+      "git diff docs/guide.markdown:4",
+    ]) {
+      expect(screen.getByText(command).tagName).toBe("CODE");
+      expect(screen.queryByRole("link", { name: command })).toBeNull();
+    }
+    expect(
+      screen.getByRole("link", { name: "my notes" }).getAttribute("href"),
+    ).toBe("file:///workspace/notes/my%20notes.md");
+  });
+
   it("shows a context menu on local file links when the context provides items", () => {
     const openBuiltin = vi.fn();
     const openFinder = vi.fn();
@@ -601,16 +628,6 @@ describe("MarkdownPreview", () => {
     expect(container.querySelector(".katex")).toBeNull();
     expect(container.textContent).toContain("$5 to $10");
     expect(container.textContent).toContain("$x$");
-  });
-
-  it("renders display LaTeX math blocks with KaTeX", async () => {
-    const { container } = render(
-      <MarkdownPreview content={"$$\n\\frac{1}{2} + \\frac{1}{2} = 1\n$$"} />,
-    );
-
-    await waitFor(() =>
-      expect(container.querySelector(".katex-display")).not.toBeNull(),
-    );
   });
 
   it("leaves escaped dollar amounts as literal text", () => {

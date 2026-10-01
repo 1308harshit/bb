@@ -133,9 +133,7 @@ async function startDesktopSmokeServer(
           experiments: {
             changelogPreview: false,
             legacyJitiPluginLoader: false,
-            mobileApp: false,
             serverMove: false,
-            sidebarProgressiveDisclosure: false,
           },
           featureFlags: {
             placeholder: false,

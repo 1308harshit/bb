@@ -192,12 +192,6 @@ checks report unavailable without acquiring a grant. Settings and creation
 banners refresh this status when the access provider signals a change. Machines use this
 access for ongoing runtime requests, including account-pool endpoints.
 
-The Tailscale plugin can supply private machine access without a Direct URL.
-Use `bb tailscale devices`, `bb tailscale status`, and `bb tailscale configure
-<port>` to discover devices and validate a dedicated existing HTTPS Serve
-mapping. Choose Tailscale explicitly; it is not selected by default.
-The plugin skill documents SSH prerequisites and safe endpoint cleanup.
-
 ## Move the server
 
 Moving the server is experimental and off by default. Turn on the `serverMove`
@@ -230,7 +224,7 @@ checkouts stay on the machines that own them.
     --data-dir <dir>                      Target data directory
   bb server unlock                        Let this computer's old copy start again
     --force                               Skip the new-server health check
-  bb server allow-connect                 Turn bb connect on for an imported copy
+  bb server allow-connect                 Turn bb connect and bb account on for an imported copy
   bb server delete-old-copy               Delete the old copy a move left here
   bb server install-machine-service       Keep this computer connected after a move
 
@@ -265,10 +259,13 @@ until then bb refuses to start a server on that directory. Stop the original
 server before starting the imported one; two servers holding the same bb
 connect credential take each other's tunnel.
 
-An imported server starts with bb connect off (`server-connect-hold.json`).
+An imported server starts with bb connect and bb account off
+(`server-connect-hold.json`), so the copy can't take the original server's
+tunnel or use its getbb.app account.
 `bb server allow-connect [--data-dir <dir>] [--yes] [--json]` removes the hold
 once the original server is stopped (`--json` prints `dataDir` and
-`connectHoldRemoved`); bb connect starts the next time that server starts.
+`connectHoldRemoved`); bb connect and bb account start the next time that
+server starts.
 
 After a move, the old computer's data directory keeps `server-moved.json`, so
 bb there refuses to start the old server and runs as a regular machine.
@@ -356,38 +353,7 @@ upgraded by the server when prepared again.
 
 Delivered enrollment bundles from v1 remain valid until their expiry. The CLI accepts both file and environment forms, upgrades the bundle to v2 headers locally, and persists legacy Connect redemption before enrollment so a retry reuses it. The installer upgrades v1 environment bundles before authenticated artifact downloads.
 
-## DigitalOcean dev boxes
-
-`bb digitalocean configure <host-id> '<config-json>'` sets `idleMinutes` (null
-turns idle stop off), `retention` (default 2), and `schedule` (null disables;
-otherwise `weekdays` 0–6, `sleep`/`wake` HH:mm, and explicit IANA `timezone`).
-`bb digitalocean snapshot-now <host-id>` drains through core, gracefully shuts
-down, confirms off, snapshots and remains off. `sleep` does the same; `wake`
-resumes through core. Busy threads and open terminals prevent sleep. Core also
-wakes on dispatch. Empty boxes participate in opt-in idle stop; retirement stays
-never. `status` and `cost` show live inventory and estimates; all accept `--json`.
-`bb machine show <host-id> --json` includes provider inventory in `providerDetails`.
-
-Powered-off droplets still bill; snapshot storage bills per GB. See
-https://docs.digitalocean.com/products/droplets/details/pricing/ and
-https://docs.digitalocean.com/products/snapshots/details/pricing/ . Configure a
-weekday schedule from the plugin settings or CLI on an always-on BB server.
-The latest missed action within eight days runs after recovery; busy sleep
-retries each minute until superseded. See the plugin skill for DST and cleanup.
-
-Resume waits for any in-progress suspension before waking; an already-active
-machine is left active. DigitalOcean sleep JSON retains saved power/backup
-status if inventory is unavailable (`details.values.cost: null` and
-`inventoryError`). Shared inventory reads cache for 30 seconds and invalidate
-on mutations. Schedule changes invalidate selected, undispatched runs.
-
-Create DigitalOcean dev boxes from Settings → Machines or
-`bb machine create --provider digitalocean --inputs '{}' --json`, without a
-project. SDK creation uses `machineProviderId: "digitalocean", projectId: null,
-inputs: {}`. Enrolled boxes appear as machine sections in the composer picker;
-DigitalOcean contributes no new-machine/project-checkout shortcut row.
-
-Existing machines
+## Existing machines
 
 `bb machine create --provider manual` waits for a private enrollment command,
 prints it once, and follows the host until the daemon connects. Run that command on the target
@@ -486,3 +452,7 @@ Progress and failures appear in the thread's provisioning details. If cloning
 fails, the machine remains available for retry or explicit removal.
 `--new-machine <id>` requires an explicit `--environment-provider <id>`; machine
 providers do not implicitly choose an environment.
+
+`bb machine show` includes `threadStorageRootPath` from the latest daemon session
+without waking the machine. It works offline and with no live threads; the path
+is null before the first session. Reading details does not create directories.

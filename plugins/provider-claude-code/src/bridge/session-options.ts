@@ -18,7 +18,6 @@ export interface BuildSessionOptionsArgs {
   additionalWorkspaceWriteRoots?: readonly string[];
   baseInstructions?: string;
   cwd: string;
-  disallowedTools?: readonly string[];
   instructionMode: InstructionMode;
   model?: string;
   permissionMode: ClaudePermissionMode;
@@ -28,6 +27,7 @@ export interface BuildSessionOptionsArgs {
   serviceTier: ServiceTier;
   workflowsEnabled: boolean;
   chromeEnabled: boolean;
+  disable1MContext: boolean;
   memoryEnabled?: boolean;
 }
 
@@ -234,7 +234,10 @@ export function buildSessionOptions(
     cwd: params.cwd,
     systemPrompt,
     model,
-    env,
+    env: {
+      ...env,
+      CLAUDE_CODE_DISABLE_1M_CONTEXT: params.disable1MContext ? "1" : "0",
+    },
     permissionMode: params.permissionMode,
     ...(params.reasoningLevel
       ? { effort: toSdkEffort(params.reasoningLevel) }
@@ -249,9 +252,6 @@ export function buildSessionOptions(
     ...(sandbox ? { sandbox } : {}),
     ...(additionalDirectories.length > 0
       ? { additionalDirectories: [...additionalDirectories] }
-      : {}),
-    ...(params.disallowedTools && params.disallowedTools.length > 0
-      ? { disallowedTools: [...params.disallowedTools] }
       : {}),
   };
 }

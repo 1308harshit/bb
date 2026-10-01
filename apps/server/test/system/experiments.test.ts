@@ -14,9 +14,7 @@ describe("experiments settings", () => {
       expect(body.experiments).toEqual({
         changelogPreview: false,
         legacyJitiPluginLoader: false,
-        mobileApp: false,
         serverMove: false,
-        sidebarProgressiveDisclosure: false,
       });
     });
   });
@@ -29,25 +27,19 @@ describe("experiments settings", () => {
         body: JSON.stringify({
           changelogPreview: true,
           legacyJitiPluginLoader: true,
-          mobileApp: true,
           serverMove: true,
-          sidebarProgressiveDisclosure: true,
         }),
       });
       expect(put.status).toBe(200);
       expect(experimentsSchema.parse(await readJson(put))).toEqual({
         changelogPreview: true,
         legacyJitiPluginLoader: true,
-        mobileApp: true,
         serverMove: true,
-        sidebarProgressiveDisclosure: true,
       });
       expect(getExperiments(harness.db)).toEqual({
         changelogPreview: true,
         legacyJitiPluginLoader: true,
-        mobileApp: true,
         serverMove: true,
-        sidebarProgressiveDisclosure: true,
       });
 
       const config = await harness.app.request("/api/v1/system/config");
@@ -56,9 +48,7 @@ describe("experiments settings", () => {
       ).toEqual({
         changelogPreview: true,
         legacyJitiPluginLoader: true,
-        mobileApp: true,
         serverMove: true,
-        sidebarProgressiveDisclosure: true,
       });
     });
   });

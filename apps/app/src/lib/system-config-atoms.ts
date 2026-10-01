@@ -30,9 +30,7 @@ const unavailableSystemConfig: SystemConfigResponse = {
   experiments: {
     changelogPreview: false,
     legacyJitiPluginLoader: false,
-    mobileApp: false,
     serverMove: false,
-    sidebarProgressiveDisclosure: false,
   },
   appearance: defaultAppTheme,
   customThemes: [],

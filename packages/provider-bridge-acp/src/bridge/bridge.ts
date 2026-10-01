@@ -44,7 +44,6 @@ import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import {
-  ACP_BRIDGE_NO_ACTIVE_TURN_ERROR_CODE,
   ACP_COMPACTION_COMPLETED_METHOD,
   ACP_COMPACTION_STARTED_METHOD,
   ACP_DEFAULT_MODEL_ID,
@@ -300,10 +299,7 @@ function rememberGrokContextWindow(
   }
 }
 
-function emitGrokContextWindow(
-  session: AcpThreadSession,
-  used: number,
-): void {
+function emitGrokContextWindow(session: AcpThreadSession, used: number): void {
   if (
     session.dialect.id !== "grok" ||
     session.grokContextWindowSize === undefined
@@ -907,10 +903,10 @@ async function loadSessionDiscoveredModels(
       modelOption,
       reasoningProbePriorityModelIds,
     });
-    const models =
-      reasoningByModel === null
-        ? configOptionModels
-        : buildModelCatalogFromConfigOptions(modelOption, reasoningByModel);
+    const models = buildModelCatalogFromConfigOptions(
+      modelOption,
+      reasoningByModel,
+    );
     cachedSessionDiscoveredModels = {
       key,
       models,
@@ -937,10 +933,10 @@ async function discoverAcpNativeReasoningByModel(args: {
   sessionId: string;
   modelOption: AcpConfigOption | undefined;
   reasoningProbePriorityModelIds: readonly string[];
-}): Promise<ReadonlyMap<string, AcpNativeReasoningSupport> | null> {
+}): Promise<ReadonlyMap<string, AcpNativeReasoningSupport>> {
   const modelOptions = args.modelOption?.options ?? [];
   if (!args.modelOption || modelOptions.length === 0) {
-    return null;
+    return new Map();
   }
   const modelOption = args.modelOption;
   const modelByValue = new Map(
@@ -962,11 +958,13 @@ async function discoverAcpNativeReasoningByModel(args: {
   }
 
   const supportByModel = new Map<string, AcpNativeReasoningSupport>();
+  let timedOut = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const timeoutReached = new Promise<
     ReadonlyMap<string, AcpNativeReasoningSupport>
   >((resolve) => {
     timeout = setTimeout(() => {
+      timedOut = true;
       args.connection.kill();
       resolve(supportByModel);
     }, ACP_NATIVE_REASONING_DISCOVERY_TIMEOUT_MS);
@@ -976,28 +974,37 @@ async function discoverAcpNativeReasoningByModel(args: {
     return await Promise.race([
       (async () => {
         for (const model of modelsToProbe) {
-          const configState = await args.connection.request({
-            method: "session/set_config_option",
-            params: {
-              sessionId: args.sessionId,
-              configId: modelOption.id,
-              value: model.value,
-            },
-            resultSchema: acpConfigStateResultSchema,
-          });
-          supportByModel.set(
-            model.value,
-            buildAcpNativeReasoningSupport(
-              findAcpThoughtLevelConfigOption(configState.configOptions),
-            ),
-          );
+          try {
+            const configState = await args.connection.request({
+              method: "session/set_config_option",
+              params: {
+                sessionId: args.sessionId,
+                configId: modelOption.id,
+                value: model.value,
+              },
+              resultSchema: acpConfigStateResultSchema,
+            });
+            supportByModel.set(
+              model.value,
+              buildAcpNativeReasoningSupport(
+                findAcpThoughtLevelConfigOption(configState.configOptions),
+              ),
+            );
+          } catch (error) {
+            if (timedOut) {
+              break;
+            }
+            process.stderr.write(
+              `acp bridge: ACP-native reasoning discovery for model "${model.value}" failed: ${
+                error instanceof Error ? error.message : String(error)
+              }\n`,
+            );
+          }
         }
         return supportByModel;
       })(),
       timeoutReached,
     ]);
-  } catch {
-    return supportByModel.size > 0 ? supportByModel : null;
   } finally {
     if (timeout !== undefined) {
       clearTimeout(timeout);
@@ -2671,7 +2678,7 @@ async function handleRequest(
       }
       if (session.activePromptKind !== "turn") {
         const message = "No active turn to steer";
-        sendError(request.id, ACP_BRIDGE_NO_ACTIVE_TURN_ERROR_CODE, message, {
+        sendError(request.id, BRIDGE_JSON_RPC_ERRORS.NO_ACTIVE_TURN, message, {
           recovery: { kind: "staleTurn", message, retryable: false },
         });
         return;

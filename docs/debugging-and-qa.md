@@ -12,28 +12,95 @@
 - Use `curl` against the server API to isolate frontend issues from server behavior.
 - Use the CLI to inspect state: `pnpm bb thread show <id>`, `pnpm bb project list`, `pnpm bb status`. From source, use `pnpm bb:dev`.
 
-## Thread Storage Media Responses
+## Native Draft Rollback
 
-`GET /api/v1/threads/:id/thread-storage/files/:filePath` supports a single
-HTTP byte range for media playback and seeking. Responses advertise
-`Accept-Ranges: bytes`; bounded, open-ended, and suffix ranges return `206`
-with `Content-Range` and the selected bytes. Unsatisfiable ranges return `416`
-with `Content-Range: bytes */<size>`. Malformed ranges, unsupported units, and
-multipart ranges fall back to the full `200` response. HEAD ignores Range.
+Migration `0132_thread_drafts` now only adds the temporary `threads.draft`
+column. Its original pre-release SQL merged Drafts plugin queue entries into
+that column and deleted the held rows and built-in plugin installation. The
+original hash remains accepted by `migration-history.ts` for databases that
+already ran it; it is not replayed.
 
-`If-None-Match` revalidation takes precedence over Range. Storage responses use
+Migration `0133_remove_thread_drafts` drops the column without converting its
+contents back into queued messages. Databases upgrading through the revised
+`0132` retain their existing queue rows and Drafts plugin installation. Databases
+that ran the original `0132` lose the stored core draft contents, retaining their
+thread rows and any remaining queued messages. The restored built-in plugin is
+installed through normal server startup. Reintroducing native drafts requires
+a new migration after `0133`.
+
+## Archive Confirmation Counts
+
+`GET /api/v1/threads/:id/child-summary` and `sdk.threads.childSummary` return
+`nonDeletedChildCount` for deletion (direct children, including archived rows)
+and `unarchivedDescendantCount` for archive confirmation. The latter follows
+the same hierarchy, lifecycle-owner, and hidden source-fork edges as
+`archive-all`, deduplicates threads, traverses archived intermediaries, and
+excludes already archived or deleted candidates and the requested root.
+The UI adds the root to the displayed total and skips confirmation when no
+unarchived descendants remain. The summary is a preview; concurrent changes
+can alter the eventual archive result. CLI and SDK archive calls remain
+non-interactive.
+
+## File Content Routes
+
+Clients read file bytes through path-shaped GET routes, so relative URLs in
+HTML and markdown resolve against the same route:
+
+- `/api/v1/threads/:id/thread-storage/files/:path` reads the thread's storage
+  folder.
+- `/api/v1/threads/:id/host-files/:absolutePath` and
+  `/api/v1/hosts/:id/files/:absolutePath` read the thread environment's host or
+  the named host from its filesystem root. The path omits the leading `/`; a
+  first segment such as `C:` selects that Windows drive root.
+- `/api/v1/environments/:id/files/:path` reads the environment workspace, and
+  `/api/v1/environments/:id/revisions/:ref/files/:path` reads `HEAD` or a
+  4-40 character hex commit from it.
+- `/api/v1/projects/:id/files/:path` and
+  `/api/v1/projects/:id/hosts/:hostId/files/:path` read the project's local-path
+  source on the primary or named host.
+
+Media elements, HTML iframes, markdown images, and Download links use these
+URLs directly. The server resolves the root on every request, so they need no
+setup and do not expire.
+
+Plugins that preview an arbitrary host directory instead mint a lease:
+`POST /api/v1/files/previews` with `{ hostId?, rootPath, ttlMs? }` returns
+`{ baseUrl, expiresAtMs }`, and `GET /api/v1/file-previews/:lease/:path` reads
+that root. Minting the same root again returns the same `baseUrl` and extends
+its expiry. Leases live in server memory and do not survive a server restart.
+
+File content reads support a single HTTP byte range for media playback, seeking, and
+file preview sampling. Responses advertise `Accept-Ranges: bytes`; bounded,
+open-ended, and suffix ranges return `206` with `Content-Range` and the selected
+bytes. Unsatisfiable ranges return `416` with `Content-Range: bytes */<size>`.
+Malformed ranges, unsupported units, and multipart ranges fall back to the full
+`200` response. HEAD ignores Range. Revision routes read the file with one
+whole-file daemon read, so those responses ignore Range, keep the daemon's
+25 MB non-image limit, and revalidate with a strong SHA-256 ETag.
+
+File previews request the first 64 KiB. A complete sample becomes the preview
+directly. Otherwise the sample, its MIME type, and the `Content-Range` size
+classify the file: images and videos render from the file URL, binaries show
+their size and a Download link, and text is fetched in full only when it is at
+most 25 MB. The Download link is the file URL with the anchor `download`
+attribute, so the browser streams it to disk without the 25 MB limit.
+
+`If-None-Match` revalidation takes precedence over Range. Streamed responses use
 weak metadata ETags (`W/"file-<revision>"`), not content SHA-256 hashes. This
 avoids reading an entire large file just to validate it. Because the validator
 is weak, any `If-Range` header falls back to a full `200` response, including a
-matching weak tag or date. HTML previews retain their sandbox CSP, no-store
-policy, and 5 MiB size limit.
+matching weak tag or date. All raw file responses carry `Content-Security-Policy:
+sandbox allow-scripts`, including SVG and XHTML, so directly opened documents
+cannot acquire the app's origin privileges. HTML also carries the no-store
+policy, at any size; the app renders an HTML iframe only for files up
+to 5 MiB and shows larger HTML as source or, past 25 MB, as a Download.
 
 The server uses `host.read_file_chunk` for a metadata-only probe (`length: 0`),
 then reads at most 1 MiB per RPC as the HTTP consumer pulls data. HEAD, `304`,
 and `416` responses read no contents. Cancelling or aborting stops subsequent
 reads; an already in-flight RPC can finish. Each RPC opens and closes its file
 handle, so no remote read session needs cleanup. Offsets and lengths are
-validated at the daemon boundary, and paths remain confined to thread storage.
+validated at the daemon boundary, and paths remain confined to the route's root.
 
 The daemon returns a revision based on device, inode, size, and nanosecond
 mtime/ctime. Every content read checks the expected revision before and after
@@ -44,12 +111,13 @@ ordinary writes, truncation, and replacement; it is not an immutable filesystem
 snapshot or a cryptographic guarantee against changes hidden by filesystem
 metadata granularity.
 
-Thread-storage downloads now bypass the old whole-file size caps (including
-the 25 MiB non-image cap). Each chunk stays bounded regardless of file size.
-Existing `host.read_file` consumers and other raw-file routes retain their
-whole-file limits and SHA-256 validators. No public SDK/CLI request shape
-changed. Host-daemon protocol 219 introduces the chunk RPC and requires daemon
-updates; older enrolled daemons cannot serve this new path until updated.
+Streamed reads bypass the whole-file size caps (including the 25 MiB
+non-image cap); each chunk stays bounded regardless of file size. `host.read_file`
+consumers such as `POST /files/read` and revision routes keep their
+whole-file limits and SHA-256 validators. `sdk.projects.fileContent` (and
+`bb project content`) reads through the project file routes and decides utf8 versus
+base64 from the returned bytes. Host-daemon protocol 219 introduced the chunk
+RPC; older enrolled daemons cannot serve streamed reads until updated.
 
 ## Stale Workspace Claims
 
@@ -348,7 +416,8 @@ says so and even paired ratios drift by 10–20%.
 
 ## Local Cloud
 
-Run the Cloud dashboard and Connect worker against one local D1 database:
+Run the Cloud dashboard, the Connect worker, and the AI gateway against one
+local D1 database:
 
 ```bash
 pnpm cloud:dev
@@ -356,21 +425,46 @@ pnpm cloud:dev
 
 The command applies migrations and prints the dashboard URL. Create a local
 email/password account, claim a handle, create a pairing code, and run the
-displayed `bb connect` command against a bb started with `pnpm dev`. The same
-worktree-specific local origin serves the dashboard at `bb.localhost` and
-routes `<handle>.bb.localhost` through the Connect worker. Email/password auth
+displayed `bb account login --code` command against a bb started with
+`pnpm dev` (`bb connect --code` does the same and also turns remote access
+back on). A browser sign-in started with
+`bb account login` opens `<local origin>/link?code=…` on the same origin. The
+same worktree-specific local origin serves the dashboard at `bb.localhost`,
+sends `bb.localhost/api/ai/*` to the AI gateway worker, and routes
+`<handle>.bb.localhost` through the Connect worker. Email/password auth
 is enabled only for this loopback workflow; production remains GitHub-only.
 `pnpm dev` automatically sets `BB_DEV_CONNECT_BASE_URL` to that worktree's
-local Cloud origin. While the bb is unpaired, Settings → Installed plugins → Connect
-therefore opens the local dashboard and a pasted code redeems locally. An
-explicit `bb connect --server ...` or `--base-url ...` still wins, so the dev bb
-can still pair with getbb.app.
+local Cloud origin. While the bb is signed out, Settings → bb account and
+Settings → Installed plugins → Connect therefore sign in against the local
+Cloud, and a pasted code redeems locally. An explicit `--base-url ...` (or
+`bb connect --server ...`) still wins, so the dev bb can still sign in to
+getbb.app.
 Local machine enrollment follows the same origin: local `http:` server URLs
 produce `ws:` machine tunnels and `http:` share URLs, while non-local machine
 enrollment remains HTTPS-only.
 
+The AI gateway answers `503 unavailable` until an OpenRouter key is present.
+Export `OPENROUTER_API_KEY` in the shell before `pnpm cloud:dev` to pass it
+through to the local worker; the startup banner says which mode is active.
+To exercise the whole chain without OpenRouter, export
+`BB_CLOUD_DEV_AI_UPSTREAM_BASE_URL` (for example `http://127.0.0.1:4599/api/v1`)
+pointing at a local OpenAI-compatible fake, plus any non-empty
+`OPENROUTER_API_KEY`.
+The production gateway gets the key from the repository's `OPENROUTER_API_KEY`
+Actions secret, which `deploy-ai-gateway.yml` uploads with each deploy. Set the
+staging key with `wrangler secret put OPENROUTER_API_KEY --env staging` from
+`apps/ai-gateway`. Use a dedicated OpenRouter key with account-wide zero data
+retention and a daily credit limit.
+
 Ctrl-C stops the local services. Local D1 state is kept under
 `.wrangler/cloud-dev`.
+
+To test a source bb against the deployed staging Cloud instead, start it with
+`pnpm dev --staging`. bb account and Connect then sign in, redeem codes, open
+tunnels, and call the AI gateway at `https://vibecodethis.site`; no
+`pnpm cloud:dev` is needed. The flag only changes the default origin, so a
+dev data dir already signed in elsewhere keeps its account until
+`bb account logout`.
 
 ## Provider-literal ratchet (G1)
 
@@ -463,3 +557,35 @@ This prevents legacy `apps/server/dist/builtin-plugins` artifacts left by a
 Turbo cache restore from overriding newly prepared plugins. Installed packages
 use their shipped `server/dist/builtin-plugins` directory. Built-in plugins
 update with the server; users do not update them separately.
+
+## Reviewing UI Code Splits
+
+See [UI code splitting](ui-code-splitting.md) for the app's `defineSplit`
+contract, explicit preload scopes, bundle-boundary guards, and parallel worker
+handoff requirements. Use an isolated production build with browser request
+interception to review loading and failure states and verify cold-download
+behavior. Keep temporary review stories and fixtures out of the final diff.
+
+## Pull Request Status And Daemon Compatibility
+
+Host-daemon protocol 224 removes wire members that neither side used: the
+`host.file_metadata` command, the `disallowedTools` runtime-context field, the
+`cwd` and `requirement` fields on provider installation and usage commands, the
+`appliedAs` field of `turn.submit` results, and the `serviceManager` field of
+`server_move.inspect` results.
+
+Host-daemon protocol 223 upgrades Zod to 4.6.5. String length constraints now
+count Unicode code points rather than UTF-16 code units. For example, a
+controller label containing 256 emoji passes the 256-character limit; 257
+emoji fails. Daemons on protocol 222 must update before reconnecting so the
+server and daemon enforce the same validation behavior.
+
+Host-daemon protocol 222 adds required `autoMerge` and nullable `inMergeQueue`
+fields to `workspace.pull_request` results. A null queue value means the
+separate GitHub GraphQL lookup was unavailable; other PR data remains usable.
+The server checks protocol compatibility before parsing session payloads.
+A daemon still on 221 is rejected with `protocol_version_mismatch` and cannot
+serve workspace RPCs until it updates and reconnects. Auto-update-enabled
+older daemons install the server's matching bb-app artifact; disabled or failed
+updates leave the machine disconnected until a manual update succeeds. This
+is an intentional version gate, not backward-compatible field defaulting.

@@ -138,8 +138,6 @@ interface ProjectListNavigationLoadingRowProps {
   textWidthClassName: string;
 }
 
-export { PROJECT_LIST_ACTION_BUTTON_CLASS } from "../rows/sidebarRowClasses.js";
-
 type ThreadListStatus = "loading" | "ready" | "unavailable";
 
 interface ProjectThreadListStateArgs {
@@ -713,7 +711,6 @@ function ProjectModeSections({
           collapsedThreadIds={collapsedThreadIds}
           collapsedEnvironmentIds={collapsedEnvironmentIds}
           compareThreads={compareThreads}
-          variant="section"
           onProjectSelect={onProjectSelect}
           onToggleThreadCollapsed={onToggleThreadCollapsed}
           onToggleEnvironmentCollapsed={onToggleEnvironmentCollapsed}
@@ -743,7 +740,6 @@ function ProjectModeSections({
           collapsedThreadIds={collapsedThreadIds}
           collapsedEnvironmentIds={collapsedEnvironmentIds}
           compareThreads={compareThreads}
-          variant="section"
           onProjectSelect={() => {
             close();
             onProjectSelect?.();
@@ -770,7 +766,6 @@ function ProjectModeSections({
             collapsedThreadIds={collapsedThreadIds}
             collapsedEnvironmentIds={collapsedEnvironmentIds}
             compareThreads={compareThreads}
-            variant="section"
             onProjectSelect={() => {
               close();
               onProjectSelect?.();
@@ -1190,7 +1185,6 @@ export function MachineModeSections({
           rootItems={allThreadItems}
           threadListState={allThreadsListState}
           compareThreads={compareThreads}
-          variant="section"
           selectedThreadId={selectedThreadId}
           collapsedThreadIds={collapsedThreadIds}
           collapsedEnvironmentIds={collapsedEnvironmentIds}
@@ -1214,7 +1208,6 @@ export function MachineModeSections({
           rootItems={allThreadItems}
           threadListState={allThreadsListState}
           compareThreads={compareThreads}
-          variant="section"
           selectedThreadId={selectedThreadId}
           collapsedThreadIds={collapsedThreadIds}
           collapsedEnvironmentIds={collapsedEnvironmentIds}
@@ -1242,7 +1235,6 @@ export function MachineModeSections({
             collapsedThreadIds={collapsedThreadIds}
             collapsedEnvironmentIds={collapsedEnvironmentIds}
             compareThreads={compareThreads}
-            variant="section"
             onProjectSelect={() => {
               close();
               onProjectSelect?.();
@@ -1316,7 +1308,6 @@ export function MachineModeSections({
                   rootItems={machineItemsBySectionId.get(sectionId)}
                   threadListState={section.threadListState}
                   compareThreads={compareThreads}
-                  variant="section"
                   selectedThreadId={selectedThreadId}
                   collapsedThreadIds={collapsedThreadIds}
                   collapsedEnvironmentIds={collapsedEnvironmentIds}
@@ -1389,11 +1380,16 @@ function ProjectListComponent({
     [sdk],
   );
   const openRootComposeForProject = useCallback(
-    (projectId: string | null, sectionId?: string, hostId?: string) => {
+    (
+      projectId: string | null,
+      sectionId?: string,
+      hostId?: string,
+      pinned = false,
+    ) => {
       onProjectSelect?.();
       sidebarActions.openNewThread({
         ...(projectId !== null ? { projectId } : {}),
-        ...(sectionId ? { sectionId } : {}),
+        experimental_placement: { sectionId: sectionId ?? null, pinned },
         ...(hostId ? { hostId } : {}),
         focusPrompt: true,
       });
@@ -1546,8 +1542,15 @@ function ProjectListComponent({
         sectionId={sectionId}
         onNewThread={
           hostId
-            ? () => openRootComposeForProject(personalProjectId, undefined, hostId)
-            : handleCreateProjectlessThread
+            ? () =>
+                openRootComposeForProject(personalProjectId, undefined, hostId)
+            : () =>
+                openRootComposeForProject(
+                  sectionId === "pinned" ? null : personalProjectId,
+                  undefined,
+                  undefined,
+                  sectionId === "pinned",
+                )
         }
         open={openSidebarMenu === menuId}
         onOpenChange={(open) => setSidebarMenuOpen(menuId, open)}
