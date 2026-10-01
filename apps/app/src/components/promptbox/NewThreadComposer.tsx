@@ -1937,6 +1937,7 @@ export function NewThreadComposer({
               onQueryChange: (query, trigger) =>
                 setCommandState({ query, trigger }),
               onEditorFocus: handleEditorFocus,
+              onEditorIntent: commandSuggestions.prefetchCatalog,
             },
           }}
           attachments={{
