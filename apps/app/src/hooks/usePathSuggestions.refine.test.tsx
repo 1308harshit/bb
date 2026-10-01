@@ -15,6 +15,9 @@ vi.mock("@/lib/sdk", () => ({
     environments: {
       paths: vi.fn(),
     },
+    projects: {
+      paths: vi.fn(),
+    },
   },
 }));
 
@@ -128,5 +131,41 @@ describe("usePathSuggestions local refinement", () => {
       "lib/sr.ts",
     ]);
     expect(result.current.isDebouncing).toBe(true);
+  });
+
+  it("does not refine from another host's results after the host changes", async () => {
+    const pending = new Map<string, Deferred>();
+    vi.mocked(sdk.projects.paths).mockImplementation(
+      (args) =>
+        new Promise<WorkspacePathListResponse>((resolve) => {
+          pending.set(`${args.hostId}:${args.query ?? ""}`, { resolve });
+        }),
+    );
+    const { wrapper } = createQueryClientTestHarness();
+    const { result, rerender } = renderHook(
+      (props: { hostId: string; query: string }) =>
+        usePathSuggestions({
+          projectId: "project-1",
+          query: props.query,
+          environmentId: null,
+          hostId: props.hostId,
+          includeDirectories: false,
+        }),
+      { wrapper, initialProps: { hostId: "host-a", query: "src" } },
+    );
+
+    await waitFor(() => expect(pending.has("host-a:src")).toBe(true));
+    pending.get("host-a:src")?.resolve({
+      paths: [makeEntry("src/alpha.ts"), makeEntry("src/beta.ts")],
+      truncated: false,
+    });
+    await waitFor(() => expect(result.current.suggestions).toHaveLength(2));
+
+    rerender({ hostId: "host-b", query: "src/al" });
+
+    expect(result.current.isDebouncing).toBe(true);
+    expect(result.current.suggestions.map((s) => s.path)).toContain(
+      "src/beta.ts",
+    );
   });
 });

@@ -254,6 +254,7 @@ export function usePathSuggestions(
     workspaceSource,
     args.projectId ?? "",
     args.environmentId ?? "",
+    args.hostId ?? "",
     args.currentThreadId ?? "",
     args.includeDirectories ? "dirs" : "files",
     oversampleLimit,
