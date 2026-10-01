@@ -193,6 +193,9 @@ Read the installed SDK declarations for the exact current signatures.
 - `PluginDiffRendererRegistration`
 - `PluginMessageDirectiveRegistration`
 - `ThreadChatMessageReference`
+- `ExperimentalMessageMetadataContext`
+- `ExperimentalMessageMetadata`
+- `ExperimentalMessageMetadataRegistration`
 - `PluginTargetedPanelActionOpenOptions`
 - `PluginMessageActionContext`
 - `PluginMessageActionRegistration`

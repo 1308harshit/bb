@@ -1,6 +1,6 @@
 # Conversation history, message actions, and rendered output
 
-Status: **2026-09-05: 1 passed, 1 failed, 10 partial/blocked**. See [the audit](../MAINTENANCE.md) and [per-recipe ledger](../validation-2026-09-05.json).
+Status: **2026-09-05: 1 passed, 1 failed, 10 partial/blocked** across the original 12 recipes. The two message extension recipes are outside that audit; a 2026-10-01 source run passed both on desktop and compact with a fixture plugin, except embedded ThreadChat, which needs a provider turn and was covered only by unit tests. See [the audit](../MAINTENANCE.md) and [per-recipe ledger](../validation-2026-09-05.json).
 
 ## Setup and entry points
 
@@ -17,6 +17,8 @@ command’s `--help` before mutation. Use fresh browser snapshots for controls.
 - `apps/app/src/components/thread/timeline/TimelineSelectionMenu.tsx`
 - `apps/cli/src/commands/thread/fork.ts`
 - `apps/cli/src/commands/thread/show.ts`
+- `packages/plugin-sdk/src/app-contract.ts`
+- `apps/app/src/lib/plugin-slots.ts`
 
 ## Feature recipes
 
@@ -29,6 +31,8 @@ command’s `--help` before mutation. Use fresh browser snapshots for controls.
 | Tool work and errors | Expand command output, file changes, grouped tool calls, nested agents, and a provider error. | Arguments/results and failure details correspond to the correct call and are readable after reload. |
 | Images and media | Open an attachment image/lightbox, zoom or dismiss, and load a missing asset. | Correct media opens and missing content shows an error; closing restores the thread. |
 | Copy, selection, Add to chat | Copy a whole message and selected text, add a quote to the composer, then remove it. | Clipboard/quote content matches the selection, without hidden tool payloads or duplicate context. |
+| Host-rendered message metadata | Install a fixture plugin with `experimental_messageMetadata({ id, roles: ["user"], resolve })` returning a timestamp label from `createdAt`. View a user prompt and assistant reply, then reload and inspect a compact viewport. | The label appears only under the user message, stays visible without hover, has the supplied title, and survives reload. The resolver receives the original creation time and runs only for realized rows, with one local-day refresh. |
+| Role-targeted plugin message actions | Install fixture `messageAction` registrations with `experimental_roles: ["user"]`, `["assistant"]`, and omitted. Inspect user and assistant action bars, compact overflow, selected assistant text, and an embedded ThreadChat. | Each action appears only for its declared role; omitted appears on both. Selection and overflow menus apply the same rule, including embedded timelines. |
 | Edit accepted message | With a supporting provider, replace a user message and rerun. | History is rewound from the intended checkpoint; later content is not treated as unchanged. |
 | Checkpoint fork and handoff | Fork at a chosen message and separately from current context; select workspace reuse/new workspace as offered. | Fork contains the correct prefix and parent relationship and executes in the chosen environment. |
 | Side chat | Follow plugin-side-chat for selected-message forks and Send to main. | Main history remains untouched until an explicit send-back queues content. |

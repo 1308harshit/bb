@@ -29,6 +29,34 @@ afterEach(() => {
 });
 
 describe("plugin slot store", () => {
+  it("orders message metadata by plugin id then registration and removes it on unload", () => {
+    const resolve = () => ({ label: "time" });
+    setPluginSlotRegistrations(
+      "zeta",
+      registrationSet({
+        messageMetadata: [{ id: "z", resolve }],
+      }),
+    );
+    setPluginSlotRegistrations(
+      "alpha",
+      registrationSet({
+        messageMetadata: [
+          { id: "first", resolve },
+          { id: "second", resolve },
+        ],
+      }),
+    );
+    expect(
+      getPluginSlotSnapshot().messageMetadata.map(
+        ({ pluginId, id }) => `${pluginId}/${id}`,
+      ),
+    ).toEqual(["alpha/first", "alpha/second", "zeta/z"]);
+    removePluginSlotRegistrations("alpha");
+    expect(getPluginSlotSnapshot().messageMetadata.map(({ id }) => id)).toEqual(
+      ["z"],
+    );
+  });
+
   it("registers per plugin and flattens sorted by plugin id", () => {
     setPluginSlotRegistrations(
       "zeta",

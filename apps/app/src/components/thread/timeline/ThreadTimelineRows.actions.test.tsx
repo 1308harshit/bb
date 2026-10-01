@@ -1238,6 +1238,50 @@ describe("ThreadTimelineRows actions", () => {
     });
   });
 
+  it("filters plugin message actions by role before action bars render", () => {
+    setPluginSlotRegistrations(
+      "demo",
+      messageActionRegistrationSet([
+        {
+          id: "user-only",
+          title: "User only",
+          experimental_roles: ["user"],
+          run: vi.fn(),
+        },
+        { id: "both", title: "Both", run: vi.fn() },
+      ]),
+    );
+    const { container } = renderWithRouter(
+      <ThreadTimelineRows
+        threadId="thr_main"
+        timelineRows={[
+          conversationRow({
+            id: "user_row",
+            role: "user",
+            text: "User request",
+            threadId: "thr_main",
+          }),
+          conversationRow({
+            id: "assistant_row",
+            role: "assistant",
+            text: "Assistant response",
+            threadId: "thr_main",
+          }),
+        ]}
+        threadRuntimeDisplayStatus="idle"
+        workspaceRootPath={undefined}
+      />,
+    );
+    const user = container.querySelector('[data-timeline-row-id="user_row"]');
+    const assistant = container.querySelector(
+      '[data-timeline-row-id="assistant_row"]',
+    );
+    expect(user?.querySelector('[aria-label="User only"]')).not.toBeNull();
+    expect(assistant?.querySelector('[aria-label="User only"]')).toBeNull();
+    expect(user?.querySelector('[aria-label="Both"]')).not.toBeNull();
+    expect(assistant?.querySelector('[aria-label="Both"]')).not.toBeNull();
+  });
+
   it("omits plugin message actions when the surface has no thread identity", () => {
     setPluginSlotRegistrations(
       "demo",
@@ -1408,6 +1452,12 @@ describe("ThreadTimelineRows actions", () => {
       "demo",
       messageActionRegistrationSet([
         { id: "summarize", title: "Summarize selection", run },
+        {
+          id: "user-only-selection",
+          title: "User only selection",
+          experimental_roles: ["user"],
+          run: vi.fn(),
+        },
       ]),
     );
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
@@ -1437,6 +1487,9 @@ describe("ThreadTimelineRows actions", () => {
     mockWindowSelection({ node: textNode!, text: "part of this answer" });
 
     fireEvent(document, new Event("selectionchange"));
+    expect(
+      screen.queryByRole("button", { name: "User only selection" }),
+    ).toBeNull();
     const selectionAction = await waitFor(() => {
       const menuButton = screen
         .getAllByRole("button", { name: "Summarize selection" })
@@ -1511,6 +1564,18 @@ describe("ThreadTimelineRows shared message column width", () => {
   });
 
   it("expands overflow actions in place from the row list's one column measurement", () => {
+    setPluginSlotRegistrations(
+      "demo",
+      messageActionRegistrationSet([
+        {
+          id: "user-overflow",
+          title: "User overflow",
+          experimental_roles: ["user"],
+          run: vi.fn(),
+        },
+        { id: "both-overflow", title: "Both overflow", run: vi.fn() },
+      ]),
+    );
     mockSelectionMenuMedia({ isCompactViewport: true, isPointerCoarse: true });
     const observations: { callback: ResizeObserverCallback; node: Element }[] =
       [];
@@ -1529,6 +1594,7 @@ describe("ThreadTimelineRows shared message column width", () => {
 
     const { container } = renderWithRouter(
       <ThreadTimelineRows
+        threadId="thr_main"
         timelineRows={[
           conversationRow({
             id: "earlier_agent_message",
@@ -1579,6 +1645,12 @@ describe("ThreadTimelineRows shared message column width", () => {
     ).not.toBeNull();
     expect(
       earlierMessage?.querySelector('[aria-label="Fork into new thread"]'),
+    ).not.toBeNull();
+    expect(
+      earlierMessage?.querySelector('[aria-label="User overflow"]'),
+    ).toBeNull();
+    expect(
+      earlierMessage?.querySelector('[aria-label="Both overflow"]'),
     ).not.toBeNull();
   });
 

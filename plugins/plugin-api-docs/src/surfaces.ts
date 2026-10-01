@@ -262,6 +262,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Adds an action to individual messages in a thread. With this, a plugin can:",
         bullets: [
           "Appear in the row that shows under messages on hover, or in the toolbar that appears when text in an agent's message is selected",
+          "Target user or assistant messages with experimental_roles; omitted means both",
           "Receive the message, plus the selected text when the action was run from a selection",
           "Show the action’s explicit icon in both menus, with plugin branding as the fallback for omitted or unknown names",
           "Open one of the plugin's own [side-panel tabs](thread-panel) with what it received",
@@ -272,6 +273,22 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginMessageActionContext",
         ],
         firstParty: ["Side chat"],
+      },
+      {
+        id: "message-metadata",
+        title: "Message metadata",
+        summary:
+          "Adds short, host-rendered text beside conversation messages. With this, a plugin can:",
+        bullets: [
+          "Return a label and optional title from a synchronous resolver receiving id, threadId, role, and exact createdAt",
+          "Target user or assistant messages with roles; omitted means both",
+          "Rely on bb for placement, ordering, error containment, and a local-day refresh",
+        ],
+        apiSymbols: [
+          "ExperimentalMessageMetadataRegistration",
+          "ExperimentalMessageMetadataContext",
+          "ExperimentalMessageMetadata",
+        ],
       },
       {
         id: "pending-interaction",

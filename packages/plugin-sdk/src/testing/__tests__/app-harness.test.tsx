@@ -1400,6 +1400,84 @@ describe("loadPluginApp", () => {
     ).rejects.toThrow('slots.messageAction: duplicate id "dup"');
   });
 
+  it("captures message metadata and validates role targeting", async () => {
+    const resolve = vi.fn(() => ({ label: "Yesterday" }));
+    const captured = await loadPluginApp(
+      definePluginApp((builder) => {
+        builder.slots.experimental_messageMetadata({
+          id: "timestamp",
+          roles: ["user"],
+          resolve,
+        });
+        builder.slots.messageAction({
+          id: "user-action",
+          title: "User action",
+          experimental_roles: ["user"],
+          run: () => {},
+        });
+      }),
+    );
+    expect(
+      captured.messageMetadata[0]?.resolve({
+        id: "m1",
+        threadId: "t1",
+        role: "user",
+        createdAt: 123,
+      }),
+    ).toEqual({ label: "Yesterday" });
+    expect(resolve).toHaveBeenCalledWith({
+      id: "m1",
+      threadId: "t1",
+      role: "user",
+      createdAt: 123,
+    });
+    expect(captured.messageActions[0]?.experimental_roles).toEqual(["user"]);
+
+    for (const roles of [[], ["other"]]) {
+      await expect(
+        loadPluginApp(
+          definePluginApp((builder) => {
+            builder.slots.experimental_messageMetadata({
+              id: "bad",
+              roles: roles as never,
+              resolve,
+            });
+          }),
+        ),
+      ).rejects.toThrow('"roles" must be a non-empty array');
+      await expect(
+        loadPluginApp(
+          definePluginApp((builder) => {
+            builder.slots.messageAction({
+              id: "bad",
+              title: "Bad",
+              experimental_roles: roles as never,
+              run: () => {},
+            });
+          }),
+        ),
+      ).rejects.toThrow('"experimental_roles" must be a non-empty array');
+    }
+    await expect(
+      loadPluginApp(
+        definePluginApp((builder) => {
+          builder.slots.experimental_messageMetadata({
+            id: "bad",
+            resolve: undefined as never,
+          });
+        }),
+      ),
+    ).rejects.toThrow('"resolve" must be a function');
+    await expect(
+      loadPluginApp(
+        definePluginApp((builder) => {
+          builder.slots.experimental_messageMetadata({ id: "dup", resolve });
+          builder.slots.experimental_messageMetadata({ id: "dup", resolve });
+        }),
+      ),
+    ).rejects.toThrow('slots.experimental_messageMetadata: duplicate id "dup"');
+  });
+
   it("collects separate provider kinds and the legacy all-kinds registration", async () => {
     const captured = await loadPluginApp(
       definePluginApp((builder) => {

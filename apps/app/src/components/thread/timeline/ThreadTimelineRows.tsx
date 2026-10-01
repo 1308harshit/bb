@@ -130,7 +130,9 @@ import {
   getPluginSlotSnapshot,
   subscribePluginSlots,
   type PluginMessageActionSlot,
+  type PluginMessageMetadataSlot,
 } from "@/lib/plugin-slots.js";
+import { MessageMetadata } from "./MessageMetadata.js";
 import { runPluginMessageAction } from "@/lib/plugin-message-actions.js";
 import {
   usePluginComposerHost,
@@ -190,6 +192,7 @@ interface TimelineRendererStaticContextValue {
   onSendToMainMessage: ThreadTimelineSendToMainMessageHandler | undefined;
   onSelectionAddToChat: ThreadTimelineAddToChatHandler | undefined;
   pluginMessageActions: readonly PluginMessageActionSlot[];
+  pluginMessageMetadata: readonly PluginMessageMetadataSlot[];
   consumerMessageActions: readonly ThreadTimelineConsumerMessageAction[];
   reportProseSelection:
     | ((
@@ -756,21 +759,27 @@ function buildRowPluginMessageActions(args: {
   if (timelineThreadId === undefined || slots.length === 0) {
     return undefined;
   }
-  return slots.map((slot) => ({
-    key: `${slot.pluginId}/${slot.id}/${slot.generation}`,
-    pluginId: slot.pluginId,
-    icon: slot.icon ?? null,
-    label: slot.title,
-    onSelect: () =>
-      runPluginMessageAction({
-        slot,
-        threadId: timelineThreadId,
-        message,
-        selectedText,
-        openThreadPanel,
-        composerHost,
-      }),
-  }));
+  return slots
+    .filter(
+      (slot) =>
+        slot.experimental_roles === undefined ||
+        slot.experimental_roles.includes(message.role),
+    )
+    .map((slot) => ({
+      key: `${slot.pluginId}/${slot.id}/${slot.generation}`,
+      pluginId: slot.pluginId,
+      icon: slot.icon ?? null,
+      label: slot.title,
+      onSelect: () =>
+        runPluginMessageAction({
+          slot,
+          threadId: timelineThreadId,
+          message,
+          selectedText,
+          openThreadPanel,
+          composerHost,
+        }),
+    }));
 }
 
 function buildRowConsumerMessageActions(args: {
@@ -870,6 +879,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
     onSendToMainMessage,
     onSelectionAddToChat,
     pluginMessageActions,
+    pluginMessageMetadata,
     consumerMessageActions,
     reportProseSelection,
     threadOriginKind,
@@ -917,6 +927,9 @@ const ConversationRowContent = memo(function ConversationRowContent({
     rowConsumerActions.length === 0
       ? rowSlotActions
       : [...(rowSlotActions ?? []), ...rowConsumerActions];
+  const hasMetadata = pluginMessageMetadata.some(
+    (slot) => slot.roles === undefined || slot.roles.includes(row.role),
+  );
   if (row.role === "user") {
     const senderThreadMetadata =
       row.senderThreadId === null
@@ -954,36 +967,47 @@ const ConversationRowContent = memo(function ConversationRowContent({
         }
       : undefined;
     return (
-      <ConversationMessageContent
-        attachments={row.attachments}
-        originKind={originKind}
-        initiator={row.initiator}
-        mentions={row.mentions}
-        mobileActionDisplay={mobileActionDisplay}
-        onAddToChat={onSelectionAddToChat}
-        onEdit={onEdit}
-        onOpenLink={onOpenLink}
-        onOpenLocalFileLink={onOpenLocalFileLink}
-        projectId={projectId}
-        resolveMentionLink={resolveMentionLink}
-        resolveUserAttachmentImageSrc={resolveUserAttachmentImageSrc}
-        role="user"
-        resolveSegmentLinkHref={resolveSegmentLinkHref}
-        onTitleAction={onTitleAction}
-        senderThreadId={row.senderThreadId}
-        senderThreadProjectId={senderThreadMetadata?.projectId}
-        senderThreadTitle={senderThreadMetadata?.title ?? null}
-        senderIsPluginSideChat={isPluginSideChatSenderThread(
-          senderThreadMetadata,
-        )}
-        systemMessageKind={row.systemMessageKind}
-        systemMessageSubject={row.systemMessageSubject}
-        pluginActions={rowPluginActions}
-        text={row.text}
-        threadId={row.threadId}
-        turnRequest={row.turnRequest}
-        workspaceRootPath={workspaceRootPath}
-      />
+      <>
+        <ConversationMessageContent
+          attachments={row.attachments}
+          originKind={originKind}
+          initiator={row.initiator}
+          mentions={row.mentions}
+          mobileActionDisplay={mobileActionDisplay}
+          onAddToChat={onSelectionAddToChat}
+          onEdit={onEdit}
+          onOpenLink={onOpenLink}
+          onOpenLocalFileLink={onOpenLocalFileLink}
+          projectId={projectId}
+          resolveMentionLink={resolveMentionLink}
+          resolveUserAttachmentImageSrc={resolveUserAttachmentImageSrc}
+          role="user"
+          resolveSegmentLinkHref={resolveSegmentLinkHref}
+          onTitleAction={onTitleAction}
+          senderThreadId={row.senderThreadId}
+          senderThreadProjectId={senderThreadMetadata?.projectId}
+          senderThreadTitle={senderThreadMetadata?.title ?? null}
+          senderIsPluginSideChat={isPluginSideChatSenderThread(
+            senderThreadMetadata,
+          )}
+          systemMessageKind={row.systemMessageKind}
+          systemMessageSubject={row.systemMessageSubject}
+          pluginActions={rowPluginActions}
+          text={row.text}
+          threadId={row.threadId}
+          turnRequest={row.turnRequest}
+          workspaceRootPath={workspaceRootPath}
+        />
+        {hasMetadata ? (
+          <MessageMetadata
+            slots={pluginMessageMetadata}
+            id={row.id}
+            threadId={row.threadId}
+            role={row.role}
+            createdAt={row.createdAt}
+          />
+        ) : null}
+      </>
     );
   }
   const onFork =
@@ -1006,29 +1030,40 @@ const ConversationRowContent = memo(function ConversationRowContent({
             messageReference,
           );
   return (
-    <ConversationMessageContent
-      attachments={row.attachments}
-      id={row.id}
-      onAddToChat={onMessageAddToChat}
-      onFork={onFork}
-      onSendToMain={onSendToMain}
-      forkDisabled={!canSpawnChild}
-      onSelectProse={onSelectProse}
-      onOpenLink={onOpenLink}
-      onOpenLocalFileLink={onOpenLocalFileLink}
-      onOpenPluginPanel={onOpenPluginPanel}
-      pluginActions={rowPluginActions}
-      projectId={projectId}
-      resolveUserAttachmentImageSrc={resolveUserAttachmentImageSrc}
-      role="assistant"
-      showActions={showAssistantMessageActions}
-      mobileActionDisplay={mobileActionDisplay}
-      streaming={streaming}
-      text={row.text}
-      threadId={row.threadId}
-      turnId={row.turnId}
-      workspaceRootPath={workspaceRootPath}
-    />
+    <>
+      <ConversationMessageContent
+        attachments={row.attachments}
+        id={row.id}
+        onAddToChat={onMessageAddToChat}
+        onFork={onFork}
+        onSendToMain={onSendToMain}
+        forkDisabled={!canSpawnChild}
+        onSelectProse={onSelectProse}
+        onOpenLink={onOpenLink}
+        onOpenLocalFileLink={onOpenLocalFileLink}
+        onOpenPluginPanel={onOpenPluginPanel}
+        pluginActions={rowPluginActions}
+        projectId={projectId}
+        resolveUserAttachmentImageSrc={resolveUserAttachmentImageSrc}
+        role="assistant"
+        showActions={showAssistantMessageActions}
+        mobileActionDisplay={mobileActionDisplay}
+        streaming={streaming}
+        text={row.text}
+        threadId={row.threadId}
+        turnId={row.turnId}
+        workspaceRootPath={workspaceRootPath}
+      />
+      {hasMetadata ? (
+        <MessageMetadata
+          slots={pluginMessageMetadata}
+          id={row.id}
+          threadId={row.threadId}
+          role={row.role}
+          createdAt={row.createdAt}
+        />
+      ) : null}
+    </>
   );
 });
 
@@ -1992,6 +2027,11 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     () => getPluginSlotSnapshot().messageActions,
     () => EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions,
   );
+  const messageMetadataSlots = useSyncExternalStore(
+    subscribePluginSlots,
+    () => getPluginSlotSnapshot().messageMetadata,
+    () => EMPTY_PLUGIN_SLOT_SNAPSHOT.messageMetadata,
+  );
   const messageDirectiveRegistry = useMemo(
     () => buildMessageDirectiveRegistry(messageDirectiveSlots),
     [messageDirectiveSlots],
@@ -2006,7 +2046,13 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
   const onSelectionAddToChat = props.onSelectionAddToChat;
   const timelineThreadId = props.threadId;
   const hasPluginSelectionActions =
-    timelineThreadId !== undefined && messageActionSlots.length > 0;
+    timelineThreadId !== undefined &&
+    props.includePluginMessageActions !== false &&
+    messageActionSlots.some(
+      (slot) =>
+        slot.experimental_roles === undefined ||
+        slot.experimental_roles.includes("assistant"),
+    );
   const hasSelectionActions =
     onSelectionAddToChat !== undefined || hasPluginSelectionActions;
   const [activeSelection, setActiveSelection] = useState<{
@@ -2064,7 +2110,10 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     }
     return (
       buildRowPluginMessageActions({
-        slots: messageActionSlots,
+        slots:
+          props.includePluginMessageActions === false
+            ? EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions
+            : messageActionSlots,
         timelineThreadId,
         message: activeSelection.message,
         selectedText: activeSelection.selection.text,
@@ -2076,6 +2125,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     activeSelection,
     composerHost,
     messageActionSlots,
+    props.includePluginMessageActions,
     onOpenPluginPanel,
     timelineThreadId,
   ]);
@@ -2094,6 +2144,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
         props.includePluginMessageActions === false
           ? EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions
           : messageActionSlots,
+      pluginMessageMetadata: messageMetadataSlots,
       consumerMessageActions:
         props.consumerMessageActions ?? EMPTY_CONSUMER_MESSAGE_ACTIONS,
       reportProseSelection,
@@ -2120,6 +2171,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       props.onSendToMainMessage,
       selectionAddToChatHandler,
       messageActionSlots,
+      messageMetadataSlots,
       props.includePluginMessageActions,
       props.consumerMessageActions,
       reportProseSelection,

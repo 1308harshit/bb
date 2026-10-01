@@ -67,10 +67,23 @@ openWorkspaceFile }` — register a leaf
   rather than trusting paths. Reference implementation:
   `plugins/inline-vis` (the sidebar's path-shaped, sandboxed worktree
   iframe preview, including relative assets and normal web loading).
+- `experimental_messageMetadata` → host-rendered text beside a realized
+  conversation message. Register `{ id, roles?, resolve }`; `roles` is a
+  nonempty array of `"user"` and/or `"assistant"`, omitted for both. The
+  cheap synchronous resolver receives `{ id, threadId, role, createdAt }`
+  and returns `{ label, title? }` or `null`. BB limits labels to 80 characters
+  and titles to 160, isolates each failure, and orders contributions by plugin
+  id then registration order. Only rendered rows are evaluated; mounted rows
+  refresh at local midnight using one shared host timer. No React component,
+  message text, DOM access, RPC, or timeline paging is needed. Experimental:
+  see `docs/api_to_audit.md`.
 - `messageAction` → an action on chat messages: an icon button in the
   per-message action bar (user and assistant messages) and an entry in the
   assistant-message text-selection menu. Host-rendered chrome, no plugin
-  component — registration: `{ id, title, icon?, run }`. Activating it calls
+  component — registration: `{ id, title, icon?, experimental_roles?, run }`.
+  `experimental_roles` is a nonempty array of `"user"` and/or `"assistant"`;
+  omitted means both. Role filtering covers action bars, overflow, selection,
+  and embedded ThreadChat timelines. Activating it calls
   `run(context)` with `{ threadId, message, selectedText?, openPanel }`:
   `message` is a narrow stable reference
   `{ id, threadId, role: "user" | "assistant", text, sourceSeqEnd }` (never

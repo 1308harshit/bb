@@ -4,6 +4,36 @@
 
 `experimental_page: "mobile"` mounts a plugin settings section exclusively on Settings → Mobile when that plugin owns the selected access provider, retaining plugin context, lifecycle, and error boundaries. Omission keeps the section on its plugin configuration page. Stabilization requires verifying placement isolation, plugin disable/uninstall, loading and failure states, and pairing lifecycle on Mobile.
 
+## `app.slots.experimental_messageMetadata` (`@get-bb/plugin-sdk/app`)
+
+`app.slots.experimental_messageMetadata({ id, roles?, resolve })` registers
+bounded host-rendered text for realized user and assistant conversation rows.
+`resolve({ id, threadId, role, createdAt })` runs synchronously and returns
+`{ label, title? }` or `null`. BB validates roles and output, catches each
+resolver failure, and renders contributions in plugin-id then registration
+order. A label is limited to 80 characters and a title to 160 characters.
+Omitted roles means both; empty or unknown roles fail registration. BB
+invalidates mounted metadata once at local midnight with one shared timer;
+ordinary timeline rerenders can also refresh it. Resolvers never receive
+message text or source sequence numbers, and BB makes no server call.
+Types: `ExperimentalMessageMetadataRegistration`,
+`ExperimentalMessageMetadataContext`, and `ExperimentalMessageMetadata`.
+
+Before stabilizing, audit placement across compact and embedded surfaces,
+output bounds, local-day and timezone behavior, ordering, and whether a
+plugin needs refreshes finer than one day.
+
+## `PluginMessageActionRegistration.experimental_roles` (`@get-bb/plugin-sdk/app`)
+
+The stable `messageAction` registration accepts `experimental_roles`, a
+nonempty array of `"user"` and `"assistant"`. Omitted means both; empty or
+unknown roles fail registration. BB applies it before constructing row
+actions, compact overflow entries, and assistant selection actions, including
+embedded ThreadChat timelines.
+
+Before renaming `experimental_roles` to `roles`, audit the policy across
+overflow and selection menus and confirm marketplace plugins adopt it.
+
 ## `app.commands.register`
 
 `app.commands.register` requires SDK 0.4.91; `defaultShortcut` and keyboard
