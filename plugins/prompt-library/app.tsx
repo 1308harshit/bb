@@ -597,12 +597,12 @@ export default definePluginApp((app) => {
       },
     ],
   });
-  app.commands.register({
+  app.composer.experimental_registerCommand({
     id: "search-prompts",
     title: "Search prompts",
     defaultShortcut: { key: "r", control: true },
-    run(context) {
-      context.experimental_openComposerPopup(POPUP_ID);
+    run: ({ composer }) => {
+      composer.experimental_openPopup(POPUP_ID);
     },
   });
 });

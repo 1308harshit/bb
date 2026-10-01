@@ -1787,8 +1787,6 @@ export interface PluginMessageActionRegistration {
 
 /** Current context for palette and keyboard command invocations. */
 export interface PluginCommandContext {
-  /** Open this plugin's composer customization popup in the most recently focused mounted composer. Returns false if no eligible composer or registration exists. */
-  experimental_openComposerPopup(customizationId: string): boolean;
   /** The thread in view, or null on a surface without one. */
   threadId: string | null;
   projectId: string | null;
@@ -1840,6 +1838,28 @@ export interface PluginCommandRegistration {
    * restored. Errors (sync or async) are contained and logged; they never break the palette.
    */
   run(context: PluginCommandContext): void | Promise<void>;
+}
+
+/**
+ * A command handled by a composer through the same path as bb's own "Focus
+ * composer" command. Listed, rebindable and namespaced like any other plugin
+ * command. The composer holding the caret runs it; with the caret outside every
+ * composer, the focused pane's primary composer does. Like bb's composer
+ * commands, its shortcut is inactive while a terminal, browser tab or modal has
+ * focus, and the palette lists it only when some composer would run it.
+ */
+export interface ExperimentalComposerCommandRegistration {
+  /** Initial keyboard binding. Users can rebind every command, including ones without a default. Conflicting defaults remain unbound. */
+  defaultShortcut?: PluginCommandShortcut;
+  /** Unique within the plugin across every command; letters, digits, `-`, `_`. */
+  id: string;
+  /** The palette row's and keyboard settings' label. */
+  title: string;
+  /**
+   * Runs with the handling composer, bound to this plugin like `useComposer()`.
+   * Errors (sync or async) are contained and logged.
+   */
+  run(context: { composer: PluginComposerApi }): void | Promise<void>;
 }
 
 /** Registers commands for bb's command palette. */
@@ -2152,6 +2172,10 @@ export interface PluginAppSlots {
 
 export interface PluginAppComposer {
   customize(registration: ComposerCustomization): void;
+  /** Register a command that the composer holding the caret runs. IDs share the `app.commands` namespace. */
+  experimental_registerCommand(
+    registration: ExperimentalComposerCommandRegistration,
+  ): void;
 }
 
 /** Stable lifecycle values for one content-script instance in one bb client. */

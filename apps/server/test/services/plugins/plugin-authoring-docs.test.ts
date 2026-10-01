@@ -396,12 +396,7 @@ const FRONTEND_SLOT_PROP_FIELDS = {
     "openPanel",
     "composer",
   ],
-  commandPaletteAction: [
-    "threadId",
-    "projectId",
-    "openPanel",
-    "experimental_openComposerPopup",
-  ],
+  commandPaletteAction: ["threadId", "projectId", "openPanel"],
   experimental_providerIcon: ["providerKind", "providerId", "icon"],
   experimental_timelineRenderer: [
     "row",

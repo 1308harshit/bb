@@ -19,8 +19,6 @@ Read the installed declarations for exact current signatures.
 - `ComposerCustomization`
 - `ComposerPlusMenuItem`
 - `ComposerSendMenuItem`
-- `ComposerTypeaheadApi`
-- `ComposerTypeaheadRegistration`
 - `ComposerRichTextSpec`
 - `ComposerDraft`
 - `ComposerMention`
@@ -161,6 +159,7 @@ Read the installed declarations for exact current signatures.
 - `PluginCommandContext`
 - `PluginCommandShortcut`
 - `PluginCommandRegistration`
+- `ExperimentalComposerCommandRegistration`
 - `PluginComposerApi`
 - `PluginComposerMention`
 - `PluginComposerScope`

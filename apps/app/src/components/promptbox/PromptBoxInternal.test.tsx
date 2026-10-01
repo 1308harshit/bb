@@ -7,7 +7,6 @@ import type { PromptTextMention } from "@bb/domain";
 import type { TiptapEditorHTMLElement } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { buildPluginPaletteActions } from "@/lib/command-palette/palette-plugin-actions";
 import { EditorView } from "@tiptap/pm/view";
 import {
   createRef,
@@ -675,26 +674,15 @@ describe("PromptBoxInternal composer popups", () => {
     );
   }
 
-  function openCommand() {
+  function openPopup(composerKey = "prompt-action-composer") {
     let accepted = false;
-    const [command] = buildPluginPaletteActions({
-      slots: [
-        {
-          id: "open",
-          title: "Saved prompts",
-          pluginId: "saved-prompts",
-          generation: 1,
-          defaultShortcut: null,
-          run: (context) => {
-            accepted = context.experimental_openComposerPopup("library");
-          },
-        },
-      ],
-      threadId: null,
-      projectId: null,
-      openThreadPanel: null,
+    act(() => {
+      accepted =
+        getComposerEditorBridge(composerKey)?.openPopup(
+          "saved-prompts",
+          "library",
+        ) ?? false;
     });
-    act(() => command?.run());
     return accepted;
   }
 
@@ -745,7 +733,7 @@ describe("PromptBoxInternal composer popups", () => {
     renderPromptBox("@");
     await waitForPromptFocus();
     await screen.findByText("Type to search mentions");
-    expect(openCommand()).toBe(true);
+    expect(openPopup()).toBe(true);
     const search = await screen.findByRole("textbox", {
       name: "Search saved prompts",
     });
@@ -766,41 +754,11 @@ describe("PromptBoxInternal composer popups", () => {
     expect(screen.queryByText("Type to search mentions")).toBeNull();
   });
 
-  it("targets the last focused composer through palette focus changes and declines after unmount", async () => {
-    registerPopup();
-    const first = renderPromptBox("first", { composerKey: "first" });
-    const second = renderPromptBox("second", {
-      composerKey: "second",
-      props: { autoFocus: false },
-    });
-    render(<button type="button">Palette</button>);
-    const editor = first.view.container.querySelector<HTMLElement>(
-      '[contenteditable="true"]',
-    );
-    if (!editor) throw new Error("Composer editor is missing");
-    await waitFor(() => expect(document.activeElement).toBe(editor));
-    act(() => screen.getByRole("button", { name: "Palette" }).focus());
-    expect(openCommand()).toBe(true);
-    const popup = await screen.findByRole("dialog", { name: "Saved prompts" });
-    expect(first.view.container.contains(popup)).toBe(true);
-    await waitFor(() =>
-      expect(document.activeElement).toBe(within(popup).getByRole("textbox")),
-    );
-    fireEvent.keyDown(within(popup).getByRole("textbox"), { key: "Escape" });
-    await waitFor(() => expect(document.activeElement).toBe(editor));
-    expect(openCommand()).toBe(true);
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Palette" }));
-    expect(screen.queryByRole("dialog", { name: "Saved prompts" })).toBeNull();
-    first.view.unmount();
-    second.view.unmount();
-    expect(openCommand()).toBe(false);
-  });
-
   it("honors scope and suppression, rejects another plugin's close, and closes on plugin removal", async () => {
     registerPopup(["thread"]);
     const first = renderPromptBox("draft");
     await waitForPromptFocus();
-    expect(openCommand()).toBe(false);
+    expect(openPopup()).toBe(false);
     act(() => registerPopup());
     const foreignClose = vi.fn();
     function OtherPlugin() {
@@ -825,7 +783,7 @@ describe("PromptBoxInternal composer popups", () => {
         ]),
       ),
     );
-    expect(openCommand()).toBe(true);
+    expect(openPopup()).toBe(true);
     await screen.findByRole("dialog", { name: "Saved prompts" });
     fireEvent.click(screen.getByRole("button", { name: "Other plugin close" }));
     expect(foreignClose).toHaveBeenCalledWith(false);
@@ -838,14 +796,14 @@ describe("PromptBoxInternal composer popups", () => {
       props: { suppressPluginComposerCustomizations: true },
     });
     await waitForPromptFocus();
-    expect(openCommand()).toBe(false);
+    expect(openPopup()).toBe(false);
   });
 
   it("defers compact content and retains it without making the app root inert", async () => {
     registerPopup();
     const { view } = renderPromptBox("draft", { compact: true });
     await waitForPromptFocus();
-    expect(openCommand()).toBe(true);
+    expect(openPopup()).toBe(true);
     expect(
       screen.queryByRole("textbox", { name: "Search saved prompts" }),
     ).toBeNull();
@@ -867,7 +825,7 @@ describe("PromptBoxInternal composer popups", () => {
       ).not.toBeNull(),
     );
     expect(document.contains(search)).toBe(true);
-    expect(openCommand()).toBe(true);
+    expect(openPopup()).toBe(true);
     await waitFor(() =>
       expect(
         screen.getByRole("textbox", { name: "Search saved prompts" }),

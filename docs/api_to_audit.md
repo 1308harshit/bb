@@ -5,11 +5,9 @@
 `ComposerCustomization.experimental_popup` registers one component and accessible
 label under the customization's id, honoring its composer scopes.
 `PluginComposerApi.experimental_openPopup(id)` opens that plugin's popup in
-that mounted composer. `PluginCommandContext.experimental_openComposerPopup(id)`
-uses the most recently focused mounted composer; when none has been focused,
-it uses the sole eligible composer and otherwise declines. Both return false
-for missing, suppressed or out-of-scope registrations. Registration ids remain
-unique within a plugin; there is no second popup-id namespace.
+that mounted composer and returns false for missing, suppressed or
+out-of-scope registrations. Registration ids remain unique within a plugin;
+there is no second popup-id namespace.
 
 Core mentions, commands and plugin popups share one composer-menu state,
 Escape/dismissal lifecycle, `ComposerPopupHost`, and above/below placement.
@@ -20,13 +18,32 @@ returning false if that plugin has no open popup. Desktop dismissal handles
 Escape and outside clicks; returning to the editor also closes the popup. Compact interactive popups use the shared
 persistent responsive drawer; editor-driven suggestions remain inline so typing
 continues in the editor. The component owns search, results and keyboard
-navigation. No automatic menu row is added; existing actions and plus-menu rows
-can call `experimental_openPopup`.
+navigation. No automatic menu row is added; actions, plus-menu rows and
+composer commands call `experimental_openPopup`.
 
-Before stabilization, verify multiple composers, palette focus transfer,
-selection retention, plugin reload and crash recovery, scope suppression, and
-compact Safari keyboard/drawer behavior. Audit whether the single-popup-per-
-customization shape and command fallback remain sufficient for other plugins.
+Before stabilization, verify multiple composers, selection retention, plugin
+reload and crash recovery, scope suppression, and compact Safari
+keyboard/drawer behavior. Audit whether the single-popup-per-customization
+shape remains sufficient for other plugins.
+
+## Composer commands
+
+`PluginAppComposer.experimental_registerCommand({ id, title, defaultShortcut?,
+run })` registers a command that is listed in the palette and Settings →
+Keyboard, rebindable under `plugin:<plugin-id>/<command-id>`, and shares the
+`app.commands` ID namespace. Each prompt box provides command ownership and
+mounts its composer commands through `useComposerCommand`, the same hook bb's
+`composer.focus` uses; `run` receives that composer's plugin-bound
+`PluginComposerApi`. Ownership (`composerOwnsCommand`, per
+`[data-app-composer]` shell): the composer holding the caret, otherwise the
+focused pane's primary composer. Plugin composer commands use bb's composer
+keybinding context (prompt available; no terminal, browser or modal focus).
+The palette evaluates ownership against the element focused when it opened.
+
+Before stabilization, verify split panes, side chat, inline queued-message
+editing, palette invocation from each, plugin reload, and rebinding. Audit
+whether composer scopes should filter commands the way they filter other
+composer contributions, and whether commands need an availability callback.
 
 ## `settingsSection.experimental_page`
 

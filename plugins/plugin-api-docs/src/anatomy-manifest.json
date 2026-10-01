@@ -58,7 +58,7 @@
           "path": "apps/app/src/components/plugin/PluginComposerPopup.tsx",
           "anchors": [
             "slotKind=\"composerPopup\"",
-            "ComposerPopupContext.Provider"
+            "<popup.component />"
           ]
         }
       ]
