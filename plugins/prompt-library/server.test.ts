@@ -3,14 +3,6 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import type { HistoryEntry } from "./history-prompt.js";
 import plugin from "./server.js";
 
-interface HistoryQuery {
-  scope: "thread" | "project" | "global";
-  projectId?: string;
-  threadId?: string;
-  query?: string;
-  limit?: string;
-}
-
 function text(value: string): HistoryEntry["input"] {
   return [{ type: "text", text: value, mentions: [] }];
 }
@@ -34,38 +26,29 @@ function entry(
   };
 }
 
-function historySearch(entries: readonly HistoryEntry[], windowSize: number) {
-  return vi.fn(async (args: HistoryQuery) => {
-    const terms = (args.query ?? "")
-      .toLowerCase()
-      .split(/\s+/u)
-      .filter(Boolean);
-    const matches = [...entries]
-      .filter((candidate) =>
-        args.scope === "thread"
-          ? candidate.threadId === args.threadId
-          : args.scope === "project"
-            ? candidate.projectId === args.projectId
-            : true,
-      )
-      .filter((candidate) => {
-        const haystack = candidate.input
-          .flatMap((chunk) => (chunk.type === "text" ? [chunk.text] : []))
-          .join("\n\n")
-          .toLowerCase();
-        return terms.every((term) => haystack.includes(term));
-      })
-      .sort((left, right) => right.createdAt - left.createdAt);
-    return terms.length === 0 ? matches.slice(0, windowSize) : matches;
+function historyList(history: HistoryEntry[]) {
+  return vi.fn(async (args: { cursor?: string; limit?: string } = {}) => {
+    const newestFirst = [...history].sort(
+      (left, right) =>
+        right.createdAt - left.createdAt || right.id.localeCompare(left.id),
+    );
+    const start = args.cursor === undefined ? 0 : Number(args.cursor);
+    const limit = Number(args.limit ?? "100");
+    const end = start + limit;
+    return {
+      entries: newestFirst.slice(start, end),
+      nextCursor: end < newestFirst.length ? String(end) : null,
+    };
   });
 }
 
-async function setup(entries: readonly HistoryEntry[], windowSize = 300) {
-  const search = historySearch(entries, windowSize);
+async function setup(entries: readonly HistoryEntry[]) {
+  const history = [...entries];
+  const list = historyList(history);
   const fake = createFakePluginHost({
     pluginId: "prompt-library",
     sdk: {
-      promptHistory: { search },
+      promptHistory: { list },
       projects: {
         list: async () => [
           { id: "proj_a", name: "Alpha" },
@@ -77,7 +60,7 @@ async function setup(entries: readonly HistoryEntry[], windowSize = 300) {
   await plugin(fake.bb);
   const call = (method: string, input: unknown) =>
     fake.harness.behavior.callRpc(method, input);
-  return { ...fake, search, call };
+  return { ...fake, history, list, call };
 }
 
 const GLOBAL = { scope: "global", projectId: null, threadId: null } as const;
@@ -216,24 +199,57 @@ describe("prompt library server", () => {
     expect(result.recent[0]?.snippet.highlights.length).toBeGreaterThan(0);
   });
 
-  it("finds exact matches older than the recent candidate window", async () => {
-    const entries = [
+  it("loads older pages only when the loaded ones have too few matches", async () => {
+    const { call, list } = await setup([
       entry("old", 1, "migrate the billing tables"),
-      ...Array.from({ length: 5 }, (_, index) =>
+      ...Array.from({ length: 1200 }, (_, index) =>
         entry(`new-${index}`, 10 + index, `recent prompt ${index}`),
       ),
-    ];
-    const { call } = await setup(entries, 3);
+    ]);
 
-    const result = (await call("search", { ...GLOBAL, query: "billing" })) as {
+    const result = (await call("search", { ...GLOBAL, query: "mgrt blng" })) as {
       recent: { id: string }[];
     };
 
     expect(result.recent.map((row) => row.id)).toEqual(["old"]);
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("loads only the newest page while it yields enough results", async () => {
+    const { call, list } = await setup(
+      Array.from({ length: 1200 }, (_, index) =>
+        entry(`h${index}`, index, `prompt number ${index}`),
+      ),
+    );
+
+    const result = (await call("search", { ...GLOBAL, query: "" })) as {
+      recent: { id: string }[];
+    };
+
+    expect(result.recent).toHaveLength(30);
+    expect(result.recent[0]?.id).toBe("h1199");
+    expect(list).toHaveBeenCalledOnce();
+  });
+
+  it("adds new prompts on later searches and keeps prompts core no longer returns", async () => {
+    const { call, history, list } = await setup([
+      entry("h1", 1, "first prompt"),
+    ]);
+    await call("search", { ...GLOBAL, query: "" });
+    history.push(entry("h2", 2, "second prompt"));
+    history.splice(0, 1);
+    list.mockClear();
+
+    const result = (await call("search", { ...GLOBAL, query: "" })) as {
+      recent: { id: string }[];
+    };
+
+    expect(result.recent.map((row) => row.id)).toEqual(["h2", "h1"]);
+    expect(list).toHaveBeenCalledOnce();
   });
 
   it("scopes history to the thread or project and skips a missing target", async () => {
-    const { call, search } = await setup([
+    const { call, list } = await setup([
       entry("h1", 1, "in thread a", { threadId: "thr_a" }),
       entry("h2", 2, "in thread b", { threadId: "thr_b" }),
     ]);
@@ -245,11 +261,8 @@ describe("prompt library server", () => {
       threadId: "thr_b",
     })) as { recent: { id: string }[] };
     expect(thread.recent.map((row) => row.id)).toEqual(["h2"]);
-    expect(search).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: "thread", threadId: "thr_b" }),
-    );
 
-    search.mockClear();
+    list.mockClear();
     const missing = (await call("search", {
       query: "",
       scope: "project",
@@ -257,7 +270,7 @@ describe("prompt library server", () => {
       threadId: null,
     })) as { recent: unknown[] };
     expect(missing.recent).toEqual([]);
-    expect(search).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
   });
 
   it("stars text and mentions only, dedupes by text, and orders by last use", async () => {

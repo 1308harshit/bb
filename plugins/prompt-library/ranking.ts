@@ -13,6 +13,47 @@ export function queryTerms(query: string): string[] {
   return query.trim().split(/\s+/u).filter(Boolean);
 }
 
+const PRECISE_SCORING_POOL_LIMIT = 1000;
+
+interface IndexedItem<T> {
+  item: T;
+  index: number;
+}
+
+interface TermMatches {
+  score: number;
+  positions: Set<number>;
+}
+
+function matchTerms<T>(
+  pool: readonly IndexedItem<T>[],
+  terms: readonly string[],
+  getText: (item: T) => string,
+  fuzzy: "v1" | "v2",
+): { pool: IndexedItem<T>[]; matches: Map<number, TermMatches> } {
+  let remaining = [...pool];
+  const matches = new Map<number, TermMatches>();
+  for (const term of terms) {
+    const found = new Fzf(remaining, {
+      selector: (entry) => getText(entry.item),
+      casing: "smart-case",
+      sort: false,
+      fuzzy,
+    }).find(term);
+    remaining = found.map((match) => match.item);
+    for (const match of found) {
+      const existing = matches.get(match.item.index) ?? {
+        score: 0,
+        positions: new Set<number>(),
+      };
+      existing.score += match.score;
+      for (const position of match.positions) existing.positions.add(position);
+      matches.set(match.item.index, existing);
+    }
+  }
+  return { pool: remaining, matches };
+}
+
 export function rankByQuery<T>(
   items: readonly T[],
   query: string,
@@ -22,37 +63,21 @@ export function rankByQuery<T>(
   if (terms.length === 0) {
     return items.map((item) => ({ item, positions: [] }));
   }
-  const matchesByIndex = new Map<
-    number,
-    { score: number; positions: Set<number>; termCount: number }
-  >();
   const indexed = items.map((item, index) => ({ item, index }));
-  const matcher = new Fzf(indexed, {
-    selector: (entry) => getText(entry.item),
-    casing: "smart-case",
-    sort: false,
-  });
-  for (const term of terms) {
-    for (const match of matcher.find(term)) {
-      const existing = matchesByIndex.get(match.item.index) ?? {
-        score: 0,
-        positions: new Set<number>(),
-        termCount: 0,
-      };
-      existing.score += match.score;
-      existing.termCount += 1;
-      for (const position of match.positions) existing.positions.add(position);
-      matchesByIndex.set(match.item.index, existing);
-    }
+  let result = matchTerms(indexed, terms, getText, "v1");
+  if (result.pool.length <= PRECISE_SCORING_POOL_LIMIT) {
+    result = matchTerms(result.pool, terms, getText, "v2");
   }
-  return [...matchesByIndex.entries()]
-    .filter(([, match]) => match.termCount === terms.length)
+  const { matches } = result;
+  return result.pool
+    .map((entry) => ({ entry, match: matches.get(entry.index)! }))
     .sort(
-      ([leftIndex, left], [rightIndex, right]) =>
-        right.score - left.score || leftIndex - rightIndex,
+      (left, right) =>
+        right.match.score - left.match.score ||
+        left.entry.index - right.entry.index,
     )
-    .map(([index, match]) => ({
-      item: items[index]!,
+    .map(({ entry, match }) => ({
+      item: entry.item,
       positions: [...match.positions].sort((left, right) => left - right),
     }));
 }

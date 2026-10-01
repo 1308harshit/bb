@@ -2,20 +2,12 @@ import { z } from "zod";
 import { promptInputSchema, type PromptInput } from "./shared-types.js";
 
 export const PROMPT_HISTORY_ENTRY_LIMIT = 50;
-export const PROMPT_HISTORY_SEARCH_CANDIDATE_LIMIT = 300;
+export const PROMPT_HISTORY_PAGE_DEFAULT_LIMIT = 100;
+export const PROMPT_HISTORY_PAGE_MAX_LIMIT = 1000;
 
 const promptHistoryScopeValues = ["project", "thread"] as const;
 const promptHistoryScopeSchema = z.enum(promptHistoryScopeValues);
 export type PromptHistoryScope = z.infer<typeof promptHistoryScopeSchema>;
-
-export const promptHistorySearchScopeSchema = z.enum([
-  "thread",
-  "project",
-  "global",
-]);
-export type PromptHistorySearchScope = z.infer<
-  typeof promptHistorySearchScopeSchema
->;
 
 export const promptHistoryEntrySchema = z.object({
   id: z.string().min(1),
@@ -24,12 +16,12 @@ export const promptHistoryEntrySchema = z.object({
 });
 export type PromptHistoryEntry = z.infer<typeof promptHistoryEntrySchema>;
 
-export const promptHistorySearchEntrySchema = promptHistoryEntrySchema.extend({
+export const promptHistoryListEntrySchema = promptHistoryEntrySchema.extend({
   projectId: z.string().min(1),
   threadId: z.string().min(1),
 });
-export type PromptHistorySearchEntry = z.infer<
-  typeof promptHistorySearchEntrySchema
+export type PromptHistoryListEntry = z.infer<
+  typeof promptHistoryListEntrySchema
 >;
 
 interface PromptHistoryComparableEntry {

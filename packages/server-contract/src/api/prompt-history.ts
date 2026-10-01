@@ -1,41 +1,18 @@
 import { z } from "zod";
-import {
-  promptHistorySearchEntrySchema,
-  promptHistorySearchScopeSchema,
-} from "@bb/domain";
+import { promptHistoryListEntrySchema } from "@bb/domain";
 
-const promptHistorySearchCommonQueryFields = {
+export const promptHistoryListQuerySchema = z.object({
+  cursor: z.string().min(1).optional(),
   limit: z.string().regex(/^\d+$/u).optional(),
-  query: z.string().optional(),
-};
-
-export const promptHistorySearchQuerySchema = z.discriminatedUnion("scope", [
-  z.object({
-    ...promptHistorySearchCommonQueryFields,
-    projectId: z.never().optional(),
-    scope: promptHistorySearchScopeSchema.extract(["global"]),
-    threadId: z.never().optional(),
-  }),
-  z.object({
-    ...promptHistorySearchCommonQueryFields,
-    projectId: z.string().min(1),
-    scope: promptHistorySearchScopeSchema.extract(["project"]),
-    threadId: z.never().optional(),
-  }),
-  z.object({
-    ...promptHistorySearchCommonQueryFields,
-    projectId: z.never().optional(),
-    scope: promptHistorySearchScopeSchema.extract(["thread"]),
-    threadId: z.string().min(1),
-  }),
-]);
-export type PromptHistorySearchQuery = z.infer<
-  typeof promptHistorySearchQuerySchema
+});
+export type PromptHistoryListQuery = z.infer<
+  typeof promptHistoryListQuerySchema
 >;
 
-export const promptHistorySearchResponseSchema = z.array(
-  promptHistorySearchEntrySchema,
-);
-export type PromptHistorySearchResponse = z.infer<
-  typeof promptHistorySearchResponseSchema
+export const promptHistoryListResponseSchema = z.object({
+  entries: z.array(promptHistoryListEntrySchema),
+  nextCursor: z.string().nullable(),
+});
+export type PromptHistoryListResponse = z.infer<
+  typeof promptHistoryListResponseSchema
 >;

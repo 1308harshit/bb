@@ -12,8 +12,6 @@ A project maps to a code repository. All threads belong to a project.
   bb project list                         List ordinary projects
     --include-personal                    Also include the personal project
   bb project history <id>                 List prompt history
-    --query <text>                        Search all prompts in the project
-    --limit <count>                       Maximum entries or search candidates
   bb project reorder <id>                 Reorder in the sidebar
     --after <id>                          Previous project, or omit for start
     --before <id>                         Next project, or omit for end

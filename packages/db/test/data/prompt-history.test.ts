@@ -5,7 +5,7 @@ import {
   createProject,
   createPromptHistoryEntry,
   createThread,
-  listPromptHistoryCandidates,
+  listPromptHistoryPage,
   markThreadDeleted,
   upsertHost,
 } from "../../src/data/index.js";
@@ -14,13 +14,8 @@ import { noopNotifier } from "../../src/notifier.js";
 
 type TestDb = ReturnType<typeof createConnection>;
 
-function text(text: string, visibility?: "agent-only"): PromptInput {
-  return {
-    type: "text",
-    text,
-    mentions: [],
-    ...(visibility === undefined ? {} : { visibility }),
-  };
+function text(text: string): PromptInput {
+  return { type: "text", text, mentions: [] };
 }
 
 function setup() {
@@ -71,148 +66,83 @@ function insert(
   return createPromptHistoryEntry(db, args);
 }
 
-describe("prompt history candidate queries", () => {
-  it("applies thread, project, and global scopes and orders newest first", () => {
+describe("prompt history page query", () => {
+  it("pages every project and thread newest first, breaking ties by sequence and id", () => {
     const fixture = setup();
-    const first = insert(fixture.db, {
-      createdAt: 10,
-      input: [text("first project starter")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 1,
-      scope: "project",
-      threadId: fixture.firstThread.id,
-    });
-    const followUp = insert(fixture.db, {
-      createdAt: 30,
-      input: [text("first project follow up")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 1,
-      scope: "thread",
-      threadId: fixture.secondThread.id,
-    });
-    const other = insert(fixture.db, {
-      createdAt: 20,
-      input: [text("other project")],
-      projectId: fixture.secondProject.id,
-      requestSequence: 1,
-      scope: "project",
-      threadId: fixture.otherProjectThread.id,
-    });
-
-    expect(
-      listPromptHistoryCandidates(fixture.db, {
-        scope: "thread",
-        threadId: fixture.firstThread.id,
-        limit: 20,
-      }).map((row) => row.id),
-    ).toEqual([first.id]);
-    expect(
-      listPromptHistoryCandidates(fixture.db, {
-        scope: "project",
+    const rows = [
+      insert(fixture.db, {
         projectId: fixture.firstProject.id,
-        limit: 20,
-      }).map((row) => row.id),
-    ).toEqual([followUp.id, first.id]);
-    expect(
-      listPromptHistoryCandidates(fixture.db, {
-        scope: "global",
-        limit: 20,
-      }).map((row) => row.id),
-    ).toEqual([followUp.id, other.id, first.id]);
+        threadId: fixture.firstThread.id,
+        scope: "project",
+        requestSequence: 1,
+        createdAt: 10,
+        input: [text("first")],
+      }),
+      insert(fixture.db, {
+        projectId: fixture.firstProject.id,
+        threadId: fixture.firstThread.id,
+        scope: "thread",
+        requestSequence: 2,
+        createdAt: 20,
+        input: [text("second")],
+      }),
+      insert(fixture.db, {
+        projectId: fixture.firstProject.id,
+        threadId: fixture.secondThread.id,
+        scope: "thread",
+        requestSequence: 2,
+        createdAt: 20,
+        input: [text("tied")],
+      }),
+      insert(fixture.db, {
+        projectId: fixture.secondProject.id,
+        threadId: fixture.otherProjectThread.id,
+        scope: "thread",
+        requestSequence: 3,
+        createdAt: 20,
+        input: [text("later sequence")],
+      }),
+    ];
+    const expected = [...rows]
+      .sort(
+        (left, right) =>
+          right.createdAt - left.createdAt ||
+          right.requestSequence - left.requestSequence ||
+          right.id.localeCompare(left.id),
+      )
+      .map((row) => row.id);
+
+    const pages: string[][] = [];
+    let before = null;
+    do {
+      const page = listPromptHistoryPage(fixture.db, { before, limit: 3 });
+      pages.push(page.map((row) => row.id));
+      const last = page.at(-1);
+      before = page.length === 3 && last !== undefined ? last : null;
+    } while (before !== null);
+
+    expect(pages.flat()).toEqual(expected);
+    expect(pages.map((page) => page.length)).toEqual([3, 1]);
   });
 
-  it("ANDs case-insensitive terms across visible text and treats LIKE characters literally", () => {
+  it("keeps prompts from soft-deleted threads", () => {
     const fixture = setup();
-    const matching = insert(fixture.db, {
+    const row = insert(fixture.db, {
+      projectId: fixture.firstProject.id,
+      threadId: fixture.firstThread.id,
+      scope: "thread",
+      requestSequence: 1,
       createdAt: 10,
-      input: [text("Deploy AUTH"), text("flow at 100%_ready")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 1,
-      scope: "project",
-      threadId: fixture.firstThread.id,
-    });
-    insert(fixture.db, {
-      createdAt: 20,
-      input: [text("deploy only")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 2,
-      scope: "thread",
-      threadId: fixture.firstThread.id,
-    });
-    insert(fixture.db, {
-      createdAt: 30,
-      input: [text("auth flow", "agent-only"), text("deploy visible")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 3,
-      scope: "thread",
-      threadId: fixture.firstThread.id,
-    });
-
-    expect(
-      listPromptHistoryCandidates(fixture.db, {
-        scope: "global",
-        query: "auth FLOW deploy",
-        limit: 20,
-      }).map((row) => row.id),
-    ).toEqual([matching.id]);
-    expect(
-      listPromptHistoryCandidates(fixture.db, {
-        scope: "global",
-        query: "%_ready",
-        limit: 20,
-      }).map((row) => row.id),
-    ).toEqual([matching.id]);
-  });
-
-  it("excludes prompt history belonging to soft-deleted threads", () => {
-    const fixture = setup();
-    const live = insert(fixture.db, {
-      createdAt: 10,
-      input: [text("live prompt")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 1,
-      scope: "project",
-      threadId: fixture.firstThread.id,
-    });
-    insert(fixture.db, {
-      createdAt: 20,
-      input: [text("deleted prompt")],
-      projectId: fixture.firstProject.id,
-      requestSequence: 1,
-      scope: "thread",
-      threadId: fixture.secondThread.id,
+      input: [text("still history")],
     });
     markThreadDeleted(fixture.db, noopNotifier, {
-      threadId: fixture.secondThread.id,
+      threadId: fixture.firstThread.id,
     });
 
     expect(
-      listPromptHistoryCandidates(fixture.db, {
-        scope: "global",
-        limit: 20,
-      }).map((row) => row.id),
-    ).toEqual([live.id]);
-  });
-
-  it("caps candidate scans at 300 rows", () => {
-    const fixture = setup();
-    for (let index = 1; index <= 305; index += 1) {
-      insert(fixture.db, {
-        createdAt: index,
-        input: [text(`prompt ${index}`)],
-        projectId: fixture.firstProject.id,
-        requestSequence: index,
-        scope: index === 1 ? "project" : "thread",
-        threadId: fixture.firstThread.id,
-      });
-    }
-
-    const rows = listPromptHistoryCandidates(fixture.db, {
-      scope: "global",
-      limit: 1_000,
-    });
-    expect(rows).toHaveLength(300);
-    expect(rows[0]?.createdAt).toBe(305);
-    expect(rows.at(-1)?.createdAt).toBe(6);
+      listPromptHistoryPage(fixture.db, { before: null, limit: 10 }).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual([row.id]);
   });
 });

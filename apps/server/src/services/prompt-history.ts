@@ -1,11 +1,11 @@
 import {
   createPromptHistoryEntry,
-  listPromptHistoryCandidates,
+  listPromptHistoryPage,
   listQueuedThreadMessages,
   listStoredProjectPromptHistoryRows,
   listStoredThreadPromptHistoryRows,
   type DbQueryConnection,
-  type ListPromptHistoryCandidatesArgs,
+  type PromptHistoryPosition,
   type QueuedThreadMessageRow,
   type StoredPromptHistoryEntryRow,
 } from "@bb/db";
@@ -13,7 +13,7 @@ import {
   promptInputSchema,
   takeVisiblePromptHistoryEntries,
   type PromptHistoryEntry,
-  type PromptHistorySearchEntry,
+  type PromptHistoryListEntry,
   type PromptHistoryScope,
   type Thread,
   type ThreadTurnInitiator,
@@ -217,29 +217,43 @@ export function listThreadPromptHistory(
   );
 }
 
-export function searchPromptHistory(
+const promptHistoryCursorSchema = z.tuple([
+  z.number().int(),
+  z.number().int(),
+  z.string().min(1),
+]);
+
+function encodePromptHistoryCursor(position: PromptHistoryPosition): string {
+  return Buffer.from(
+    JSON.stringify([position.createdAt, position.requestSequence, position.id]),
+  ).toString("base64url");
+}
+
+export function decodePromptHistoryCursor(
+  cursor: string,
+): PromptHistoryPosition | null {
+  try {
+    const [createdAt, requestSequence, id] = promptHistoryCursorSchema.parse(
+      JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
+    );
+    return { createdAt, requestSequence, id };
+  } catch {
+    return null;
+  }
+}
+
+export function listPromptHistory(
   deps: PromptHistoryServiceDeps,
-  args: ListPromptHistoryCandidatesArgs,
-): PromptHistorySearchEntry[] {
-  const entries: PromptHistorySearchEntry[] = [];
-  const seenInputs = new Set<string>();
-  for (const row of listPromptHistoryCandidates(deps.db, args)) {
+  args: { before: PromptHistoryPosition | null; limit: number },
+): { entries: PromptHistoryListEntry[]; nextCursor: string | null } {
+  const rows = listPromptHistoryPage(deps.db, args);
+  const entries: PromptHistoryListEntry[] = [];
+  for (const row of rows) {
     try {
-      const input = parseStoredPromptHistoryInput(row).filter(
-        (item) => item.visibility !== "agent-only",
-      );
-      if (input.length === 0) {
-        continue;
-      }
-      const inputKey = JSON.stringify(input);
-      if (seenInputs.has(inputKey)) {
-        continue;
-      }
-      seenInputs.add(inputKey);
       entries.push({
         id: row.id,
         createdAt: row.createdAt,
-        input,
+        input: parseStoredPromptHistoryInput(row),
         projectId: row.projectId,
         threadId: row.threadId,
       });
@@ -247,7 +261,14 @@ export function searchPromptHistory(
       continue;
     }
   }
-  return entries;
+  const last = rows.at(-1);
+  return {
+    entries,
+    nextCursor:
+      rows.length === args.limit && last !== undefined
+        ? encodePromptHistoryCursor(last)
+        : null,
+  };
 }
 
 export function recordAcceptedPromptHistoryEntry(

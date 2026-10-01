@@ -45,25 +45,6 @@ describe("bb thread organization commands", () => {
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("searches thread prompt history when --query is present", async () => {
-    const search = vi.fn(async () => []);
-    stubServerApi({ "v1.prompt-history.search.$get": search });
-
-    await runCommand(
-      ["thread", "history", "thr-1", "--query", "auth flow", "--limit", "12"],
-      register,
-    );
-
-    expect(search).toHaveBeenCalledWith({
-      query: {
-        scope: "thread",
-        threadId: "thr-1",
-        query: "auth flow",
-        limit: "12",
-      },
-    });
-  });
-
   it("creates a named thread section", async () => {
     const create = vi.fn(async () => ({
       id: "section-review",

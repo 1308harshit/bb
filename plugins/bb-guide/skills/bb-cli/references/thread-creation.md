@@ -144,10 +144,6 @@ download <project-id> <attachment-path> --client-file <path>` writes existing
   attachment bytes on the CLI machine. There is no project-attachment list or
   per-file remove API.
 - `bb project history|reorder` exposes project prompt recall and sidebar order.
-  Add `--query` to search both starter and follow-up prompts in the project.
-- `bb thread history <id> --query <text>` searches accepted prompts in one
-  thread. `bb history search <text>` searches globally, or accepts one of
-  `--project <id>` and `--thread <id>` to narrow the scope.
 - Use `bb project show|update|delete` for one project. Use `bb project source
 update|delete` for one source. Use `bb project branches` for branch data.
 - Direct environment inspection accepts any environment ID: use `bb environment

@@ -171,11 +171,6 @@ Listing:
   bb thread search <query> [--limit <1-50>]
                                              Search threads and messages
   bb thread history <id>                   List prompt history
-    --query <text>                         Search accepted prompts in the thread
-    --limit <count>                        Maximum entries or search candidates
-  bb history search <query>                Search accepted prompts globally
-    --project <id>                         Search all prompts in one project
-    --thread <id>                          Search prompts in one thread
 
   bb thread count                          Count threads without listing them
     --status <status>                      Count threads in this status: pending, idle, starting, active, stopping, error

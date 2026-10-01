@@ -323,7 +323,7 @@ type ExpectedPluginCatalogKey = "install" | "installPlan" | "search" | "status";
 
 type ExpectedPluginMarketplacesKey = "add" | "list" | "refresh" | "remove";
 
-type ExpectedPromptHistoryKey = "search";
+type ExpectedPromptHistoryKey = "list";
 
 type ExpectedProjectsKey =
   | "machineEnvironment"

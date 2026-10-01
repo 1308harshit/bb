@@ -1,27 +1,27 @@
 import type {
-  PromptHistorySearchQuery,
-  PromptHistorySearchResponse,
+  PromptHistoryListQuery,
+  PromptHistoryListResponse,
 } from "@bb/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
-export type PromptHistorySearchArgs = PromptHistorySearchQuery & {
+export type PromptHistoryListArgs = PromptHistoryListQuery & {
   signal?: AbortSignal;
 };
 
-export type PromptHistorySearchResult = PromptHistorySearchResponse;
+export type PromptHistoryListResult = PromptHistoryListResponse;
 
 export interface PromptHistoryArea {
-  search(args: PromptHistorySearchArgs): Promise<PromptHistorySearchResult>;
+  list(args?: PromptHistoryListArgs): Promise<PromptHistoryListResult>;
 }
 
 export function createPromptHistoryArea({
   transport,
 }: CreateSdkAreaArgs): PromptHistoryArea {
   return {
-    async search(input) {
+    async list(input = {}) {
       const { signal, ...query } = input;
       return transport.readJson(
-        transport.api.v1["prompt-history"].search.$get(
+        transport.api.v1["prompt-history"].$get(
           { query },
           ...signalRequestArgs(signal),
         ),

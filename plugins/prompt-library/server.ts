@@ -4,17 +4,14 @@ import {
   PluginCliError,
   type BbPluginApi,
 } from "@get-bb/plugin-sdk";
-import type {
-  ComposerDraft,
-  ComposerDraftReplacement,
-} from "@get-bb/plugin-sdk";
+import type { ComposerDraft } from "@get-bb/plugin-sdk";
 import {
   promptLibraryRpcContract,
   type RecentPromptRow,
   type StarredPromptRow,
   type SearchPromptsInput,
 } from "./contract.js";
-import { promptFromHistory, type HistoryEntry } from "./history-prompt.js";
+import { createHistoryCache, type HistoryCandidate } from "./history-cache.js";
 import { buildSnippet, rankByQuery } from "./ranking.js";
 import {
   createStarredPromptStore,
@@ -22,7 +19,6 @@ import {
   type StarredPrompt,
 } from "./store.js";
 
-const HISTORY_CANDIDATE_LIMIT = "300";
 const STARRED_RESULT_LIMIT = 20;
 const RECENT_RESULT_LIMIT = 30;
 
@@ -31,71 +27,52 @@ const JSON_OPTION = {
   description: "Emit machine-readable JSON",
 } as const;
 
-interface HistoryCandidate {
-  id: string;
-  createdAt: number;
-  prompt: ComposerDraftReplacement;
-  projectId: string;
-  threadId: string;
-}
 
 export default function promptLibraryPlugin(bb: BbPluginApi): void {
   const db = bb.storage.database();
   bb.storage.migrate(db, STARRED_PROMPT_MIGRATIONS);
   const store = createStarredPromptStore(db);
 
-  async function historyCandidates(
-    input: SearchPromptsInput,
-    query: string | undefined,
-  ): Promise<HistoryEntry[]> {
-    const common = {
-      limit: HISTORY_CANDIDATE_LIMIT,
-      ...(query !== undefined ? { query } : {}),
-    };
-    if (input.scope === "thread") {
-      if (input.threadId === null) return [];
-      return bb.sdk.promptHistory.search({
-        ...common,
-        scope: "thread",
-        threadId: input.threadId,
-      });
-    }
+  const historyCache = createHistoryCache((args) =>
+    bb.sdk.promptHistory.list(args),
+  );
+
+  function inScope(candidate: HistoryCandidate, input: SearchPromptsInput) {
+    if (input.scope === "thread") return candidate.threadId === input.threadId;
     if (input.scope === "project") {
-      if (input.projectId === null) return [];
-      return bb.sdk.promptHistory.search({
-        ...common,
-        scope: "project",
-        projectId: input.projectId,
-      });
+      return candidate.projectId === input.projectId;
     }
-    return bb.sdk.promptHistory.search({ ...common, scope: "global" });
+    return true;
   }
 
-  async function searchHistory(
+  function rankHistory(
+    loaded: readonly HistoryCandidate[],
     input: SearchPromptsInput,
-  ): Promise<HistoryCandidate[]> {
-    const query = input.query.trim();
-    const [recent, substringMatches] = await Promise.all([
-      historyCandidates(input, undefined),
-      query.length === 0 ? [] : historyCandidates(input, query),
-    ]);
+  ) {
     const seen = new Set<string>();
     const candidates: HistoryCandidate[] = [];
-    for (const entry of [...recent, ...substringMatches].sort(
-      (left, right) => right.createdAt - left.createdAt,
-    )) {
-      const prompt = promptFromHistory(entry.input);
-      if (prompt.text.trim().length === 0 || seen.has(prompt.text)) continue;
-      seen.add(prompt.text);
-      candidates.push({
-        id: entry.id,
-        createdAt: entry.createdAt,
-        prompt,
-        projectId: entry.projectId,
-        threadId: entry.threadId,
-      });
+    for (const candidate of loaded) {
+      const text = candidate.prompt.text;
+      if (!inScope(candidate, input)) continue;
+      if (text.trim().length === 0 || seen.has(text)) continue;
+      seen.add(text);
+      candidates.push(candidate);
     }
-    return candidates;
+    return rankByQuery(candidates, input.query, (item) => item.prompt.text);
+  }
+
+  async function searchHistory(input: SearchPromptsInput) {
+    if (input.scope === "thread" && input.threadId === null) return [];
+    if (input.scope === "project" && input.projectId === null) return [];
+    let loaded: readonly HistoryCandidate[] | null =
+      await historyCache.refresh();
+    let ranked = rankHistory(loaded, input);
+    while (ranked.length < RECENT_RESULT_LIMIT) {
+      loaded = await historyCache.loadOlder();
+      if (loaded === null) break;
+      ranked = rankHistory(loaded, input);
+    }
+    return ranked.slice(0, RECENT_RESULT_LIMIT);
   }
 
   async function projectNames(
@@ -135,11 +112,7 @@ export default function promptLibraryPlugin(bb: BbPluginApi): void {
     )
       .slice(0, STARRED_RESULT_LIMIT)
       .map((match) => starredRow(match.item, match.positions));
-    const history = rankByQuery(
-      await searchHistory(input),
-      input.query,
-      (candidate) => candidate.prompt.text,
-    ).slice(0, RECENT_RESULT_LIMIT);
+    const history = await searchHistory(input);
     const names = await projectNames(
       new Set(history.map((match) => match.item.projectId)),
     );

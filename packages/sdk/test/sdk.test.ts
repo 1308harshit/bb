@@ -107,16 +107,19 @@ function createFetchQueue(
 }
 
 describe("@bb/sdk", () => {
-  it("searches prompt history with an explicit scope", async () => {
-    const response = [
-      {
-        id: "phist_1",
-        createdAt: 10,
-        input: [{ type: "text", text: "Fix auth", mentions: [] }],
-        projectId: "proj_1",
-        threadId: "thr_1",
-      },
-    ];
+  it("pages prompt history with an opaque cursor", async () => {
+    const response = {
+      entries: [
+        {
+          id: "phist_1",
+          createdAt: 10,
+          input: [{ type: "text", text: "Fix auth", mentions: [] }],
+          projectId: "proj_1",
+          threadId: "thr_1",
+        },
+      ],
+      nextCursor: "next",
+    };
     const queue = createFetchQueue([{ body: response }]);
     const sdk = createBbSdk({
       transport: createHttpTransport({
@@ -127,18 +130,13 @@ describe("@bb/sdk", () => {
     });
 
     await expect(
-      sdk.promptHistory.search({
-        scope: "project",
-        projectId: "proj_1",
-        query: "auth flow",
-        limit: "25",
-      }),
+      sdk.promptHistory.list({ cursor: "abc", limit: "25" }),
     ).resolves.toEqual(response);
     expect(queue.requests).toEqual([
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/prompt-history/search?scope=project&projectId=proj_1&query=auth+flow&limit=25",
+        url: "http://bb.test/api/v1/prompt-history?cursor=abc&limit=25",
       },
     ]);
   });

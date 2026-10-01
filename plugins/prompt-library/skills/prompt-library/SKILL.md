@@ -19,9 +19,11 @@ Attachments are retained when restoring a history prompt into an empty composer;
 starred prompts omit attachments. A nonempty composer receives text and mentions
 at the kept cursor. Inserting never sends a message.
 
-History searches up to 300 recent candidates and additionally finds older
-substring matches. The plugin fuzzy-ranks these, returning up to 20 starred and
-30 recent results. History contains user prompts, with agent-only input excluded.
+The plugin loads the newest 1000 prompts, fetches only newer prompts on later
+searches, and loads older pages only when a search finds fewer than 30 matches.
+It fuzzy-ranks the loaded prompts in scope, returning up to 20 starred and 30
+recent results. History contains user prompts; core records them without agent-only input. Prompts stay searchable until the server restarts, even if their
+thread is deleted.
 
 ## CLI and SDK
 
@@ -36,5 +38,5 @@ with nullable IDs; `star` takes `{ prompt: { text, mentions } }`; `unstar` and
 `markUsed` take `{ id }`.
 
 The bundled plugin is enabled by default. Its Search prompts shortcut is
-rebindable in Keyboard Settings. Core history is also available through
-`bb history search` and `bb.sdk.promptHistory.search`.
+rebindable in Keyboard Settings. Plugins can page through the same core history
+with `bb.sdk.promptHistory.list({ cursor, limit })`.

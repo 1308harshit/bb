@@ -1,9 +1,8 @@
 import { acquireProjectAttachmentOwnership } from "./project-attachments.js";
 import { projectAttachmentPaths } from "@bb/domain";
-import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import {
   PROMPT_HISTORY_ENTRY_LIMIT,
-  PROMPT_HISTORY_SEARCH_CANDIDATE_LIMIT,
   type PromptHistoryScope,
   type PromptInput,
 } from "@bb/domain";
@@ -41,14 +40,16 @@ export interface ListStoredThreadPromptHistoryArgs extends ListStoredPromptHisto
   threadId: string;
 }
 
-export type ListPromptHistoryCandidatesArgs = {
+export interface PromptHistoryPosition {
+  createdAt: number;
+  requestSequence: number;
+  id: string;
+}
+
+export interface ListPromptHistoryPageArgs {
+  before: PromptHistoryPosition | null;
   limit: number;
-  query?: string;
-} & (
-  | { scope: "global"; projectId?: never; threadId?: never }
-  | { scope: "project"; projectId: string; threadId?: never }
-  | { scope: "thread"; projectId?: never; threadId: string }
-);
+}
 
 function rawPromptHistoryRowLimit(limit: number): number {
   return Math.min(
@@ -154,63 +155,11 @@ export function listStoredThreadPromptHistoryRows(
     .all();
 }
 
-function escapeLikeTerm(term: string): string {
-  return term
-    .replaceAll("!", "!!")
-    .replaceAll("%", "!%")
-    .replaceAll("_", "!_");
-}
-
-function promptHistoryTextMatchesTerm(term: string): SQL {
-  const pattern = `%${escapeLikeTerm(term)}%`;
-  return sql`EXISTS (
-    SELECT 1
-    FROM json_each(
-      CASE
-        WHEN json_valid(${promptHistoryEntries.input})
-        THEN ${promptHistoryEntries.input}
-        ELSE '[]'
-      END
-    ) AS input_part
-    WHERE COALESCE(json_extract(input_part.value, '$.visibility'), '') <> 'agent-only'
-      AND json_extract(input_part.value, '$.type') = 'text'
-      AND COALESCE(json_extract(input_part.value, '$.text'), '') LIKE ${pattern} ESCAPE '!'
-  )`;
-}
-
-function promptHistoryScopeCondition(
-  args: ListPromptHistoryCandidatesArgs,
-): SQL | undefined {
-  if (args.scope === "project") {
-    return eq(promptHistoryEntries.projectId, args.projectId);
-  }
-  if (args.scope === "thread") {
-    return eq(promptHistoryEntries.threadId, args.threadId);
-  }
-  return undefined;
-}
-
-export function listPromptHistoryCandidates(
+export function listPromptHistoryPage(
   db: DbQueryConnection,
-  args: ListPromptHistoryCandidatesArgs,
+  args: ListPromptHistoryPageArgs,
 ): StoredPromptHistoryEntryRow[] {
-  const limit = Math.min(
-    Math.max(0, args.limit),
-    PROMPT_HISTORY_SEARCH_CANDIDATE_LIMIT,
-  );
-  if (limit === 0) {
-    return [];
-  }
-  const terms = (args.query ?? "")
-    .trim()
-    .split(/\s+/u)
-    .filter((term) => term.length > 0);
-  const conditions = [
-    isNull(threads.deletedAt),
-    promptHistoryScopeCondition(args),
-    ...terms.map(promptHistoryTextMatchesTerm),
-  ].filter((condition): condition is SQL => condition !== undefined);
-
+  const before = args.before;
   return db
     .select({
       createdAt: promptHistoryEntries.createdAt,
@@ -221,13 +170,16 @@ export function listPromptHistoryCandidates(
       threadId: promptHistoryEntries.threadId,
     })
     .from(promptHistoryEntries)
-    .innerJoin(threads, eq(threads.id, promptHistoryEntries.threadId))
-    .where(and(...conditions))
+    .where(
+      before === null
+        ? undefined
+        : sql`(${promptHistoryEntries.createdAt}, ${promptHistoryEntries.requestSequence}, ${promptHistoryEntries.id}) < (${before.createdAt}, ${before.requestSequence}, ${before.id})`,
+    )
     .orderBy(
       desc(promptHistoryEntries.createdAt),
       desc(promptHistoryEntries.requestSequence),
       desc(promptHistoryEntries.id),
     )
-    .limit(limit)
+    .limit(args.limit)
     .all();
 }

@@ -6,8 +6,8 @@ import type {
 } from "@get-bb/plugin-sdk";
 
 export type HistoryEntry = Awaited<
-  ReturnType<BbPluginApi["sdk"]["promptHistory"]["search"]>
->[number];
+  ReturnType<BbPluginApi["sdk"]["promptHistory"]["list"]>
+>["entries"][number];
 type HistoryInput = HistoryEntry["input"][number];
 type HistoryMention = Extract<
   HistoryInput,
