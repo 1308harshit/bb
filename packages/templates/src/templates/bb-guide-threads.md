@@ -235,9 +235,10 @@ Opening threads and files in the app:
 
   In chat, reference a thread as @thread:thr_abc123, substituting its actual ID.
   BB renders the correct project-aware link; do not construct thread URLs manually.
-  Reference one message as @thread:thr_abc123?msg=42, taking the number from
+  Reference one message as @thread:thr_abc123#msg=42, taking the number from
   sourceSeq in `bb thread search --json`. Read it, or a copied message link
-  (…/threads/thr_abc123?msg=42), with `bb thread log thr_abc123 --message 42`.
+  (…/threads/thr_abc123#msg=42), with `bb thread log thr_abc123 --message 42`.
+  Previously copied ?msg= links still open; new links use the #msg= fragment.
 
   bb thread open <path>                    Open a file in the current BB thread panel
   bb thread open <thread-id> [path]        Open a thread, optionally with a panel file
