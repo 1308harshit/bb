@@ -640,18 +640,6 @@ setting changes, with no restart and no `config refresh`.
 A configured agent's command is local code execution and only works with a
 co-located daemon.
 
-### The deprecated `customAcpAgents` config array
-
-Before ACP agents were plugin-owned, custom agents lived in `customAcpAgents`
-in `~/.bb/config.json`. bb still **reads** that array so an existing agent keeps
-working, logs a deprecation warning for each one, and never writes to it.
-Support ends in 0.41 — move each entry into the `customAgents` setting above.
-The two shapes are identical except that the setting has no `logo` field: a
-plugin-registered provider's icon is a host glyph or an asset the plugin ships,
-so a configured agent shows the generic tool glyph, and bb drops the field when
-it reads the old array. A setting entry wins over a config entry with the same
-`id`.
-
 ## OpenCode Go Usage
 
 OpenCode Go subscription usage uses the credentials configured on the selected
@@ -1304,13 +1292,6 @@ BB releases restorable provider sessions after 30 idle minutes. The daemon
 checks for these sessions every five minutes. Active turns, commands, agents,
 workflows, and monitors keep their sessions loaded.
 
-The `sidebarProgressiveDisclosure` experiment is off by default. In **By
-project** and **By machine**, it shows the first five groups in the current sort
-order, keeps attention groups visible, and reveals ten more per **Show more**
-click. Revealed groups stay visible through activity and sort-order changes.
-**Manually** is unchanged. Toggle it with `bb settings experiment
-sidebarProgressiveDisclosure <true|false>`.
-
 Long timelines and large expanded timeline details retain stable
 height-preserving wrappers while mounting only rows near their active
 scrollport.
@@ -1681,7 +1662,7 @@ The Browser Automation plugin supports desktop attachment and headless Chrome on
 
 On each selected browser host, the plugin's host worker installs that release automatically on first use under `<plugin host dataDir>/runtime/npm/`, using the host's `npm` with scripts disabled, verifying the registry signature and SLSA provenance, downloading the matching GitHub release binary, and checking its digest before launch. Later sessions reuse the verified install without network access. Headless mode discovers installed Chrome/Chromium or uses `<plugin host dataDir>/runtime/chrome`. These files belong to the plugin host storage directory; they are not paths on the server or invoking agent host, and the user's global npm installation is never modified. No runtime sandbox-disabling setting is provided.
 
-For isolated development smoke tests only, `DEV_BROWSER_SMOKE_BINARY` selects the absolute binary path for the runtime smoke, `DEV_BROWSER_SMOKE_CHROME` selects the absolute Chrome path, and `DEV_BROWSER_SMOKE_NO_SANDBOX=1` enables the fixture's no-sandbox wrapper where the test host requires it. The `smoke:install` task performs a real install of the pinned release into a disposable directory. These variables do not change normal plugin runtime behavior.
+For isolated development smoke tests only, `DEV_BROWSER_SMOKE_BINARY` selects the absolute binary path for the runtime smoke and `DEV_BROWSER_SMOKE_CHROME` selects the absolute Chrome path. The `smoke:install` task performs a real install of the pinned release into a disposable directory. These variables do not change normal plugin runtime behavior.
 
 ## Agent guidance plugin settings
 
