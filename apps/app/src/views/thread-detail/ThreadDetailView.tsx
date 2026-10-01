@@ -275,6 +275,7 @@ import {
 } from "@/lib/thread-local-file-links";
 import {
   MarkdownLocalFileContextMenuContext,
+  MarkdownLocalFileOpenTargetsContext,
   type MarkdownLinkRouting,
   type MarkdownLocalFileContextMenuItem,
   type MarkdownLocalFileLinkRouting,
@@ -2061,6 +2062,18 @@ function ThreadDetailViewInternal(
         return true;
       }
 
+      if (resolution.kind === "open-in-target") {
+        void openPathInFileTarget({
+          lineNumber: getFilePreviewLineRangeStart({
+            lineRange: resolution.request.lineRange,
+          }),
+          path: resolution.request.path,
+          rememberTarget: false,
+          targetId: resolution.request.targetId,
+        });
+        return true;
+      }
+
       if (resolution.kind === "open-workspace-path") {
         openWorkspaceFile(
           {
@@ -2094,7 +2107,7 @@ function ThreadDetailViewInternal(
       );
       return true;
     },
-    [openHostFile, openStorageFile, openWorkspaceFile],
+    [openHostFile, openPathInFileTarget, openStorageFile, openWorkspaceFile],
   );
   const handleOpenTimelineLocalFileLink = useCallback(
     (
@@ -2103,6 +2116,7 @@ function ThreadDetailViewInternal(
     ) => {
       return handleTimelineLocalFileLinkResolution(
         resolveThreadLocalFileLink({
+          fileOpenTargetIds: fileOpenTargets.map((target) => target.id),
           hostFileLinksAvailable:
             thread?.environmentId !== null &&
             thread?.environmentId !== undefined,
@@ -2114,6 +2128,7 @@ function ThreadDetailViewInternal(
       );
     },
     [
+      fileOpenTargets,
       handleTimelineLocalFileLinkResolution,
       thread?.environmentId,
       threadStorageRootPath,
@@ -2869,13 +2884,17 @@ function ThreadDetailViewInternal(
               <MarkdownLocalFileContextMenuContext.Provider
                 value={getLocalFileContextMenuItems}
               >
-                <UrlOpenRoutingProvider
-                  openInAppBrowser={
-                    canOpenUrlsInAppBrowser ? openBrowserTabAndReveal : null
-                  }
+                <MarkdownLocalFileOpenTargetsContext.Provider
+                  value={fileOpenTargets}
                 >
-                  {panel}
-                </UrlOpenRoutingProvider>
+                  <UrlOpenRoutingProvider
+                    openInAppBrowser={
+                      canOpenUrlsInAppBrowser ? openBrowserTabAndReveal : null
+                    }
+                  >
+                    {panel}
+                  </UrlOpenRoutingProvider>
+                </MarkdownLocalFileOpenTargetsContext.Provider>
               </MarkdownLocalFileContextMenuContext.Provider>
             )}
             metadata={{
@@ -3013,7 +3032,11 @@ function ThreadDetailViewInternal(
           openThreadPanel={handleOpenTimelinePluginPanel}
         >
           <PluginDetailPanelContext.Provider value={pluginDetails}>
-            {threadDetailContent}
+            <MarkdownLocalFileOpenTargetsContext.Provider
+              value={fileOpenTargets}
+            >
+              {threadDetailContent}
+            </MarkdownLocalFileOpenTargetsContext.Provider>
           </PluginDetailPanelContext.Provider>
         </PluginThreadPanelNavigationProvider>
       </ThreadProviderContext.Provider>
