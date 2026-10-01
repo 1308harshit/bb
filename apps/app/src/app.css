@@ -428,6 +428,28 @@
       display: none !important;
     }
   }
+
+  @media (width < 48rem) {
+    [data-new-thread-footer] button {
+      min-block-size: 2.75rem;
+    }
+
+    [data-new-thread-footer]
+      [data-promptbox-shrinkable-control]:has(~ :not(:empty))
+      [data-promptbox-compact-label] {
+      display: none !important;
+    }
+
+    [data-new-thread-footer]
+      [data-promptbox-icon-only-control]
+      [data-promptbox-full-label] {
+      display: block !important;
+    }
+
+    [data-new-thread-footer] [data-promptbox-icon-only-control] {
+      flex-shrink: 1;
+    }
+  }
 }
 
 /*
@@ -494,7 +516,8 @@
     display: none;
   }
 
-  [data-follow-up-composer] [data-follow-up-composer-footer] {
+  [data-follow-up-composer]:not([data-follow-up-composer-footer-visible])
+    [data-follow-up-composer-footer] {
     min-height: 0;
     max-height: 0;
     margin-top: 0;
