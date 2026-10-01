@@ -85,7 +85,7 @@ openWorkspaceFile }` — register a leaf
 - `messageAction` → an action on chat messages: by default an icon button in
   the per-message action bar (user and assistant messages) and an entry in the
   assistant-message text-selection menu. Host-rendered chrome, no plugin
-  component — registration: `{ id, title, icon?, experimental_roles?, experimental_placements?, run }`.
+  component — registration: `{ id, title, icon?, experimental_roles?, experimental_placements?, experimental_isAvailable?, run }`.
   `experimental_placements` is a nonempty array of `"message"` and/or
   `"selection"`; omitted means both. Message placement covers row action bars
   and compact overflow. Selection placement covers existing assistant
@@ -98,15 +98,23 @@ openWorkspaceFile }` — register a leaf
   and embedded ThreadChat timelines. Activating it calls
   `run(context)` with `{ threadId, message, selectedText?, openPanel }`:
   `message` is a narrow stable reference
-  `{ id, threadId, role: "user" | "assistant", text, sourceSeqEnd }` (never
-  an internal timeline row); `selectedText` is present only for
+  `{ id, threadId, role: "user" | "assistant", text, sourceSeqEnd,
+experimental_attachments }` (never an internal timeline row);
+  `experimental_attachments` lists the message's local images and files as
+  `ComposerAttachment`s, ready for `composer.replace`, and excludes remote
+  image URLs; `selectedText` is present only for
   selection-menu invocations and holds the exact highlighted text; and
   `openPanel({ actionId, title?, params? })` opens one of the same plugin's
   registered `threadPanelAction` components in the current thread's side
   panel — same semantics and boolean return as
   `useBbNavigate().openThreadPanel`. Errors from `run` (sync or
   async) are contained and
-  logged, never breaking the timeline.
+  logged, never breaking the timeline. `experimental_isAvailable(context)`
+  receives the same context and hides the action for that message when it
+  returns false, e.g. when `context.composer` is null. bb calls it while
+  rendering each message and when the selection menu opens, so keep it cheap
+  and synchronous; a throw hides the action and is logged. bb's own
+  "Add to chat" is a `messageAction` built this way.
 - `app.commands.register` → a row in bb's quick palette (Mod+Shift+P), listed
   under "Plugins" beside bb's own commands. Host-rendered chrome, no plugin
   component — registration: `{ id, title, defaultShortcut?, isAvailable?, run }`. Both callbacks

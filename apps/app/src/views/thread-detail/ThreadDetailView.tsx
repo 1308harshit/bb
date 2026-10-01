@@ -2956,8 +2956,6 @@ function ThreadDetailViewInternal(
                 ? handleEditSentMessage
                 : undefined,
               inlineMessageEditor,
-              onMessageAddToChat: handleSelectionAddToChat,
-              onSelectionAddToChat: handleSelectionAddToChat,
               onLoadOlderRows: loadOlderTimelineRows,
               onOpenLink: handleOpenTimelineLink,
               onOpenLocalFileLink: handleOpenTimelineLocalFileLink,

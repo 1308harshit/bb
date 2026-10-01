@@ -264,6 +264,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Appear in the row that shows under messages on hover, or in the toolbar that appears when text in an agent's message is selected",
           "Target user or assistant messages with experimental_roles; omitted means both",
           "Choose message actions, assistant selection menus, or both with experimental_placements",
+          "Hide the action for a message it cannot handle with experimental_isAvailable",
+          "Read the message's local attachments to carry them into the composer",
           "Receive the message, plus the selected text when the action was run from a selection",
           "Show the action’s explicit icon in both menus, with plugin branding as the fallback for omitted or unknown names",
           "Open one of the plugin's own [side-panel tabs](thread-panel) with what it received",

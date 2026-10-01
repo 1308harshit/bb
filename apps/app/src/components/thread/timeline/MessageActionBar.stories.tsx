@@ -36,7 +36,15 @@ export function Overview() {
               messageText="A user message you can quote into the composer."
               alignment="end"
               mobileActionDisplay="overflow"
-              onAddToChat={noop}
+              pluginActions={[
+                {
+                  key: "bb/add-to-chat/0",
+                  pluginId: null,
+                  icon: "MessageSquarePlus",
+                  label: "Add to chat",
+                  onSelect: noop,
+                },
+              ]}
             />
           </HoverRevealStage>
         </StoryRow>

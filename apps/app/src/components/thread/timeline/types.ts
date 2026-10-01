@@ -5,7 +5,6 @@ import type {
   MarkdownPreviewLocalFileLinkHandler,
 } from "../../ui/markdown-local-file-link.js";
 import type { MarkdownPreviewLinkHandler } from "../../ui/markdown-link.js";
-import type { PromptDraftAttachment } from "@bb/client-core";
 import type { MarkdownMessageDirectiveOpenThreadPanel } from "@/components/ui/markdown-message-directives";
 
 export type ThreadTimelineLocalFileLink = MarkdownPreviewLocalFileLink;
@@ -40,11 +39,6 @@ export interface ThreadTimelineInlineMessageEditor {
   messageId: string;
   onHostElementChange: (element: HTMLDivElement | null) => void;
 }
-
-export type ThreadTimelineAddToChatHandler = (
-  text: string,
-  attachments?: readonly PromptDraftAttachment[],
-) => void;
 
 export interface ThreadTimelinePluginMessageAction {
   key: string;

@@ -101,13 +101,13 @@ describe("MessageActionBar", () => {
     ).toBeUndefined();
   });
 
-  it("orders agent actions as copy, add, then fork", () => {
+  it("orders native actions as copy, edit, then fork", () => {
     const { container } = render(
       <MessageActionBar
         messageText="An answer."
         alignment="start"
         mobileActionDisplay="inline"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         onFork={vi.fn()}
       />,
     );
@@ -116,7 +116,7 @@ describe("MessageActionBar", () => {
       [...container.querySelectorAll<HTMLButtonElement>("button[aria-label]")]
         .map((button) => button.getAttribute("aria-label"))
         .filter((label) => label !== "Message actions"),
-    ).toEqual(["Copy message", "Add to chat", "Fork into new thread"]);
+    ).toEqual(["Copy message", "Edit message", "Fork into new thread"]);
   });
 
   it("renders plugin action icons before branding and fires their handlers", () => {
@@ -141,7 +141,7 @@ describe("MessageActionBar", () => {
         messageText="An answer."
         alignment="start"
         mobileActionDisplay="inline"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         onFork={vi.fn()}
         pluginActions={[
           {
@@ -161,7 +161,7 @@ describe("MessageActionBar", () => {
         .filter((label) => label !== "Message actions"),
     ).toEqual([
       "Copy message",
-      "Add to chat",
+      "Edit message",
       "Fork into new thread",
       "Summarize",
     ]);
@@ -217,7 +217,7 @@ describe("MessageActionBar", () => {
         messageText="An answer."
         alignment="start"
         mobileActionDisplay="overflow"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         pluginActions={[
           {
             key: "demo/summarize/1",
@@ -243,68 +243,6 @@ describe("MessageActionBar", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  it("renders add-to-chat as an icon action and passes the message text", () => {
-    const onAddToChat = vi.fn();
-    render(
-      <MessageActionBar
-        messageText="Quote this message."
-        alignment="end"
-        mobileActionDisplay="overflow"
-        onAddToChat={onAddToChat}
-      />,
-    );
-
-    const button = screen.getByRole("button", { name: "Add to chat" });
-    fireEvent.click(button);
-    expect(onAddToChat).toHaveBeenCalledWith("Quote this message.");
-  });
-
-  it("passes add-to-chat attachments with the message text", () => {
-    const onAddToChat = vi.fn();
-    const attachment = {
-      type: "localFile" as const,
-      path: "uploads/spec.md",
-      name: "spec.md",
-      sizeBytes: 0,
-    };
-    render(
-      <MessageActionBar
-        messageText="Quote this message."
-        alignment="end"
-        mobileActionDisplay="overflow"
-        addToChatAttachments={[attachment]}
-        onAddToChat={onAddToChat}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Add to chat" }));
-    expect(onAddToChat).toHaveBeenCalledWith("Quote this message.", [
-      attachment,
-    ]);
-  });
-
-  it("renders add-to-chat for attachment-only messages", () => {
-    const onAddToChat = vi.fn();
-    const attachment = {
-      type: "localImage" as const,
-      path: "uploads/screenshot.png",
-      name: "screenshot.png",
-      sizeBytes: 0,
-    };
-    render(
-      <MessageActionBar
-        messageText=""
-        alignment="end"
-        mobileActionDisplay="overflow"
-        addToChatAttachments={[attachment]}
-        onAddToChat={onAddToChat}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Add to chat" }));
-    expect(onAddToChat).toHaveBeenCalledWith("", [attachment]);
-  });
-
   it("renders copy for an image-only message", () => {
     render(
       <MessageActionBar
@@ -320,13 +258,13 @@ describe("MessageActionBar", () => {
 
   it("uses an anchored popover instead of a bottom drawer on mobile", () => {
     mockMobileCoarsePointer();
-    const onAddToChat = vi.fn();
+    const onEdit = vi.fn();
     render(
       <MessageActionBar
         messageText="Quote this message."
         alignment="end"
         mobileActionDisplay="overflow"
-        onAddToChat={onAddToChat}
+        onEdit={onEdit}
       />,
     );
 
@@ -341,10 +279,10 @@ describe("MessageActionBar", () => {
     expect(document.body.querySelector("[data-vaul-drawer]")).toBeNull();
 
     fireEvent.click(
-      within(content!).getByRole("button", { name: "Add to chat" }),
+      within(content!).getByRole("button", { name: "Edit message" }),
     );
 
-    expect(onAddToChat).toHaveBeenCalledWith("Quote this message.");
+    expect(onEdit).toHaveBeenCalledTimes(1);
     expect(document.body.querySelector('[data-side="top"]')).toBeNull();
   });
 
@@ -399,7 +337,7 @@ describe("MessageActionBar", () => {
         messageText="The latest answer."
         alignment="start"
         mobileActionDisplay="inline"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         onFork={vi.fn()}
       />,
     );
@@ -410,7 +348,7 @@ describe("MessageActionBar", () => {
       screen
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Copy message", "Add to chat", "Fork into new thread"]);
+    ).toEqual(["Copy message", "Edit message", "Fork into new thread"]);
     expect(
       screen.queryByRole("button", { name: "Message actions" }),
     ).toBeNull();
@@ -418,20 +356,20 @@ describe("MessageActionBar", () => {
 
   it("collapses desktop actions that do not fit into a trailing overflow menu", () => {
     const resizeObserver = installControlledResizeObserver();
-    const onAddToChat = vi.fn();
+    const onEdit = vi.fn();
     render(
       <MessageActionBar
         messageText="An answer."
         alignment="end"
         mobileActionDisplay="overflow"
-        onAddToChat={onAddToChat}
+        onEdit={onEdit}
         onFork={vi.fn()}
       />,
     );
     resizeObserver.reportWidth(44);
 
     expect(screen.getByRole("button", { name: "Copy message" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Add to chat" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit message" })).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Fork into new thread" }),
     ).toBeNull();
@@ -440,8 +378,8 @@ describe("MessageActionBar", () => {
     expect(
       screen.getByRole("menuitem", { name: "Fork into new thread" }),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add to chat" }));
-    expect(onAddToChat).toHaveBeenCalledWith("An answer.");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit message" }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
   it("marks the action row while its overflow menu is open", () => {
@@ -451,7 +389,7 @@ describe("MessageActionBar", () => {
         messageText="An answer."
         alignment="end"
         mobileActionDisplay="overflow"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         onFork={vi.fn()}
       />,
     );
@@ -473,7 +411,7 @@ describe("MessageActionBar", () => {
         messageText="An answer."
         alignment="end"
         mobileActionDisplay="overflow"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         onFork={vi.fn()}
       />,
     );
@@ -483,7 +421,7 @@ describe("MessageActionBar", () => {
     fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }));
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Copy message", "Add to chat", "Fork into new thread"]);
+    ).toEqual(["Copy message", "Edit message", "Fork into new thread"]);
   });
 
   it("collapses touch inline actions that do not fit into the mobile popover", () => {
@@ -495,7 +433,7 @@ describe("MessageActionBar", () => {
         messageText="An answer."
         alignment="start"
         mobileActionDisplay="inline"
-        onAddToChat={vi.fn()}
+        onEdit={vi.fn()}
         onFork={onFork}
       />,
     );
@@ -514,7 +452,7 @@ describe("MessageActionBar", () => {
       within(content)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["Add to chat", "Fork into new thread"]);
+    ).toEqual(["Edit message", "Fork into new thread"]);
     fireEvent.click(
       within(content).getByRole("button", { name: "Fork into new thread" }),
     );
@@ -524,14 +462,14 @@ describe("MessageActionBar", () => {
   it("expands the hidden touch actions inline when the column has room", () => {
     mockMobileCoarsePointer();
     const resizeObserver = installControlledResizeObserver();
-    const onAddToChat = vi.fn();
+    const onEdit = vi.fn();
     render(
       <div data-message-column="">
         <MessageActionBar
           messageText="An answer."
           alignment="end"
           mobileActionDisplay="overflow"
-          onAddToChat={onAddToChat}
+          onEdit={onEdit}
           onFork={vi.fn()}
         />
       </div>,
@@ -544,11 +482,11 @@ describe("MessageActionBar", () => {
       screen
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Copy message", "Add to chat", "Fork into new thread"]);
+    ).toEqual(["Copy message", "Edit message", "Fork into new thread"]);
     expect(document.body.querySelector('[data-side="top"]')).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add to chat" }));
-    expect(onAddToChat).toHaveBeenCalledWith("An answer.");
+    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole("button", { name: "Message actions" }),
     ).toBeTruthy();
@@ -565,7 +503,7 @@ describe("MessageActionBar", () => {
           messageText="Copy this answer."
           alignment="end"
           mobileActionDisplay="overflow"
-          onAddToChat={vi.fn()}
+          onEdit={vi.fn()}
           onFork={vi.fn()}
         />
       </div>,
@@ -595,7 +533,7 @@ describe("MessageActionBar", () => {
           messageText="An answer."
           alignment="end"
           mobileActionDisplay="overflow"
-          onAddToChat={vi.fn()}
+          onEdit={vi.fn()}
           onFork={vi.fn()}
         />
       </div>,
@@ -611,7 +549,7 @@ describe("MessageActionBar", () => {
       within(content)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["Copy message", "Add to chat", "Fork into new thread"]);
+    ).toEqual(["Copy message", "Edit message", "Fork into new thread"]);
   });
 
   it("mounts the tooltip bar on fine-pointer viewports", () => {
@@ -652,7 +590,7 @@ describe("MessageActionBar observer budget", () => {
           messageText="An answer."
           alignment="start"
           mobileActionDisplay="overflow"
-          onAddToChat={vi.fn()}
+          onEdit={vi.fn()}
         />
       </div>,
     );
@@ -669,7 +607,7 @@ describe("MessageActionBar observer budget", () => {
           messageText="An answer."
           alignment="end"
           mobileActionDisplay="overflow"
-          onAddToChat={vi.fn()}
+          onEdit={vi.fn()}
           onFork={vi.fn()}
         />
       </MessageColumnWidthContext.Provider>,
@@ -681,7 +619,7 @@ describe("MessageActionBar observer budget", () => {
       screen
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Copy message", "Add to chat", "Fork into new thread"]);
+    ).toEqual(["Copy message", "Edit message", "Fork into new thread"]);
   });
 
   it("constructs only the slot observer for a desktop bar under the shared column width", () => {
@@ -692,7 +630,7 @@ describe("MessageActionBar observer budget", () => {
           messageText="An answer."
           alignment="end"
           mobileActionDisplay="overflow"
-          onAddToChat={vi.fn()}
+          onEdit={vi.fn()}
           onFork={vi.fn()}
         />
       </MessageColumnWidthContext.Provider>,
@@ -715,7 +653,7 @@ describe("MessageActionBar shared column width", () => {
           messageText="An answer."
           alignment={alignment}
           mobileActionDisplay="overflow"
-          onAddToChat={vi.fn()}
+          onEdit={vi.fn()}
           onFork={vi.fn()}
         />
       </MessageColumnWidthContext.Provider>,

@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type {
-  ActiveThinking,
-  ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
+import type { ActiveThinking, ThreadRuntimeDisplayStatus } from "@bb/domain";
 import type { TimelineRow } from "@bb/server-contract";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import { Button } from "@bb/shared-ui/button";
@@ -21,7 +18,6 @@ import type {
   ThreadTimelineForkMessageHandler,
   ThreadTimelineEditMessageHandler,
   ThreadTimelineInlineMessageEditor,
-  ThreadTimelineAddToChatHandler,
   ThreadTimelineConsumerMessageAction,
   ThreadTimelineLinkHandler,
   ThreadTimelineLocalFileLinkHandler,
@@ -47,8 +43,6 @@ export interface ThreadTimelineSurfaceProps {
   onForkMessage?: ThreadTimelineForkMessageHandler;
   onEditMessage?: ThreadTimelineEditMessageHandler;
   inlineMessageEditor?: ThreadTimelineInlineMessageEditor;
-  onMessageAddToChat?: ThreadTimelineAddToChatHandler;
-  onSelectionAddToChat?: ThreadTimelineAddToChatHandler;
   consumerMessageActions?: readonly ThreadTimelineConsumerMessageAction[];
   includePluginMessageActions?: boolean;
   onLoadOlderRows?: () => Promise<void> | void;
@@ -147,8 +141,6 @@ export function ThreadTimelineSurface({
   onForkMessage,
   onEditMessage,
   inlineMessageEditor,
-  onMessageAddToChat,
-  onSelectionAddToChat,
   consumerMessageActions,
   includePluginMessageActions,
   onLoadOlderRows,
@@ -219,8 +211,6 @@ export function ThreadTimelineSurface({
             onForkMessage={onForkMessage}
             onEditMessage={onEditMessage}
             inlineMessageEditor={inlineMessageEditor}
-            onMessageAddToChat={onMessageAddToChat}
-            onSelectionAddToChat={onSelectionAddToChat}
             consumerMessageActions={consumerMessageActions}
             includePluginMessageActions={includePluginMessageActions}
             onOpenLink={onOpenLink}

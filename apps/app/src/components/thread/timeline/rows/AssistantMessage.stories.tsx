@@ -279,7 +279,6 @@ export function ActionOverflow() {
               showActions={true}
               mobileActionDisplay="inline"
               streaming={false}
-              onAddToChat={noop}
               onFork={noop}
               pluginActions={overflowStoryPluginActions}
             />
@@ -301,7 +300,6 @@ export function ActionOverflow() {
             showActions={true}
             mobileActionDisplay="inline"
             streaming={false}
-            onAddToChat={noop}
             onFork={noop}
             pluginActions={overflowStoryPluginActions}
           />
@@ -388,7 +386,6 @@ export function MobileActionsAndSelection() {
       <ThreadTimelineRows
         canSpawnChild
         onForkMessage={noop}
-        onSelectionAddToChat={noop}
         threadId={MOBILE_REVIEW_THREAD_ID}
         threadRuntimeDisplayStatus="idle"
         timelineRows={mobileReviewRows}

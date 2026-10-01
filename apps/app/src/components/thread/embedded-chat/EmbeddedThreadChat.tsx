@@ -1,4 +1,3 @@
-import { appendQuoteAndAttachmentsToDraft } from "@bb/client-core";
 import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
 import {
   useCallback,
@@ -30,6 +29,7 @@ import {
   type FollowUpComposerProps,
 } from "@/components/promptbox/FollowUpPromptBox";
 import {
+  PluginComposerHostProvider,
   useComposerHostDraftNotifier,
   useComposerHostSelection,
   type PluginComposerHost,
@@ -47,7 +47,6 @@ import { OverflowFade } from "@/components/ui/overflow-fade";
 import {
   ThreadTimelinePanelContent,
   ThreadTimelineSurface,
-  type ThreadTimelineAddToChatHandler,
   type ThreadTimelineConsumerMessageAction,
   type ThreadTimelineLinkHandler,
   type ThreadTimelineLocalFileLinkHandler,
@@ -640,15 +639,6 @@ function EmbeddedThreadChatWithComposer({
       }),
     [promptDraft.getCurrent, promptDraft.setDraft],
   );
-  const handleAddToChat = useCallback<ThreadTimelineAddToChatHandler>(
-    (text, attachments) => {
-      composerActions.replace((current) =>
-        appendQuoteAndAttachmentsToDraft(current, text, attachments ?? []),
-      );
-      composerActions.focus();
-    },
-    [composerActions],
-  );
   const restoreHistoryDraft = composerActions.restoreDraft;
 
   const queuedEditSessionId = inlineEditingQueuedMessage?.editSessionId ?? null;
@@ -739,8 +729,10 @@ function EmbeddedThreadChatWithComposer({
       selectedProviderId,
     ],
   );
-  const { getSelection, subscribeSelection } =
-    useComposerHostSelection(bottomComposerHostIdentity, bottomSelection);
+  const { getSelection, subscribeSelection } = useComposerHostSelection(
+    bottomComposerHostIdentity,
+    bottomSelection,
+  );
   const queuedSelection = useMemo(
     () =>
       inlineEditingQueuedMessage
@@ -1250,20 +1242,20 @@ function EmbeddedThreadChatWithComposer({
 
   const maxWidthClassName = measure === "page" ? "max-w-[760px]" : "max-w-none";
   const timelineBody = (
-    <ThreadTimelinePanelContent
-      isTurnSubmitting={isTurnSubmitting}
-      leadingContent={leadingContent}
-      consumerMessageActions={consumerMessageActions}
-      includePluginMessageActions={includePluginMessageActions}
-      onOpenLink={onOpenLink}
-      onOpenLocalFileLink={onOpenLocalFileLink}
-      onMessageAddToChat={handleAddToChat}
-      onSelectionAddToChat={handleAddToChat}
-      projectId={projectId}
-      resolveMentionLink={resolveMentionLink}
-      threadId={threadId}
-      workspaceRootPath={workspaceRootPath}
-    />
+    <PluginComposerHostProvider value={bottomPluginComposerHost}>
+      <ThreadTimelinePanelContent
+        isTurnSubmitting={isTurnSubmitting}
+        leadingContent={leadingContent}
+        consumerMessageActions={consumerMessageActions}
+        includePluginMessageActions={includePluginMessageActions}
+        onOpenLink={onOpenLink}
+        onOpenLocalFileLink={onOpenLocalFileLink}
+        projectId={projectId}
+        resolveMentionLink={resolveMentionLink}
+        threadId={threadId}
+        workspaceRootPath={workspaceRootPath}
+      />
+    </PluginComposerHostProvider>
   );
 
   if (layout === "document") {

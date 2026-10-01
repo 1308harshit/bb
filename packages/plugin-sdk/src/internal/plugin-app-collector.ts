@@ -894,6 +894,14 @@ export function collectPluginAppRegistrations(
         if (typeof registration.run !== "function") {
           throw new Error(`${kind}: "run" must be a function`);
         }
+        if (
+          registration.experimental_isAvailable !== undefined &&
+          typeof registration.experimental_isAvailable !== "function"
+        ) {
+          throw new Error(
+            `${kind}: "experimental_isAvailable" must be a function`,
+          );
+        }
         collected.messageActions.push({
           id,
           title: requireNonEmptyString(kind, "title", registration.title),
@@ -903,6 +911,11 @@ export function collectPluginAppRegistrations(
               }
             : {}),
           run: registration.run,
+          ...(registration.experimental_isAvailable === undefined
+            ? {}
+            : {
+                experimental_isAvailable: registration.experimental_isAvailable,
+              }),
           ...(registration.experimental_placements === undefined
             ? {}
             : {

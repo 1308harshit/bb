@@ -5,7 +5,6 @@ import type {
   TimelineUserConversationRow,
 } from "@bb/server-contract";
 import type { PromptTextMention } from "@bb/domain";
-import { fileNameFromPath } from "@bb/thread-view";
 import { cn } from "@bb/shared-ui/lib/utils";
 import {
   MarkdownPreview,
@@ -23,7 +22,6 @@ import type {
   TimelineTitleLinkResolver,
 } from "./TimelineTitleView.js";
 import type {
-  ThreadTimelineAddToChatHandler,
   ThreadTimelineLinkHandler,
   ThreadTimelineLocalFileLinkHandler,
   UserAttachmentImageSrcResolver,
@@ -70,7 +68,6 @@ import {
   type MessageProseSelection,
 } from "./SelectableMessageProse.js";
 import type { ThreadTimelinePluginMessageAction } from "./types.js";
-import type { PromptDraftAttachment } from "@bb/client-core";
 import { buildMarkdownMessageLinkRouting } from "@/components/ui/markdown-message-link-routing";
 
 interface ConversationMessageContentBaseProps {
@@ -89,7 +86,6 @@ interface ConversationMessageContentUserProps extends ConversationMessageContent
   mobileActionDisplay?: "inline" | "overflow";
   initiator: TimelineUserConversationRow["initiator"];
   mentions: readonly PromptTextMention[];
-  onAddToChat?: ThreadTimelineAddToChatHandler;
   onEdit?: () => void;
   resolveMentionLink?: PromptMentionLinkResolver;
   resolveSegmentLinkHref?: TimelineTitleLinkResolver;
@@ -130,7 +126,6 @@ interface ConversationMessageContentAssistantProps
   extends ConversationMessageContentBaseProps, AssistantMessageRowIdentity {
   role: "assistant";
   onOpenLink?: ThreadTimelineLinkHandler;
-  onAddToChat?: ThreadTimelineAddToChatHandler;
   onFork?: () => void;
   forkDisabled?: boolean;
   onSelectProse?: (selection: MessageProseSelection | null) => void;
@@ -145,13 +140,11 @@ type ConversationMessageContentProps =
   | ConversationMessageContentAssistantProps;
 
 interface UserConversationMessageProps {
-  addToChatAttachments: readonly PromptDraftAttachment[];
   attachmentItems: ConversationAttachmentItems;
   pluginActions?: readonly ThreadTimelinePluginMessageAction[];
   initiator: TimelineUserConversationRow["initiator"];
   mentions: readonly PromptTextMention[];
   mobileActionDisplay: "inline" | "overflow";
-  onAddToChat?: ThreadTimelineAddToChatHandler;
   onEdit?: () => void;
   onOpenLink?: ThreadTimelineLinkHandler;
   onOpenLocalFileLink?: ThreadTimelineLocalFileLinkHandler;
@@ -172,10 +165,8 @@ interface UserConversationMessageProps {
 }
 
 interface AssistantConversationMessageProps extends AssistantMessageRowIdentity {
-  addToChatAttachments: readonly PromptDraftAttachment[];
   attachmentItems: ConversationAttachmentItems;
   pluginActions?: readonly ThreadTimelinePluginMessageAction[];
-  onAddToChat?: ThreadTimelineAddToChatHandler;
   onFork?: () => void;
   forkDisabled?: boolean;
   onSelectProse?: (selection: MessageProseSelection | null) => void;
@@ -300,34 +291,11 @@ function CollapsibleMessageText({
   );
 }
 
-function buildAddToChatAttachments(
-  attachments: TimelineConversationAttachments | null,
-): PromptDraftAttachment[] {
-  if (!attachments) {
-    return [];
-  }
-
-  return [
-    ...attachments.localImagePaths.map((path) => ({
-      type: "localImage" as const,
-      path,
-      name: fileNameFromPath(path),
-    })),
-    ...attachments.localFilePaths.map((path) => ({
-      type: "localFile" as const,
-      path,
-      name: fileNameFromPath(path),
-    })),
-  ];
-}
-
 function UserConversationMessage({
-  addToChatAttachments,
   attachmentItems,
   initiator,
   mentions,
   mobileActionDisplay,
-  onAddToChat,
   onEdit,
   onOpenLink,
   onOpenLocalFileLink,
@@ -446,9 +414,7 @@ function UserConversationMessage({
             messageText={messageText}
             alignment="end"
             mobileActionDisplay={mobileActionDisplay}
-            addToChatAttachments={addToChatAttachments}
             copyImageUrl={attachmentItems.imageItems[0]?.src}
-            onAddToChat={onAddToChat}
             onEdit={onEdit}
             pluginActions={pluginActions}
           />
@@ -459,10 +425,8 @@ function UserConversationMessage({
 }
 
 function AssistantConversationMessage({
-  addToChatAttachments,
   attachmentItems,
   id,
-  onAddToChat,
   onFork,
   forkDisabled,
   onSelectProse,
@@ -600,9 +564,7 @@ function AssistantConversationMessage({
           messageText={text}
           alignment="start"
           mobileActionDisplay={mobileActionDisplay}
-          addToChatAttachments={addToChatAttachments}
           copyImageUrl={attachmentItems.imageItems[0]?.src}
-          onAddToChat={onAddToChat}
           onFork={onFork}
           disabled={forkDisabled}
           pluginActions={pluginActions}
@@ -632,21 +594,15 @@ export function ConversationMessageContent(
       }),
     [attachments, projectId, resolveUserAttachmentImageSrc],
   );
-  const addToChatAttachments = useMemo(
-    () => buildAddToChatAttachments(attachments),
-    [attachments],
-  );
 
   if (props.role === "user") {
     return (
       <UserConversationMessage
-        addToChatAttachments={addToChatAttachments}
         attachmentItems={attachmentItems}
         pluginActions={props.pluginActions}
         initiator={props.initiator}
         mentions={props.mentions}
         mobileActionDisplay={props.mobileActionDisplay ?? "overflow"}
-        onAddToChat={props.onAddToChat}
         onEdit={props.onEdit}
         onOpenLink={props.onOpenLink}
         onOpenLocalFileLink={onOpenLocalFileLink}
@@ -670,11 +626,9 @@ export function ConversationMessageContent(
 
   return (
     <AssistantConversationMessage
-      addToChatAttachments={addToChatAttachments}
       attachmentItems={attachmentItems}
       id={props.id}
       pluginActions={props.pluginActions}
-      onAddToChat={props.onAddToChat}
       onFork={props.onFork}
       forkDisabled={props.forkDisabled}
       onSelectProse={props.onSelectProse}

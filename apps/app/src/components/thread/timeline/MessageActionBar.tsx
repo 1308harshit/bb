@@ -28,7 +28,6 @@ import {
   TooltipTrigger,
 } from "@bb/shared-ui/tooltip";
 import { cn } from "@bb/shared-ui/lib/utils";
-import type { PromptDraftAttachment } from "@bb/client-core";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import { PluginItemIcon, pluginIconName } from "@/components/plugin/PluginIcon";
 import type { ThreadTimelinePluginMessageAction } from "./types.js";
@@ -57,12 +56,7 @@ interface MessageActionBarProps {
   messageText: string;
   alignment: "start" | "end";
   mobileActionDisplay: "inline" | "overflow";
-  addToChatAttachments?: readonly PromptDraftAttachment[];
   copyImageUrl?: string;
-  onAddToChat?: (
-    text: string,
-    attachments?: readonly PromptDraftAttachment[],
-  ) => void;
   onEdit?: () => void;
   onFork?: () => void;
   disabled?: boolean;
@@ -70,7 +64,7 @@ interface MessageActionBarProps {
 }
 
 interface MessageOverflowAction {
-  icon: "Copy" | "Edit" | "MessageSquarePlus" | "Fork";
+  icon: "Copy" | "Edit" | "Fork";
   plugin?: { pluginId: string | null; icon: string | null };
   key?: string;
   label: string;
@@ -386,9 +380,7 @@ export function MessageActionBar({
   messageText,
   alignment,
   mobileActionDisplay,
-  addToChatAttachments = [],
   copyImageUrl,
-  onAddToChat,
   onEdit,
   onFork,
   disabled,
@@ -397,8 +389,6 @@ export function MessageActionBar({
   const isCompactViewport = useIsCompactViewport();
   const isPointerCoarse = usePointerCoarse();
   const hasCopy = messageText.length > 0 || copyImageUrl !== undefined;
-  const hasAddToChat =
-    (hasCopy || addToChatAttachments.length > 0) && onAddToChat !== undefined;
   const [collisionBoundary, setCollisionBoundary] = useState<
     HTMLElement | undefined
   >();
@@ -459,14 +449,6 @@ export function MessageActionBar({
     mobileActionDisplay === "inline"
       ? MOBILE_INLINE_ACTION_CLASS
       : MOBILE_OVERFLOW_ACTION_CLASS;
-  const handleAddToChat = useCallback(() => {
-    if (!onAddToChat) return;
-    if (addToChatAttachments.length > 0) {
-      onAddToChat(messageText, addToChatAttachments);
-      return;
-    }
-    onAddToChat(messageText);
-  }, [addToChatAttachments, messageText, onAddToChat]);
   const actions: MessageOverflowAction[] = [
     ...(hasCopy
       ? [
@@ -491,15 +473,6 @@ export function MessageActionBar({
             icon: "Edit" as const,
             label: "Edit message",
             onSelect: onEdit,
-          },
-        ]
-      : []),
-    ...(hasAddToChat
-      ? [
-          {
-            icon: "MessageSquarePlus" as const,
-            label: "Add to chat",
-            onSelect: handleAddToChat,
           },
         ]
       : []),

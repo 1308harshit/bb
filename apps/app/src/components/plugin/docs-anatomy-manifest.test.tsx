@@ -242,10 +242,16 @@ describe("docs anatomy manifest", () => {
           messageText="hello"
           alignment="start"
           mobileActionDisplay="inline"
-          onAddToChat={() => {}}
           onEdit={() => {}}
           onFork={() => {}}
           pluginActions={[
+            {
+              key: "bb/add-to-chat/0",
+              pluginId: null,
+              icon: "MessageSquarePlus",
+              label: "Add to chat",
+              onSelect: () => {},
+            },
             {
               key: "anatomy-plugin-action",
               pluginId: null,

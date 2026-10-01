@@ -51,6 +51,31 @@ Before renaming these fields to `roles` and `placements`, audit overflow,
 selection-only invocation, backwards-compatible defaults, embedded surfaces,
 and marketplace plugin adoption.
 
+## `PluginMessageActionRegistration.experimental_isAvailable` and `ThreadChatMessageReference.experimental_attachments` (`@get-bb/plugin-sdk/app`)
+
+Requires SDK 0.6.12.
+
+`experimental_isAvailable(context)` receives the same
+`PluginMessageActionContext` as `run` and hides the action for that message
+when it returns anything but true. BB calls it while rendering each realized
+message and when the selection menu opens, after role and placement
+filtering. A throw hides the action and logs a warning. A non-function value
+fails registration.
+
+`experimental_attachments` lists the message's local images and files as
+`ComposerAttachment`s without a size, so actions can pass them to
+`composer.replace`. Remote image URLs are excluded. `ThreadChat`
+`messageActions` receive the same field.
+
+BB's own "Add to chat" is a `messageAction` registration that uses only these
+fields, `selectedText`, and `context.composer`, rendered after the native
+Copy, Edit, and Fork actions. Embedded `ThreadChat` timelines with a composer
+now expose that composer as `context.composer`.
+
+Before renaming to `isAvailable` and `attachments`, audit render cost across
+long timelines, re-evaluation when composer availability changes, and whether
+`isDisabled` is needed for core actions such as Fork.
+
 ## `app.commands.register`
 
 `app.commands.register` requires SDK 0.4.91; `defaultShortcut` and keyboard

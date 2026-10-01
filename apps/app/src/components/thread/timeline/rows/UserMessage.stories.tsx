@@ -525,7 +525,6 @@ const mentionedMessageMentions: PromptTextMention[] = [
 
 export function Overview() {
   const promptDraft = useStoryPromptDraft();
-  const handleAddToChat = promptDraft.addQuote;
 
   return (
     <StoryCard>
@@ -546,7 +545,6 @@ export function Overview() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={handleAddToChat}
             onEdit={handleStoryMessageEdit}
           />
         </TimelineStage>
@@ -594,7 +592,6 @@ export function Overview() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -612,7 +609,6 @@ export function Overview() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -634,7 +630,6 @@ export function Overview() {
             mentions={mentionedMessageMentions}
             projectId="proj_bb"
             turnRequest={acceptedMessage}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -655,7 +650,6 @@ export function Overview() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -676,7 +670,6 @@ export function Overview() {
             attachments={null}
             mentions={[]}
             turnRequest={pendingSteer}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -697,7 +690,6 @@ export function Overview() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedSteer}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -716,7 +708,6 @@ export function Overview() {
             mentions={[]}
             turnRequest={acceptedMessage}
             resolveUserAttachmentImageSrc={resolveImageSrc}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -739,7 +730,6 @@ export function Overview() {
             turnRequest={acceptedMessage}
             resolveUserAttachmentImageSrc={resolveImageSrc}
             onOpenLocalFileLink={() => false}
-            onAddToChat={handleAddToChat}
           />
         </TimelineStage>
       </StoryRow>
@@ -922,8 +912,6 @@ const overflowStoryActions: ThreadTimelinePluginMessageAction[] = [
 ];
 
 export function ActionOverflow() {
-  const promptDraft = useStoryPromptDraft();
-
   return (
     <StoryCard>
       <StoryRow
@@ -963,7 +951,6 @@ export function ActionOverflow() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={promptDraft.addQuote}
             onEdit={handleStoryMessageEdit}
           />
         </TimelineStage>
@@ -985,7 +972,6 @@ export function ActionOverflow() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={promptDraft.addQuote}
             onEdit={handleStoryMessageEdit}
             pluginActions={overflowStoryActions}
           />
@@ -1008,7 +994,6 @@ export function ActionOverflow() {
             attachments={null}
             mentions={[]}
             turnRequest={acceptedMessage}
-            onAddToChat={promptDraft.addQuote}
             onEdit={handleStoryMessageEdit}
             pluginActions={overflowStoryActions}
           />

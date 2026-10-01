@@ -12,10 +12,7 @@ import {
 import type { CSSProperties, ReactNode } from "react";
 import { useComposedRefs } from "@radix-ui/react-compose-refs";
 import { TimelineImageGallery } from "./TimelineImageGallery";
-import type {
-  PromptInput,
-  ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
+import type { PromptInput, ThreadRuntimeDisplayStatus } from "@bb/domain";
 import type {
   TimelineParentChange,
   TimelineRow,
@@ -40,6 +37,7 @@ import {
   type TimelineTitle,
   type TimelineViewTurnRow,
   type TimelineViewWorkRow,
+  fileNameFromPath,
 } from "@bb/thread-view";
 import { cn } from "@bb/shared-ui/lib/utils";
 import {
@@ -49,7 +47,6 @@ import {
 } from "@bb/client-core";
 import { isRunningThreadRuntimeDisplayStatus } from "@bb/client-core";
 import type {
-  ThreadTimelineAddToChatHandler,
   ThreadTimelineEditMessageHandler,
   ThreadTimelineInlineMessageEditor,
   ThreadTimelineForkMessageHandler,
@@ -127,11 +124,17 @@ import {
   EMPTY_PLUGIN_SLOT_SNAPSHOT,
   getPluginSlotSnapshot,
   subscribePluginSlots,
-  type PluginMessageActionSlot,
   type PluginMessageMetadataSlot,
 } from "@/lib/plugin-slots.js";
 import { MessageMetadata } from "./MessageMetadata.js";
-import { runPluginMessageAction } from "@/lib/plugin-message-actions.js";
+import {
+  createMessageActionContext,
+  isMessageActionAvailable,
+  isThreadComposerHost,
+  runMessageAction,
+  type TimelineMessageAction,
+} from "@/lib/plugin-message-actions.js";
+import { CORE_MESSAGE_ACTIONS } from "@/lib/core-message-actions.js";
 import {
   usePluginComposerHost,
   type PluginComposerHost,
@@ -154,8 +157,6 @@ export interface ThreadTimelineRowsProps {
   onForkMessage?: ThreadTimelineForkMessageHandler;
   onEditMessage?: ThreadTimelineEditMessageHandler;
   inlineMessageEditor?: ThreadTimelineInlineMessageEditor;
-  onMessageAddToChat?: ThreadTimelineAddToChatHandler;
-  onSelectionAddToChat?: ThreadTimelineAddToChatHandler;
   consumerMessageActions?: readonly ThreadTimelineConsumerMessageAction[];
   includePluginMessageActions?: boolean;
   onOpenLink?: ThreadTimelineLinkHandler;
@@ -184,9 +185,7 @@ interface TimelineRendererStaticContextValue {
   onForkMessage: ThreadTimelineForkMessageHandler | undefined;
   onEditMessage: ThreadTimelineEditMessageHandler | undefined;
   inlineMessageEditor: ThreadTimelineInlineMessageEditor | undefined;
-  onMessageAddToChat: ThreadTimelineAddToChatHandler | undefined;
-  onSelectionAddToChat: ThreadTimelineAddToChatHandler | undefined;
-  pluginMessageActions: readonly PluginMessageActionSlot[];
+  messageActions: readonly TimelineMessageAction[];
   pluginMessageMetadata: readonly PluginMessageMetadataSlot[];
   consumerMessageActions: readonly ThreadTimelineConsumerMessageAction[];
   reportProseSelection:
@@ -725,49 +724,77 @@ function findLastActionableUserMessageId(
 const EMPTY_CONSUMER_MESSAGE_ACTIONS: readonly ThreadTimelineConsumerMessageAction[] =
   [];
 
-function buildRowPluginMessageActions(args: {
-  slots: readonly PluginMessageActionSlot[];
+function matchesMessageActionTarget(
+  action: TimelineMessageAction,
+  role: ThreadChatMessageReference["role"],
+  placement: "message" | "selection",
+): boolean {
+  return (
+    (action.experimental_roles === undefined ||
+      action.experimental_roles.includes(role)) &&
+    (action.experimental_placements === undefined ||
+      action.experimental_placements.includes(placement))
+  );
+}
+
+function buildRowMessageActions(args: {
+  actions: readonly TimelineMessageAction[];
   placement: "message" | "selection";
   timelineThreadId: string | undefined;
   message: ThreadChatMessageReference;
   selectedText?: string;
   openThreadPanel: ThreadTimelineOpenPluginPanelHandler | undefined;
   composerHost: PluginComposerHost | null;
-}): readonly ThreadTimelinePluginMessageAction[] | undefined {
-  const {
-    slots,
-    timelineThreadId,
-    message,
-    selectedText,
-    openThreadPanel,
-    composerHost,
-  } = args;
-  if (timelineThreadId === undefined || slots.length === 0) {
-    return undefined;
+}): readonly ThreadTimelinePluginMessageAction[] {
+  const { actions, timelineThreadId, message, placement } = args;
+  if (timelineThreadId === undefined) {
+    return [];
   }
-  return slots
-    .filter(
-      (slot) =>
-        (slot.experimental_roles === undefined ||
-          slot.experimental_roles.includes(message.role)) &&
-        (slot.experimental_placements === undefined ||
-          slot.experimental_placements.includes(args.placement)),
-    )
-    .map((slot) => ({
-      key: `${slot.pluginId}/${slot.id}/${slot.generation}`,
-      pluginId: slot.pluginId,
-      icon: slot.icon ?? null,
-      label: slot.title,
-      onSelect: () =>
-        runPluginMessageAction({
-          slot,
-          threadId: timelineThreadId,
-          message,
-          selectedText,
-          openThreadPanel,
-          composerHost,
-        }),
-    }));
+  return actions.flatMap((action) => {
+    if (!matchesMessageActionTarget(action, message.role, placement)) {
+      return [];
+    }
+    const context = createMessageActionContext({
+      action,
+      threadId: timelineThreadId,
+      message,
+      ...(args.selectedText !== undefined
+        ? { selectedText: args.selectedText }
+        : {}),
+      openThreadPanel: args.openThreadPanel,
+      composerHost: args.composerHost,
+    });
+    if (!isMessageActionAvailable(action, context)) {
+      return [];
+    }
+    return [
+      {
+        key: `${action.pluginId ?? "bb"}/${action.id}/${action.generation}`,
+        pluginId: action.pluginId,
+        icon: action.icon ?? null,
+        label: action.title,
+        onSelect: () => runMessageAction(action, context),
+      },
+    ];
+  });
+}
+
+function messageReferenceAttachments(
+  attachments: TimelineConversationViewRow["attachments"],
+): ThreadChatMessageReference["experimental_attachments"] {
+  if (!attachments) return [];
+  return [
+    ...attachments.localImagePaths.map((path) => ({
+      type: "localImage" as const,
+      path,
+      name: fileNameFromPath(path),
+    })),
+    ...attachments.localFilePaths.map((path) => ({
+      type: "localFile" as const,
+      path,
+      name: fileNameFromPath(path),
+    })),
+  ];
 }
 
 function buildRowConsumerMessageActions(args: {
@@ -863,9 +890,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
     inlineMessageEditor,
     onEditMessage,
     onForkMessage,
-    onMessageAddToChat,
-    onSelectionAddToChat,
-    pluginMessageActions,
+    messageActions,
     pluginMessageMetadata,
     consumerMessageActions,
     reportProseSelection,
@@ -894,9 +919,10 @@ const ConversationRowContent = memo(function ConversationRowContent({
     role: row.role,
     text: row.text,
     sourceSeqEnd: row.sourceSeqEnd,
+    experimental_attachments: messageReferenceAttachments(row.attachments),
   };
-  const rowSlotActions = buildRowPluginMessageActions({
-    slots: pluginMessageActions,
+  const rowSlotActions = buildRowMessageActions({
+    actions: messageActions,
     placement: "message",
     timelineThreadId: threadId,
     message: messageReference,
@@ -913,7 +939,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
   const rowPluginActions =
     rowConsumerActions.length === 0
       ? rowSlotActions
-      : [...(rowSlotActions ?? []), ...rowConsumerActions];
+      : [...rowSlotActions, ...rowConsumerActions];
   if (row.role === "user") {
     const senderThreadMetadata =
       row.senderThreadId === null
@@ -966,7 +992,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
           initiator={row.initiator}
           mentions={row.mentions}
           mobileActionDisplay={mobileActionDisplay}
-          onAddToChat={onSelectionAddToChat}
           onEdit={onEdit}
           onOpenLink={onOpenLink}
           onOpenLocalFileLink={onOpenLocalFileLink}
@@ -1032,7 +1057,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
       <ConversationMessageContent
         attachments={row.attachments}
         id={row.id}
-        onAddToChat={onMessageAddToChat}
         onFork={onFork}
         forkDisabled={!canSpawnChild}
         onSelectProse={onSelectProse}
@@ -1967,14 +1991,17 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     () => findLastActionableAssistantMessageId(rows),
     [rows],
   );
+  const composerHost = usePluginComposerHost();
+  const hasThreadComposer =
+    props.threadId !== undefined &&
+    isThreadComposerHost(composerHost, props.threadId);
   const latestActionableUserMessageId = useMemo(
     () =>
       findLastActionableUserMessageId(
         rows,
-        props.onSelectionAddToChat !== undefined ||
-          props.onEditMessage !== undefined,
+        hasThreadComposer || props.onEditMessage !== undefined,
       ),
-    [props.onEditMessage, props.onSelectionAddToChat, rows],
+    [hasThreadComposer, props.onEditMessage, rows],
   );
   const scopeActive = isRunningThreadRuntimeDisplayStatus(
     props.threadRuntimeDisplayStatus,
@@ -2024,6 +2051,13 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
     () => getPluginSlotSnapshot().messageActions,
     () => EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions,
   );
+  const messageActions = useMemo<readonly TimelineMessageAction[]>(
+    () =>
+      props.includePluginMessageActions === false
+        ? CORE_MESSAGE_ACTIONS
+        : [...CORE_MESSAGE_ACTIONS, ...messageActionSlots],
+    [messageActionSlots, props.includePluginMessageActions],
+  );
   const messageMetadataSlots = useSyncExternalStore(
     subscribePluginSlots,
     () => getPluginSlotSnapshot().messageMetadata,
@@ -2040,20 +2074,12 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
         : null;
     };
   }, [projectId]);
-  const onSelectionAddToChat = props.onSelectionAddToChat;
   const timelineThreadId = props.threadId;
-  const hasPluginSelectionActions =
-    timelineThreadId !== undefined &&
-    props.includePluginMessageActions !== false &&
-    messageActionSlots.some(
-      (slot) =>
-        (slot.experimental_roles === undefined ||
-          slot.experimental_roles.includes("assistant")) &&
-        (slot.experimental_placements === undefined ||
-          slot.experimental_placements.includes("selection")),
-    );
   const hasSelectionActions =
-    onSelectionAddToChat !== undefined || hasPluginSelectionActions;
+    timelineThreadId !== undefined &&
+    messageActions.some((action) =>
+      matchesMessageActionTarget(action, "assistant", "selection"),
+    );
   const [activeSelection, setActiveSelection] = useState<{
     rowId: string;
     selection: MessageProseSelection;
@@ -2083,49 +2109,26 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
   const dismissSelection = useCallback(() => {
     setActiveSelection(null);
   }, []);
-  const handleSelectionAddToChat = useCallback(
-    (
-      text: string,
-      attachments?: Parameters<ThreadTimelineAddToChatHandler>[1],
-    ) => {
-      if (attachments === undefined) {
-        onSelectionAddToChat?.(text);
-      } else {
-        onSelectionAddToChat?.(text, attachments);
-      }
-      setActiveSelection(null);
-    },
-    [onSelectionAddToChat],
-  );
-  const selectionAddToChatHandler =
-    onSelectionAddToChat === undefined ? undefined : handleSelectionAddToChat;
   const onOpenPluginPanel = props.onOpenPluginPanel;
-  const composerHost = usePluginComposerHost();
-  const selectionPluginActions = useMemo<
+  const selectionMessageActions = useMemo<
     readonly ThreadTimelinePluginMessageAction[]
   >(() => {
     if (activeSelection === null) {
       return [];
     }
-    return (
-      buildRowPluginMessageActions({
-        slots:
-          props.includePluginMessageActions === false
-            ? EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions
-            : messageActionSlots,
-        placement: "selection",
-        timelineThreadId,
-        message: activeSelection.message,
-        selectedText: activeSelection.selection.text,
-        openThreadPanel: onOpenPluginPanel,
-        composerHost,
-      }) ?? []
-    );
+    return buildRowMessageActions({
+      actions: messageActions,
+      placement: "selection",
+      timelineThreadId,
+      message: activeSelection.message,
+      selectedText: activeSelection.selection.text,
+      openThreadPanel: onOpenPluginPanel,
+      composerHost,
+    });
   }, [
     activeSelection,
     composerHost,
-    messageActionSlots,
-    props.includePluginMessageActions,
+    messageActions,
     onOpenPluginPanel,
     timelineThreadId,
   ]);
@@ -2136,13 +2139,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       onForkMessage: props.onForkMessage,
       onEditMessage: props.onEditMessage,
       inlineMessageEditor: props.inlineMessageEditor,
-      onMessageAddToChat: props.onMessageAddToChat,
-      onSelectionAddToChat: selectionAddToChatHandler,
-      pluginMessageActions:
-        timelineThreadId === undefined ||
-        props.includePluginMessageActions === false
-          ? EMPTY_PLUGIN_SLOT_SNAPSHOT.messageActions
-          : messageActionSlots,
+      messageActions,
       pluginMessageMetadata: messageMetadataSlots,
       consumerMessageActions:
         props.consumerMessageActions ?? EMPTY_CONSUMER_MESSAGE_ACTIONS,
@@ -2165,14 +2162,10 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       props.onForkMessage,
       props.onEditMessage,
       props.inlineMessageEditor,
-      props.onMessageAddToChat,
-      selectionAddToChatHandler,
-      messageActionSlots,
+      messageActions,
       messageMetadataSlots,
-      props.includePluginMessageActions,
       props.consumerMessageActions,
       reportProseSelection,
-      timelineThreadId,
       props.onOpenLink,
       props.onOpenLocalFileLink,
       props.onOpenPluginPanel,
@@ -2251,8 +2244,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
                     {hasSelectionActions ? (
                       <TimelineSelectionMenu
                         selection={activeSelection?.selection ?? null}
-                        onAddToChat={selectionAddToChatHandler}
-                        pluginActions={selectionPluginActions}
+                        pluginActions={selectionMessageActions}
                         onDismiss={dismissSelection}
                       />
                     ) : null}

@@ -245,9 +245,7 @@ const THREAD_EVENT_PAYLOAD_FIELDS = {
     "attemptNumber",
   ],
 } as const satisfies {
-  [
-    E in keyof PluginThreadEventPayloads
-  ]: readonly (keyof PluginThreadEventPayloads[E])[];
+  [E in keyof PluginThreadEventPayloads]: readonly (keyof PluginThreadEventPayloads[E])[];
 };
 
 type MissingThreadEventField = {
@@ -472,6 +470,7 @@ const MESSAGE_ACTION_REGISTRATION_FIELDS = [
   "icon",
   "experimental_roles",
   "experimental_placements",
+  "experimental_isAvailable",
   "run",
 ] as const satisfies readonly (keyof PluginMessageActionRegistration)[];
 

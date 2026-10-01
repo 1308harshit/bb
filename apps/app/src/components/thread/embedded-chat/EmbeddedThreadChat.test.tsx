@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   timelineRows: [] as Array<{ text: string }>,
   injectedTimelineProps: [] as Array<unknown>,
   timelinePanelProps: [] as Array<Record<string, unknown>>,
+  timelineComposerHosts: [] as Array<PluginComposerHost | null>,
   timelineProjectIds: [] as Array<string | undefined>,
   resolveMentionLink: vi.fn(),
 }));
@@ -162,24 +163,30 @@ vi.mock("@/components/ui/overflow-fade", () => ({
   ),
 }));
 
-vi.mock("@/components/thread/timeline", () => ({
-  isRunningThreadRuntimeDisplayStatus: (status: string) => status === "active",
-  ThreadTimelinePanelContent: (props: Record<string, unknown>) => {
-    mocks.timelinePanelProps.push(props);
-    mocks.injectedTimelineProps.push(props.timeline);
-    mocks.timelineProjectIds.push(props.projectId as string | undefined);
-    return (
-      <div>
-        {mocks.timelineRows.map((row, index) => (
-          <div key={index} data-testid="embedded-chat-timeline-row">
-            {row.text}
-          </div>
-        ))}
-      </div>
-    );
-  },
-  ThreadTimelineSurface: () => <div data-testid="draft-mode-surface" />,
-}));
+vi.mock("@/components/thread/timeline", async () => {
+  const { usePluginComposerHost } =
+    await import("@/components/plugin/plugin-composer-host");
+  return {
+    isRunningThreadRuntimeDisplayStatus: (status: string) =>
+      status === "active",
+    ThreadTimelinePanelContent: (props: Record<string, unknown>) => {
+      mocks.timelinePanelProps.push(props);
+      mocks.timelineComposerHosts.push(usePluginComposerHost());
+      mocks.injectedTimelineProps.push(props.timeline);
+      mocks.timelineProjectIds.push(props.projectId as string | undefined);
+      return (
+        <div>
+          {mocks.timelineRows.map((row, index) => (
+            <div key={index} data-testid="embedded-chat-timeline-row">
+              {row.text}
+            </div>
+          ))}
+        </div>
+      );
+    },
+    ThreadTimelineSurface: () => <div data-testid="draft-mode-surface" />,
+  };
+});
 
 vi.mock("@/components/ui/app-toast", () => ({
   appToast: { error: vi.fn() },
@@ -412,6 +419,7 @@ describe("EmbeddedThreadChat", () => {
     mocks.timelineRows = [];
     mocks.injectedTimelineProps = [];
     mocks.timelinePanelProps = [];
+    mocks.timelineComposerHosts = [];
     mocks.timelineProjectIds = [];
     mocks.resolveMentionLink.mockReset();
     hostDraftMocks.latestHost = null;
@@ -456,20 +464,21 @@ describe("EmbeddedThreadChat", () => {
     );
   });
 
-  it("keeps add-to-chat callbacks stable while the composer draft changes", () => {
-    renderEmbeddedChat();
-    const initialTimelineProps = mocks.timelinePanelProps.at(-1);
+  it("gives the timeline its own composer, stable while the draft changes", () => {
+    renderEmbeddedChat({
+      pluginComposerBottomScope: { kind: "thread", threadId: "thr_child" },
+    });
+    const initialHost = mocks.timelineComposerHosts.at(-1);
+    expect(initialHost?.scope).toEqual({
+      kind: "thread",
+      threadId: "thr_child",
+    });
 
     fireEvent.change(screen.getByTestId("embedded-chat-composer"), {
       target: { value: "Typing must not invalidate timeline rows" },
     });
 
-    expect(mocks.timelinePanelProps.at(-1)).toEqual(
-      expect.objectContaining({
-        onMessageAddToChat: initialTimelineProps?.onMessageAddToChat,
-        onSelectionAddToChat: initialTimelineProps?.onSelectionAddToChat,
-      }),
-    );
+    expect(mocks.timelineComposerHosts.at(-1)).toBe(initialHost);
   });
 
   it("restores the draft and a stream that advanced while unmounted on remount", () => {

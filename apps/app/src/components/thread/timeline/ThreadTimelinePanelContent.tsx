@@ -18,8 +18,6 @@ import {
 interface ThreadTimelinePanelContentProps {
   isTurnSubmitting?: boolean;
   leadingContent?: ReactNode;
-  onMessageAddToChat?: ThreadTimelineSurfaceProps["onMessageAddToChat"];
-  onSelectionAddToChat?: ThreadTimelineSurfaceProps["onSelectionAddToChat"];
   consumerMessageActions?: ThreadTimelineSurfaceProps["consumerMessageActions"];
   includePluginMessageActions?: ThreadTimelineSurfaceProps["includePluginMessageActions"];
   onOpenLink?: ThreadTimelineSurfaceProps["onOpenLink"];
@@ -35,8 +33,6 @@ interface ThreadTimelinePanelContentProps {
 export function ThreadTimelinePanelContent({
   isTurnSubmitting = false,
   leadingContent,
-  onMessageAddToChat,
-  onSelectionAddToChat,
   consumerMessageActions,
   includePluginMessageActions,
   onOpenLink,
@@ -108,8 +104,6 @@ export function ThreadTimelinePanelContent({
       }
       loadingContent={<ThreadTimelinePanelLoadingSkeleton />}
       leadingContent={leadingContent}
-      onMessageAddToChat={onMessageAddToChat}
-      onSelectionAddToChat={onSelectionAddToChat}
       consumerMessageActions={consumerMessageActions}
       includePluginMessageActions={includePluginMessageActions}
       onLoadOlderRows={resolvedTimeline.loadOlderTimelineRows}

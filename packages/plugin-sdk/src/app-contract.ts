@@ -1721,6 +1721,8 @@ export interface ThreadChatMessageReference {
   /** Visible text of the message. */
   text: string;
   sourceSeqEnd: number;
+  /** Local images and files attached to the message, ready for `composer.replace`. Remote image URLs are excluded. */
+  experimental_attachments: readonly ComposerAttachment[];
 }
 
 /** Stable identity and creation time of one rendered conversation message. */
@@ -1813,6 +1815,13 @@ export interface PluginMessageActionRegistration {
   experimental_roles?: readonly ("user" | "assistant")[];
   /** Omitted means both. Selection placement currently supports assistant messages only. */
   experimental_placements?: readonly ("message" | "selection")[];
+  /**
+   * Hide the action for this message when it cannot do anything, e.g. when
+   * `context.composer` is null. Called while rendering each message and when
+   * the selection menu opens; keep it cheap and synchronous. A throw hides the
+   * action. Omitted means always shown.
+   */
+  experimental_isAvailable?(context: PluginMessageActionContext): boolean;
   /**
    * Runs when the user activates the action. Errors (sync or async) are
    * contained and logged; they never break the timeline.

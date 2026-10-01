@@ -75,7 +75,6 @@ function UserMessage({
         senderIsPluginSideChat={false}
         resolveSegmentLinkHref={resolveThreadLink}
         resolveMentionLink={resolveMentionLink}
-        onAddToChat={onAddToChat}
         systemMessageKind="unlabeled"
         systemMessageSubject={null}
         text={text}
@@ -166,7 +165,6 @@ export function Overview() {
         <UserMessage
           text={MENTIONS_BODY}
           mentions={MENTIONS}
-          onAddToChat={handleAddToChat}
           revealMessageActions
         />
       </StoryRow>
@@ -174,21 +172,13 @@ export function Overview() {
         label="blockquote"
         hint="`> ` lines render as a native markdown blockquote + reply paragraph"
       >
-        <UserMessage
-          text={QUOTE_BODY}
-          onAddToChat={handleAddToChat}
-          revealMessageActions
-        />
+        <UserMessage text={QUOTE_BODY} revealMessageActions />
       </StoryRow>
       <StoryRow
         label="long (collapsible)"
         hint="clamped to ~15 lines with a Show more / Show less toggle"
       >
-        <UserMessage
-          text={LONG_BODY}
-          onAddToChat={handleAddToChat}
-          revealMessageActions
-        />
+        <UserMessage text={LONG_BODY} revealMessageActions />
       </StoryRow>
       <StoryRow
         label="add to chat result"

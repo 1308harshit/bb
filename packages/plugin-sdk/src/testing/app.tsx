@@ -513,6 +513,7 @@ function TestThreadChat({
               threadId,
               role: action.roles?.[0] ?? "assistant",
               text: "test message text",
+              experimental_attachments: [],
               sourceSeqEnd: 1,
             });
           }}

@@ -1477,6 +1477,18 @@ describe("loadPluginApp", () => {
     await expect(
       loadPluginApp(
         definePluginApp((builder) => {
+          builder.slots.messageAction({
+            id: "bad",
+            title: "Bad",
+            experimental_isAvailable: true as never,
+            run: () => {},
+          });
+        }),
+      ),
+    ).rejects.toThrow('"experimental_isAvailable" must be a function');
+    await expect(
+      loadPluginApp(
+        definePluginApp((builder) => {
           builder.slots.experimental_messageMetadata({
             id: "bad",
             component: undefined as never,
@@ -1595,6 +1607,7 @@ describe("loadPluginApp", () => {
         role: "assistant",
         text: "An answer.",
         sourceSeqEnd: 12,
+        experimental_attachments: [],
       },
       selectedText: "answer",
       openPanel,
@@ -1636,6 +1649,7 @@ describe("loadPluginApp", () => {
         threadId: "thr_42",
         role: "assistant",
         text: "test message text",
+        experimental_attachments: [],
         sourceSeqEnd: 1,
       },
     ]);

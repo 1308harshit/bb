@@ -719,7 +719,6 @@ const interleavedConversationRows: TimelineRow[] = [
 
 export function Conversation() {
   const promptDraft = useStoryPromptDraft();
-  const handleAddToChat = promptDraft.addQuote;
 
   return (
     <StoryCard>
@@ -731,7 +730,6 @@ export function Conversation() {
           <ThreadTimelineRows
             {...baseProps}
             threadRuntimeDisplayStatus="active"
-            onSelectionAddToChat={handleAddToChat}
             timelineRows={interleavedConversationRows}
           />
           <div className="mt-3">
