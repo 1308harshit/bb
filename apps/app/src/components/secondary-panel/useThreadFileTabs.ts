@@ -728,7 +728,10 @@ export function useThreadFileTabs({
                   state,
                   tab: { ...existing, title },
                 });
-          return activateSecondaryPanelTabInState(withTitle, tab.id);
+          return replaceNewTabWithSecondaryPanelTabInState({
+            state: withTitle,
+            tab: existing,
+          });
         }
         return replaceNewTabWithSecondaryPanelTabInState({ state, tab });
       });
