@@ -462,6 +462,7 @@ export function BrowserTabContent({
   onUpdateRef.current = onUpdate;
   recordVisitRef.current = recordVisit;
   const initialUrlRef = useRef(initialUrl);
+  const existingOnlyRef = useRef(existingOnly);
   const [attachedBrowserViewIdentity, setAttachedBrowserViewIdentity] =
     useState<BrowserViewAttachIdentity | null>(null);
   const isBrowserViewAttached =
@@ -542,7 +543,7 @@ export function BrowserTabContent({
     desktopBrowser.attach({
       tabId,
       threadId,
-      ...(existingOnly === true ? { existingOnly } : {}),
+      ...(existingOnlyRef.current === true ? { existingOnly: true } : {}),
       url: mountUrl,
       bounds: initialBounds,
       visible: false,
@@ -610,7 +611,6 @@ export function BrowserTabContent({
     visibilityCoordinator,
     tabId,
     threadId,
-    existingOnly,
   ]);
 
   useEffect(() => {
