@@ -471,6 +471,7 @@ const MESSAGE_ACTION_REGISTRATION_FIELDS = [
   "title",
   "icon",
   "experimental_roles",
+  "experimental_placements",
   "run",
 ] as const satisfies readonly (keyof PluginMessageActionRegistration)[];
 

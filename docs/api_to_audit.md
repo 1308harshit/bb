@@ -6,7 +6,7 @@
 
 ## `app.slots.experimental_messageMetadata` (`@get-bb/plugin-sdk/app`)
 
-Requires SDK 0.6.11.
+Requires SDK 0.6.12.
 
 `app.slots.experimental_messageMetadata({ id, roles?, placement?, component })` mounts
 React metadata above or below realized user and assistant conversation messages,
@@ -34,7 +34,7 @@ origin filtering, and render isolation during streaming and across messages.
 
 ## `PluginMessageActionRegistration.experimental_roles` and `.experimental_placements` (`@get-bb/plugin-sdk/app`)
 
-Requires SDK 0.6.11.
+Requires SDK 0.6.12.
 
 The stable `messageAction` registration accepts `experimental_roles`, a
 nonempty array of `"user"` and `"assistant"`, and `experimental_placements`,
