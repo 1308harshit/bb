@@ -221,6 +221,17 @@ jobs:
           time npx expo run:ios --configuration Release --no-bundler \
             --device generic --output build-output
 
+      - name: Archive the simulator app
+        working-directory: apps/mobile
+        run: tar -czf simulator-app.tar.gz -C build-output .
+
+      - name: Upload the simulator app
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mobile-ios-simulator-app
+          path: apps/mobile/simulator-app.tar.gz
+          retention-days: 14
+
       # The flows cold-start the app themselves; installing it here also
       # primes the simulator so the first flow does not pay for it.
       - name: Install the app on the simulator
