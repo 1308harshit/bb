@@ -6,6 +6,8 @@
 
 ## `app.slots.experimental_messageMetadata` (`@get-bb/plugin-sdk/app`)
 
+Requires SDK 0.6.11.
+
 `app.slots.experimental_messageMetadata({ id, roles?, resolve })` registers
 bounded host-rendered text for realized user and assistant conversation rows.
 `resolve({ id, threadId, role, createdAt })` runs synchronously and returns
@@ -24,6 +26,8 @@ output bounds, local-day and timezone behavior, ordering, and whether a
 plugin needs refreshes finer than one day.
 
 ## `PluginMessageActionRegistration.experimental_roles` (`@get-bb/plugin-sdk/app`)
+
+Requires SDK 0.6.11.
 
 The stable `messageAction` registration accepts `experimental_roles`, a
 nonempty array of `"user"` and `"assistant"`. Omitted means both; empty or
