@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface DetailViewProps {
   taskKey: string;
+  onCanonicalKey?: (taskKey: string) => void;
 }
 
 const DESCRIPTION_SAVE_DELAY_MS = 800;
@@ -301,6 +302,26 @@ function TaskDetail({ task }: { task: Task }) {
     }
   };
 
+  const moveToProject = async (projectId: string) => {
+    saverRef.current?.flush(task.id);
+    try {
+      const result = await rpc.call("moveTaskToProject", {
+        taskId: task.id,
+        projectId,
+      });
+      if (!result.ok) {
+        push(result.error.message);
+        return;
+      }
+      navigation.go(
+        { kind: "task", taskKey: result.task.key },
+        { replace: true },
+      );
+    } catch (error) {
+      push(errorMessage(error));
+    }
+  };
+
   const onDescriptionChange = (markdown: string) => {
     setDraft({ taskId: task.id, markdown });
     saverRef.current?.onChange(task.id, markdown);
@@ -395,9 +416,12 @@ function TaskDetail({ task }: { task: Task }) {
 
           <InlineProperties
             task={task}
+            project={project}
+            projects={projects.data}
             labels={labels.data}
             presets={presets.data}
             onUpdate={(update) => void updateTask(update)}
+            onMoveToProject={(projectId) => void moveToProject(projectId)}
             onError={(message) => push(message)}
             className="mb-4 @[45rem]:hidden"
           />
@@ -493,10 +517,12 @@ function TaskDetail({ task }: { task: Task }) {
         <PropertiesRail
           task={task}
           project={project}
+          projects={projects.data}
           labels={labels.data}
           threads={threads.data ?? []}
           presets={presets.data}
           onUpdate={(update) => void updateTask(update)}
+          onMoveToProject={(projectId) => void moveToProject(projectId)}
           onError={(message) => push(message)}
           className="hidden @[45rem]:block"
         />
@@ -506,12 +532,16 @@ function TaskDetail({ task }: { task: Task }) {
   );
 }
 
-export function DetailView({ taskKey }: DetailViewProps) {
+export function DetailView({ taskKey, onCanonicalKey }: DetailViewProps) {
   const query = useTasksQuery(
     async (rpc) => (await rpc.call("getTaskByKey", { taskKey })).task,
     ["tasks:changed"],
     [taskKey],
   );
+  const canonicalKey = query.data?.key;
+  useEffect(() => {
+    if (canonicalKey) onCanonicalKey?.(canonicalKey);
+  }, [canonicalKey, onCanonicalKey]);
 
   if (query.data === undefined) {
     return query.error ? (
