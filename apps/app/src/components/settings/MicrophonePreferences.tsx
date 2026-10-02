@@ -71,30 +71,32 @@ export function MicrophonePreferences({
 
   return (
     <div className="space-y-4">
-      <div
-        className="space-y-2 rounded-lg border bg-muted/30 p-3"
-        aria-label="Live microphone preview"
-      >
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="font-medium">Live preview</span>
-          <span>{stream ? "Listening" : "Connecting…"}</span>
+      {open ? (
+        <div
+          className="space-y-2 rounded-lg border bg-muted/30 p-3"
+          aria-label="Live microphone preview"
+        >
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span className="font-medium">Live preview</span>
+            <span>{stream ? "Listening" : "Connecting…"}</span>
+          </div>
+          <WaveformVisualizer
+            stream={stream}
+            active={open && stream !== null}
+            className="h-9 w-full"
+          />
+          <p role="status" className="text-sm text-muted-foreground">
+            {error ??
+              (!isSupported
+                ? "Microphone access is unavailable in this browser."
+                : !stream
+                  ? "Connecting to microphone…"
+                  : silent
+                    ? "No audio detected. Try speaking or choose another microphone."
+                    : "Speak to check your microphone.")}
+          </p>
         </div>
-        <WaveformVisualizer
-          stream={stream}
-          active={open && stream !== null}
-          className="h-9 w-full"
-        />
-        <p role="status" className="text-sm text-muted-foreground">
-          {error ??
-            (!isSupported
-              ? "Microphone access is unavailable in this browser."
-              : !stream
-                ? "Connecting to microphone…"
-                : silent
-                  ? "No audio detected. Try speaking or choose another microphone."
-                  : "Speak to check your microphone.")}
-        </p>
-      </div>
+      ) : null}
       <div className="space-y-2">
         <p className="px-1 text-xs font-medium text-muted-foreground">
           Input device

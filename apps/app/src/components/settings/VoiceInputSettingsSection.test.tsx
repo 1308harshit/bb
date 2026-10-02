@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { afterEach, expect, it, vi } from "vitest";
+import { MicrophonePreferences } from "./MicrophonePreferences";
 import { VoiceInputSettingsSection } from "./VoiceInputSettingsSection";
 
 const devices = [
@@ -35,7 +36,7 @@ it("selects and tests a microphone directly, then releases it on exit", async ()
   vi.stubGlobal("navigator", { mediaDevices });
   const { unmount } = render(
     <Provider store={createStore()}>
-      <VoiceInputSettingsSection />
+      <MicrophonePreferences open activeStream={null} />
     </Provider>,
   );
   fireEvent.click(
@@ -67,7 +68,7 @@ it("shows missing preferences as fallback information and restores them on recon
   vi.stubGlobal("navigator", { mediaDevices });
   render(
     <Provider store={createStore()}>
-      <VoiceInputSettingsSection />
+      <MicrophonePreferences open activeStream={null} />
     </Provider>,
   );
   expect(
@@ -99,7 +100,7 @@ it("releases a microphone if its permission request finishes after the drawer cl
   });
   const { unmount } = render(
     <Provider store={createStore()}>
-      <VoiceInputSettingsSection />
+      <MicrophonePreferences open activeStream={null} />
     </Provider>,
   );
   await act(async () => {});
@@ -107,4 +108,27 @@ it("releases a microphone if its permission request finishes after the drawer cl
   const stop = vi.fn();
   await act(async () => resolveCapture({ getTracks: () => [{ stop }] }));
   expect(stop).toHaveBeenCalledOnce();
+});
+
+it("does not capture audio when visiting settings or choosing a saved input", async () => {
+  const getUserMedia = vi.fn();
+  vi.stubGlobal("navigator", {
+    mediaDevices: Object.assign(new EventTarget(), {
+      getUserMedia,
+      enumerateDevices: vi.fn().mockResolvedValue(devices),
+    }),
+  });
+  render(
+    <Provider store={createStore()}>
+      <VoiceInputSettingsSection />
+    </Provider>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Display microphone" }),
+  );
+  expect(getUserMedia).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText("Live microphone preview")).toBeNull();
+  expect(window.localStorage.getItem("bb.voiceInput.audioInputDeviceId")).toBe(
+    "display",
+  );
 });
