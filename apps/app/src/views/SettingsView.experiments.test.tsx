@@ -8,10 +8,12 @@ afterEach(cleanup);
 
 function renderSection(
   onExperimentChange: (key: ExperimentKey, enabled: boolean) => void,
+  performanceDiagnosticsAvailable = true,
 ) {
   return render(
     <ExperimentsSettingsSection
       disabled={false}
+      performanceDiagnosticsAvailable={performanceDiagnosticsAvailable}
       experiments={{
         changelogPreview: false,
         serverMove: false,
@@ -23,6 +25,15 @@ function renderSection(
 }
 
 describe("ExperimentsSettingsSection", () => {
+  it("hides performance diagnostics when startup permission is absent", () => {
+    renderSection(vi.fn(), false);
+    expect(
+      screen.queryByLabelText("Server performance diagnostics"),
+    ).toBeNull();
+    expect(screen.getByLabelText("Changelog preview")).toBeTruthy();
+    expect(screen.getByLabelText("Server move")).toBeTruthy();
+  });
+
   it.each([
     ["Changelog preview", "changelogPreview"],
     ["Server performance diagnostics", "performanceDiagnostics"],

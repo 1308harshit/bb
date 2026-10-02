@@ -27,6 +27,20 @@ describe("experiments settings", () => {
     });
   });
 
+  it.each([false, true])(
+    "reports startup permission %s independently of the experiment",
+    async (available) => {
+      await withTestHarness(async (harness) => {
+        harness.deps.config.performanceDiagnosticsAvailable = available;
+        await putExperiments(harness, { performanceDiagnostics: true });
+        const response = await harness.app.request("/api/v1/system/config");
+        const body = systemConfigResponseSchema.parse(await readJson(response));
+        expect(body.performanceDiagnosticsAvailable).toBe(available);
+        expect(body.experiments.performanceDiagnostics).toBe(true);
+      });
+    },
+  );
+
   it("persists a PUT and reflects it in /system/config", async () => {
     await withTestHarness(async (harness) => {
       const put = await harness.app.request("/api/v1/settings/experiments", {

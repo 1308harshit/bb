@@ -667,7 +667,7 @@ summary logging continues. Profiles already saved remain after disabling it.
 
 Diagnostics require **both** startup permission (`--perf-diagnostics` or
 `BB_PERF_DIAGNOSTICS=1`) and the **Server performance diagnostics** toggle in
-Settings → Experiments. The experiment defaults to off. Use
+Settings → Experiments. The toggle is only shown when startup permission is present; a saved experiment value does not make it visible. The experiment defaults to off. Use
 `bb settings experiment performanceDiagnostics true` to enable it, or `false`
 to stop it; SDK clients use the existing experiments update endpoint. The
 experiment takes effect live on that server. Without startup permission it
