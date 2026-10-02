@@ -44,10 +44,14 @@ BB reports Go's five-hour, weekly, and monthly usage and reset times, not local
 session token totals or other OpenCode providers' subscriptions.
 
 The collector checks `OPENCODE_API_KEY`, then the active official Console account
-and organization in `$XDG_DATA_HOME/opencode/opencode.db`, then
+and organization in `$XDG_DATA_HOME/opencode/opencode.db`, then active v2
+`credential` table API keys or official Console OAuth credentials
+(`opencode-go` before `opencode`), then
 `OPENCODE_AUTH_CONTENT` or `$XDG_DATA_HOME/opencode/auth.json`.
-The default data directory is `~/.local/share/opencode`. Account storage is read
-only; expired Console sessions must be refreshed by OpenCode. API-key login
+The default data directory is `~/.local/share/opencode`. Database storage is read
+only; expired Console sessions must be refreshed by OpenCode. V2 OAuth requires
+the device login method and account/organization metadata for the official
+Console server. API-key login
 prefers the `opencode-go` credential and accepts the shared `opencode` credential
 when Go is subscribed. Custom launch `env` values take precedence over the host
 environment. A custom OpenCode wrapper must declare
