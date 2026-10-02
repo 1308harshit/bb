@@ -39,7 +39,7 @@ import { execPortableFile } from "@bb/process-utils";
 import { randomBytes } from "node:crypto";
 import { promises as fs, readFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
-import { dirname, isAbsolute, basename, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
@@ -1329,9 +1329,8 @@ function buildPromptContentBlocks(
       }
       case "localFile":
         blocks.push({
-          type: "resource_link",
-          uri: `file://${item.path}`,
-          name: item.name ?? basename(item.path),
+          type: "text",
+          text: `[Attached file: ${item.path}]`,
         });
         break;
     }

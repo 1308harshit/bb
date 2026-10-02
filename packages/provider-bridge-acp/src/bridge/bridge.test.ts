@@ -1578,6 +1578,52 @@ describe("acp bridge", () => {
     expect(agentMessageTexts()).toContain("echo:hello there");
   });
 
+  it("sends Markdown attachments as readable paths on initial and follow-up OpenCode turns", async () => {
+    const requestLog = join(workspaceDir, "attachment-requests.jsonl");
+    const filePath = join(workspaceDir, "notes with spaces.md");
+    writeFileSync(filePath, "# Attachment\nRead this file.\n");
+    const { providerThreadId } = await startThread({
+      dialectId: "opencode",
+      envVars: { FAKE_ACP_REQUEST_LOG: requestLog },
+    });
+
+    for (const [index, text] of [
+      "Read this",
+      "Read it again",
+      "resume",
+    ].entries()) {
+      const hasAttachment = index < 2;
+      const turnId = sendTurnRequest("turn/start", providerThreadId, {
+        input: [
+          { type: "text", text, mentions: [] },
+          ...(hasAttachment
+            ? [{ type: "localFile", path: filePath, name: "notes.md" }]
+            : []),
+        ],
+      });
+      expect((await waitForResponse(turnId)).error).toBeUndefined();
+      const completed = await waitFor(
+        () => threadEventsOfType("turn/completed")[index],
+        `attachment turn ${index + 1}`,
+      );
+      expect(completed).toMatchObject({ status: "completed" });
+      const prompt = loggedAcpRequests(requestLog).filter(
+        (request) => request.method === "session/prompt",
+      )[index]?.params?.prompt;
+      expect(prompt).toEqual([
+        { type: "text", text },
+        ...(hasAttachment
+          ? [{ type: "text", text: `[Attached file: ${filePath}]` }]
+          : []),
+      ]);
+      expect(agentMessageTexts()).toContain(
+        hasAttachment
+          ? `echo:${text}\n[Attached file: ${filePath}]`
+          : `echo:${text}`,
+      );
+    }
+  });
+
   it("rebuilds the agent with environment from a later turn", async () => {
     const envVars = { FAKE_ACP_LOAD_SESSION: "1", FAKE_ACP_PROMPT_ERROR: "1" };
     const { providerThreadId } = await startThread({ envVars });
