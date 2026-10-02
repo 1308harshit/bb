@@ -36,8 +36,9 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
 
     func didReceive(_ notification: UNNotification) {
         content = notification.request.content
-        let data = content?.userInfo["body"] as? [String: Any] ?? content?.userInfo
-        preview = (data?["mentionPreview"] as? String)
+        let userInfo = notification.request.content.userInfo
+        let data = userInfo["body"] as? [AnyHashable: Any] ?? userInfo
+        preview = (data["mentionPreview"] as? String)
             .flatMap { $0.data(using: .utf8) }
             .flatMap { try? JSONDecoder().decode(MentionPreview.self, from: $0) }
         renderedWidth = 0
