@@ -21,21 +21,38 @@ import {
   type TestThread,
 } from "../../helpers/timeline-cache-fixture.js";
 
-function started(turnId: string): RowSpec {
-  return { type: "turn/started", turnId };
+function started(turnId: string, parentToolCallId?: string): RowSpec {
+  return {
+    type: "turn/started",
+    turnId,
+    parentToolCallId,
+    data: { parentToolCallId },
+  };
 }
 
 function completed(turnId: string): RowSpec {
   return { type: "turn/completed", turnId, data: { status: "completed" } };
 }
 
-function message(turnId: string, text: string): RowSpec {
+function message(
+  turnId: string,
+  text: string,
+  parentToolCallId?: string,
+): RowSpec {
   return {
     type: "item/completed",
     turnId,
     itemId: `message-${turnId}`,
     itemKind: "agentMessage",
-    data: { item: { id: `message-${turnId}`, type: "agentMessage", text } },
+    parentToolCallId,
+    data: {
+      item: {
+        id: `message-${turnId}`,
+        type: "agentMessage",
+        text,
+        parentToolCallId,
+      },
+    },
   };
 }
 
@@ -103,6 +120,39 @@ function seed(testThread: TestThread, count = 3): void {
   appendRows(testThread, [started("live"), delta("live", "Live")]);
 }
 
+function nestedTurn(index: number, includeParent = true): RowSpec[] {
+  const root = `nested-root-${index}`;
+  const child = `nested-child-${index}`;
+  const parent = `nested-call-${index}`;
+  return [
+    started(root),
+    ...(includeParent ? [parentCall(root, parent)] : []),
+    started(child, parent),
+    message(child, `Child answer ${index}`, parent),
+    { ...completed(child), parentToolCallId: parent },
+    message(root, `Root answer ${index}`),
+    completed(root),
+  ];
+}
+
+function parentCall(turnId: string, itemId: string): RowSpec {
+  return {
+    type: "item/started",
+    turnId,
+    itemId,
+    itemKind: "toolCall",
+    data: {
+      item: {
+        id: itemId,
+        type: "toolCall",
+        tool: "Agent",
+        arguments: {},
+        status: "pending",
+      },
+    },
+  };
+}
+
 function load(
   testThread: TestThread,
   completedTurnDisplay: CompletedTurnDisplay = "collapse",
@@ -163,6 +213,87 @@ function countSelectedEventRows(
 }
 
 describe("incremental conversation outlines", () => {
+  it.each(["collapse", "flat"] as const)(
+    "retains completed nested history while updating the live tail (%s)",
+    (display) => {
+      withTestThread((testThread) => {
+        appendRows(testThread, [
+          ...Array.from({ length: 100 }, (_, index) =>
+            nestedTurn(index),
+          ).flat(),
+          started("live"),
+          delta("live", "Live"),
+        ]);
+        expectMatchesFull(testThread, display);
+        for (const rows of [
+          [delta("live", " continued")],
+          [message("live", "Finished"), completed("live")],
+          nestedTurn(101),
+          [started("next"), delta("next", "Next")],
+        ]) {
+          appendRows(testThread, rows);
+          const selected = countSelectedEventRows(testThread, () =>
+            expectMatchesFull(testThread, display),
+          );
+          expect(selected).toBeLessThan(25);
+        }
+      });
+    },
+  );
+
+  it.each([
+    "new child",
+    "late parent",
+    "reopened turn",
+    "completion rewrite",
+    "incomplete child",
+  ] as const)("rebuilds nested history for %s", (change) => {
+    withTestThread((testThread) => {
+      appendRows(testThread, [
+        ...Array.from({ length: 30 }, (_, index) =>
+          nestedTurn(index, change !== "late parent"),
+        ).flat(),
+        started("live"),
+        delta("live", "Live"),
+      ]);
+      const removeCompletion = () =>
+        testThread.coldDb.$client
+          .prepare(
+            "DELETE FROM events WHERE thread_id = ? AND turn_id = ? AND type = 'turn/completed'",
+          )
+          .run(testThread.thread.id, "nested-child-0");
+      if (change === "incomplete child") removeCompletion();
+      expectMatchesFull(testThread);
+      switch (change) {
+        case "new child":
+          appendRows(testThread, [
+            started("late-child", "nested-call-0"),
+            message("late-child", "Late child", "nested-call-0"),
+          ]);
+          break;
+        case "late parent":
+          appendRows(testThread, [parentCall("live", "nested-call-0")]);
+          break;
+        case "reopened turn":
+          appendRows(testThread, [
+            started("nested-child-0", "nested-call-0"),
+            message("nested-child-0", "Reopened", "nested-call-0"),
+          ]);
+          break;
+        case "completion rewrite":
+          removeCompletion();
+          break;
+        case "incomplete child":
+          appendRows(testThread, [delta("live", "More")]);
+          break;
+      }
+      const selected = countSelectedEventRows(testThread, () =>
+        expectMatchesFull(testThread),
+      );
+      expect(selected).toBeGreaterThan(100);
+    });
+  });
+
   it.each([950, 1050])(
     "preserves previews across delta compaction with %i historical deltas",
     (deltaCount) => {
@@ -242,6 +373,13 @@ describe("incremental conversation outlines", () => {
     (change) =>
       withTestThread((testThread) => {
         seed(testThread);
+        appendRows(testThread, [
+          message("live", "Finished prelude"),
+          completed("live"),
+          ...nestedTurn(900),
+          started("next-live"),
+          delta("next-live", "Live"),
+        ]);
         expectMatchesFull(testThread);
         switch (change) {
           case "rewind": {
