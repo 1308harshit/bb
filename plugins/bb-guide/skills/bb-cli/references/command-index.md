@@ -157,8 +157,8 @@ move and downloads the new server's bb-app package for its service.
 - `bb thread create`
 - `bb thread new`
 - `bb thread fork`
-- `bb thread list [--archived] [--project <id>] [--title-search <text>]`
-  filters by a case-insensitive title substring, using the fallback title when untitled.
+- `bb thread list`
+  `--title-search <text>` filters by a case-insensitive title substring, using the fallback title when untitled.
 - `bb thread show`
 - `bb thread get`
 - `bb thread view`
