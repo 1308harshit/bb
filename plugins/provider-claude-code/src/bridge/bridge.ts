@@ -103,14 +103,17 @@ import {
   type ClaudeInteractiveResponse,
   type ClaudePermissionMode,
   type ClaudePermissionRequestApprovalParams,
+  type ClaudePermissionRule,
   type ClaudeSuggestedPermissionUpdate,
   type ClaudeUserQuestionInput,
   type ClaudeUserQuestionRequestParams,
+  CLAUDE_BASH_TOOL_NAME,
   CLAUDE_EXIT_PLAN_MODE_TOOL_NAME,
   CLAUDE_USER_QUESTION_TOOL_NAME,
   claudeExitPlanModeInputSchema,
   claudeSuggestedPermissionUpdateSchema,
   claudeUserQuestionInputSchema,
+  getSuggestedRules,
   shouldRequestClaudePermissionApproval,
   toPendingInteractionPermissionProfile,
 } from "../interactive-contract.js";
@@ -186,6 +189,7 @@ interface PendingPermissionRequest extends PendingInteractiveRequestBase {
   kind: "permission_request";
   originalInput: Record<string, unknown>;
   permissions: PendingInteractionGrantedPermissionProfile;
+  suggestedRules: ClaudePermissionRule[];
   toolName: string;
 }
 
@@ -1633,6 +1637,7 @@ function buildInteractiveRequestParams(
       blockedPath: args.blockedPath,
       suggestions: args.suggestions,
     }),
+    suggestedRules: getSuggestedRules(args.suggestions),
   };
 }
 
@@ -1660,7 +1665,10 @@ function decodePendingInteractiveResponse(
     return null;
   }
   try {
-    return buildClaudeInteractiveResponse(outcome.data);
+    return buildClaudeInteractiveResponse(
+      outcome.data,
+      pending.kind === "permission_request" ? pending.suggestedRules : [],
+    );
   } catch {
     return null;
   }
@@ -1775,6 +1783,7 @@ function createForwardInteractiveRequest(
         payload,
         originalInput: args.input,
         permissions: params.permissions,
+        suggestedRules: params.suggestedRules,
         resolve: finish,
         toolName: args.toolName,
       });
@@ -1968,7 +1977,7 @@ function createCanUseTool(threadIdRef: ThreadIdRef): CanUseTool {
     const requestedPermissions =
       toPendingInteractionPermissionProfile(requestContext);
     if (
-      toolName === "Bash" &&
+      toolName === CLAUDE_BASH_TOOL_NAME &&
       shouldAutoDenyInteractiveRequest(interactiveRequestPolicy) &&
       typeof input === "object" &&
       input !== null &&
@@ -2565,6 +2574,7 @@ function handleParsedMessage(parsed: unknown): void {
     }
     if (
       pending.kind === "permission_request" &&
+      pending.toolName !== CLAUDE_BASH_TOOL_NAME &&
       shouldCacheClaudeSessionPermission(interactiveResponse)
     ) {
       threadSession.attachment.sessionPermissionGrants.push({
