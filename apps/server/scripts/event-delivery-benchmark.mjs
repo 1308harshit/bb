@@ -68,7 +68,7 @@ if (snapshot) {
   }).project;
   thread = createThread(db, noopNotifier, {
     projectId: project.id,
-    providerId: "codex",
+    providerId: "benchmark",
   }).id;
   turn = "turn_benchmark";
   db.transaction(
