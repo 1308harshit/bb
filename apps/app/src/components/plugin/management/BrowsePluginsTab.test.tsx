@@ -223,7 +223,7 @@ describe("BrowsePluginsTab", () => {
     expect(labels).toEqual(["New & notable", "Security"]);
     expect(screen.getAllByText("Memory")).toHaveLength(1);
     expect(
-      screen.queryByRole("link", { name: "View all Security" }),
+      screen.queryByRole("link", { name: "See all Security" }),
     ).toBeNull();
     expect(screen.queryByText("BB Official plugins")).toBeNull();
   });
@@ -480,7 +480,7 @@ describe("BrowsePluginsTab", () => {
     await screen.findByTestId("plugin-browse-shelves");
     expect(cardOrder()).toHaveLength(6);
     fireEvent.click(
-      screen.getAllByRole("link", { name: "View all Memory & Context" })[0]!,
+      screen.getAllByRole("link", { name: "See all Memory & Context" })[0]!,
     );
     expect(cardOrder()).toHaveLength(8);
     expect(screen.getByTestId("location-search").textContent).toBe(
