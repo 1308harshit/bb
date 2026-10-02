@@ -630,3 +630,37 @@ serve workspace RPCs until it updates and reconnects. Auto-update-enabled
 older daemons install the server's matching bb-app artifact; disabled or failed
 updates leave the machine disconnected until a manual update succeeds. This
 is an intentional version gate, not backward-compatible field defaulting.
+
+## Opt-in server performance diagnostics
+
+Run `pnpm start --perf-diagnostics` (or `pnpm start:worktree --perf-diagnostics`)
+when investigating slowness. `bb-app --perf-diagnostics` uses the same launcher
+option. The equivalent startup setting is `BB_PERF_DIAGNOSTICS=1`; it defaults
+to false and requires a server restart. Remove the flag/setting and restart to
+turn it off. This does not enable profiling for the daemon or other servers.
+
+The mode logs database operations taking at least 25 ms, API requests taking
+at least 100 ms, and event-loop stalls of at least 100 ms. Every five seconds,
+`Server performance sample` records process and main-thread CPU time, loop
+utilization/delay, GC duration/count/max, and memory. CPU values are totals for
+that interval, not attribution to an individual request. GC callbacks can be
+delayed by a blocked loop. These measurements distinguish CPU pressure from
+elapsed-time stalls but do not prove a particular OS scheduling or I/O cause.
+
+Continuous V8 CPU sampling at 1 ms writes a `.cpuprofile` every 30 seconds to
+`$BB_DATA_DIR/logs/performance/`. Ten rotating slots retain approximately five
+minutes; each file is limited to 12 MiB (oversized captures are discarded),
+with at most one additional temporary file during replacement. Graceful
+shutdown saves the partial window; a crash can lose the current window.
+`Server CPU profile saved` logs its path, PID, and UTC start/end times. Copy
+relevant files promptly before they are overwritten. Load a profile in Chrome
+DevTools' JavaScript profiler to inspect sampled stacks. No inspector network
+port is opened. Sampling can miss short calls and does not identify native
+I/O waits precisely.
+
+Profiling, serialization, and extra logging add overhead, so leave this off
+for routine operation. Files use private permissions and can contain local
+paths and function names; inspect before sharing. Existing logs retain their
+normal rotation policy. No request bodies or SQL bindings are added by this
+mode. A capture failure is logged and disables CPU capture for that process;
+summary logging continues. Profiles already saved remain after disabling it.

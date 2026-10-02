@@ -1922,3 +1922,11 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 The publishing workflow verifies the signed APK and publishes both the checksum-named
 asset and the stable `bb-android.apk` alias, then `latest.json`.
+
+### Server performance diagnostics
+
+`BB_PERF_DIAGNOSTICS=1` enables opt-in CPU profiling and detailed server
+performance logs; the default is false. Restart to change it. The launcher
+flag `pnpm start --perf-diagnostics` (also `pnpm start:worktree` and `bb-app`)
+enables it for that launch. See [diagnostics](debugging-and-qa.md#opt-in-server-performance-diagnostics)
+for capture retention, overhead, and interpretation.

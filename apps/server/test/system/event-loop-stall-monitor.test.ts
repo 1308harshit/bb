@@ -91,38 +91,42 @@ describe("event loop stall monitor", () => {
     vi.useRealTimers();
   });
 
-  it("logs and resets when the max event loop delay reaches the threshold", () => {
-    const histogram = installHistogram({
-      maxDelayMs: 500,
-      meanDelayMs: 25,
-      p99DelayMs: 450,
-    });
-    const logger = { info: vi.fn() };
-
-    const monitor = startEventLoopStallMonitor({ logger });
-    vi.advanceTimersByTime(EVENT_LOOP_STALL_MONITOR_INTERVAL_MS);
-
-    expect(perfHooksMock.monitorEventLoopDelay).toHaveBeenCalledWith({
-      resolution: 20,
-    });
-    expect(histogram.enable).toHaveBeenCalledTimes(1);
-    expect(histogram.percentile).toHaveBeenCalledWith(99);
-    expect(histogram.reset).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenCalledWith(
-      {
-        intervalMs: 5_000,
-        maxDelayMs: 500,
+  it.each([undefined, 100])(
+    "logs and resets at the configured threshold %s",
+    (thresholdMs) => {
+      const expectedThreshold = thresholdMs ?? 500;
+      const histogram = installHistogram({
+        maxDelayMs: expectedThreshold,
         meanDelayMs: 25,
         p99DelayMs: 450,
-        resolutionMs: 20,
-        thresholdMs: 500,
-        ...EMPTY_WORK_SNAPSHOT,
-      },
-      "Event loop stalled",
-    );
+      });
+      const logger = { info: vi.fn() };
 
-    monitor.stop();
-  });
+      const monitor = startEventLoopStallMonitor({ logger, thresholdMs });
+      vi.advanceTimersByTime(EVENT_LOOP_STALL_MONITOR_INTERVAL_MS);
+
+      expect(perfHooksMock.monitorEventLoopDelay).toHaveBeenCalledWith({
+        resolution: 20,
+      });
+      expect(histogram.enable).toHaveBeenCalledTimes(1);
+      expect(histogram.percentile).toHaveBeenCalledWith(99);
+      expect(histogram.reset).toHaveBeenCalledTimes(1);
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          intervalMs: 5_000,
+          maxDelayMs: expectedThreshold,
+          meanDelayMs: 25,
+          p99DelayMs: 450,
+          resolutionMs: 20,
+          thresholdMs: expectedThreshold,
+          ...EMPTY_WORK_SNAPSHOT,
+        },
+        "Event loop stalled",
+      );
+
+      monitor.stop();
+    },
+  );
 
   it("does not log below the threshold", () => {
     const histogram = installHistogram({

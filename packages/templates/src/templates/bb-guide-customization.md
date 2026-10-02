@@ -452,3 +452,16 @@ upload date. The server fetches only public metadata, caches it for five minutes
 and returns `android: null` if unavailable or inconsistent. Download links remain
 usable during metadata failures. iOS version and release date are shown in TestFlight.
 Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on.
+
+### Opt-in server performance diagnostics
+
+Start with `pnpm start --perf-diagnostics`, `pnpm start:worktree --perf-diagnostics`,
+or `bb-app --perf-diagnostics` to enable detailed performance logs and rolling
+CPU profiles. `BB_PERF_DIAGNOSTICS=1` is the equivalent startup environment
+setting (off by default; restart required). Server logs include five-second
+CPU/GC/loop/memory summaries and lower slow-operation thresholds. Profiles
+are saved every 30 seconds under `$BB_DATA_DIR/logs/performance/`, in ten
+rotating slots of at most 12 MiB each. Copy a relevant `.cpuprofile` promptly
+and open it in Chrome DevTools' JavaScript profiler. This adds overhead;
+remove the setting and restart to disable. No inspector network port is
+opened. Profile files contain local paths/function names; inspect before sharing.

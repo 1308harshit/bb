@@ -10,6 +10,7 @@ interface EventLoopStall {
 }
 
 interface StartEventLoopDelaySamplerArgs {
+  thresholdMs?: number;
   now?: () => number;
   onSample: (sample: { stall: EventLoopStall | null }) => void;
 }
@@ -58,7 +59,7 @@ export function startEventLoopDelaySampler(
       !isLikelySystemSuspensionDelay({
         gapMs,
         intervalMs: EVENT_LOOP_DELAY_SAMPLE_INTERVAL_MS,
-      }) && maxDelayMs >= EVENT_LOOP_STALL_THRESHOLD_MS;
+      }) && maxDelayMs >= (args.thresholdMs ?? EVENT_LOOP_STALL_THRESHOLD_MS);
     args.onSample({
       stall: stalled
         ? {
@@ -71,7 +72,7 @@ export function startEventLoopDelaySampler(
               nanosecondsToMilliseconds(histogram.percentile(99)),
             ),
             resolutionMs: EVENT_LOOP_DELAY_RESOLUTION_MS,
-            thresholdMs: EVENT_LOOP_STALL_THRESHOLD_MS,
+            thresholdMs: args.thresholdMs ?? EVENT_LOOP_STALL_THRESHOLD_MS,
           }
         : null,
     });

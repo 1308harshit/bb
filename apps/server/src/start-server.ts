@@ -24,6 +24,7 @@ import { createAppUpdateService } from "./services/system/app-update.js";
 import { createAppVersionService } from "./services/system/app-version.js";
 import { createLauncherChannel } from "./services/system/launcher-channel.js";
 import { createBbAppManagedConfigReloader } from "./services/system/bb-app-managed-config.js";
+import { startPerformanceDiagnostics } from "@bb/process-utils";
 import { startEventLoopStallMonitor } from "./services/system/event-loop-stall-monitor.js";
 import {
   runPeriodicSweeps,
@@ -108,6 +109,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     logger,
   });
   const db = initDb(serverConfig.databasePath, {
+    slowQueryThresholdMs: serverConfig.BB_PERF_DIAGNOSTICS ? 25 : undefined,
     dataDir: serverConfig.BB_DATA_DIR,
     logger,
   });
@@ -288,6 +290,9 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
         retireProcess: retireServerProcess,
       },
       staticDir,
+      slowApiRequestLogThresholdMs: serverConfig.BB_PERF_DIAGNOSTICS
+        ? 100
+        : undefined,
     },
   );
   disconnectImportedDaemonSessions(
@@ -308,7 +313,16 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     },
     { sessions: serverImport.importedDaemonSessions },
   );
-  const eventLoopStallMonitor = startEventLoopStallMonitor({ logger });
+  const performanceDiagnostics = serverConfig.BB_PERF_DIAGNOSTICS
+    ? await startPerformanceDiagnostics({
+        dataDir: serverConfig.BB_DATA_DIR,
+        logger,
+      })
+    : null;
+  const eventLoopStallMonitor = startEventLoopStallMonitor({
+    logger,
+    thresholdMs: serverConfig.BB_PERF_DIAGNOSTICS ? 100 : undefined,
+  });
   const stopDaemonLivenessChecks = startDaemonLivenessChecks({
     config: runtimeConfig,
     db,
@@ -420,6 +434,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
       appUpdate.dispose();
       providerModelCatalogPrewarm?.stop();
       eventLoopStallMonitor.stop();
+      await performanceDiagnostics?.stop();
       stopDaemonLivenessChecks();
       if (sweepInterval !== null) {
         clearInterval(sweepInterval);
