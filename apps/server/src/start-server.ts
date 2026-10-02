@@ -1,3 +1,4 @@
+import { startDatabaseCheckpointer } from "./services/system/database-checkpointer.js";
 import { serve } from "@hono/node-server";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -133,6 +134,10 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
           now: Date.now(),
         })
       : null;
+  const databaseCheckpointer = startDatabaseCheckpointer({
+    databasePath: serverConfig.databasePath,
+    logger,
+  });
   const hub = new NotificationHub();
   const watchInterests = new WatchInterestCoordinator({ db, hub });
   const sharedPorts = new HostSharedPortCoordinator({ db, hub });
@@ -442,6 +447,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
       });
       await closeWebSockets();
       await closeServer;
+      await databaseCheckpointer.stop();
     })();
     return shutdownPromise;
   };
