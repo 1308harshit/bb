@@ -949,6 +949,7 @@ describe("PluginPanelRightPanelHost", () => {
     ];
 
     renderHost("board", "task/123");
+    expect(await screen.findByText("Navigation for task/123")).toBeTruthy();
 
     expect(secondaryPanelState.splitPanelStateId).toBe(
       getPluginPagePanelStateId({
@@ -970,7 +971,6 @@ describe("PluginPanelRightPanelHost", () => {
         .getByTestId("shared-secondary-panel-region")
         .hasAttribute("hidden"),
     ).toBe(false);
-    expect(await screen.findByText("Navigation for task/123")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "Navigation" })
