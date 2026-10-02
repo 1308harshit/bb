@@ -58,3 +58,9 @@ environment. A custom OpenCode wrapper must declare
 `dialect: "opencode"` and `providerUsage: true` to expose its usage.
 Missing credentials, rejected keys, and collection errors remain unavailable
 states rather than zero usage. Never print API keys when diagnosing setup.
+
+ACP agents that advertise a `default` reasoning option expose it as **Default**
+in the model picker. Use `--reasoning-level default` in the CLI or
+`reasoningLevel: "default"` in SDK execution options to select the agent’s own
+default; it is distinct from an explicit effort such as `max`. Only models
+that advertise this option support it.

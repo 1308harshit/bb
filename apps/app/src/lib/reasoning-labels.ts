@@ -1,6 +1,7 @@
 import type { ProviderInfo, ReasoningLevel } from "@bb/domain";
 
 const FALLBACK_REASONING_LABELS: Record<ReasoningLevel, string> = {
+  default: "Default",
   none: "None",
   low: "Low",
   medium: "Medium",

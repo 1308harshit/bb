@@ -222,3 +222,9 @@ The bb user and project roots keep higher precedence than matching shared roots.
 
 OpenCode ACP declares support for the built-in /compact command. Cursor ACP does
 not expose compatible manual compaction through ACP.
+
+ACP agents that advertise a `default` reasoning option expose it as **Default**
+in the model picker. Use `--reasoning-level default` in the CLI or
+`reasoningLevel: "default"` in SDK execution options to select the agent’s own
+default; it is distinct from an explicit effort such as `max`. Only models
+that advertise this option support it.

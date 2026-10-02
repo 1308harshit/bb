@@ -191,7 +191,8 @@ describe("custom agents that report usage", () => {
 
     expect(customAcpAgentDefinition(agent).providerUsage).toBe(true);
     expect(
-      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance?.usage,
+      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance
+        ?.usage,
     ).toBe(true);
   });
 
@@ -205,7 +206,8 @@ describe("custom agents that report usage", () => {
 
     expect(customAcpAgentDefinition(agent).providerUsage).toBeUndefined();
     expect(
-      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance?.usage,
+      acpProviderDeclaration(customAcpAgentDefinition(agent)).maintenance
+        ?.usage,
     ).toBe(false);
   });
 });
@@ -297,6 +299,7 @@ describe("acpProviderDeclaration", () => {
       KNOWN_ACP_AGENTS.find((agent) => agent.id === "acp-grok")!,
     );
     expect(grok.capabilities.reasoningLevels).toEqual([
+      "default",
       "low",
       "medium",
       "high",
@@ -309,6 +312,7 @@ describe("acpProviderDeclaration", () => {
       KNOWN_ACP_AGENTS.find((agent) => agent.id === "acp-cursor")!,
     );
     expect(cursor.capabilities.reasoningLevels).toEqual([
+      "default",
       "low",
       "medium",
       "high",

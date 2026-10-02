@@ -22,6 +22,7 @@ export {
 export const permissionModeSchema = z.enum(["accept-edits", "auto", "full"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
 export const reasoningLevelSchema = z.enum([
+  "default",
   "none",
   "low",
   "medium",

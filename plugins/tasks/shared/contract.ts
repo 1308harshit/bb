@@ -43,6 +43,7 @@ export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export const idSchema = z.string().regex(ULID_PATTERN, "must be a ULID");
 const nonBlankStringSchema = z.string().trim().min(1, "must not be blank");
 export const presetReasoningLevelSchema = z.enum([
+  "default",
   "none",
   "low",
   "medium",

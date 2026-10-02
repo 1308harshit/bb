@@ -200,3 +200,8 @@ new turns, and `bb provider enable ID` to restore it (enabling its plugin if
 needed). These preserve the CLI and thread history. Individual opt-outs survive
 plugin off/on. Install provider plugins in Settings → Plugins; configure custom
 ACP agents in the ACP providers plugin settings.
+
+For ACP models advertising provider-default reasoning, use
+`bb thread spawn --reasoning-level default` or
+`bb thread update <thread> --reasoning-level default`. This preserves the agent’s
+default instead of selecting a fixed effort such as `max`.

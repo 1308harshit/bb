@@ -444,6 +444,36 @@ describe("acp configOptions model catalog", () => {
     ).toBeUndefined();
   });
 
+  it("preserves OpenCode default separately from max and round-trips the selection", () => {
+    const thoughtLevel = {
+      id: "effort",
+      category: "thought_level",
+      type: "select",
+      currentValue: "default",
+      options: [
+        { value: "max", name: "Max" },
+        { value: "default", name: "Default" },
+      ],
+    };
+    expect(buildAcpNativeReasoningSupport(thoughtLevel)).toEqual({
+      supportedReasoningEfforts: [
+        { reasoningEffort: "default", description: "Default" },
+        { reasoningEffort: "max", description: "Max" },
+      ],
+      defaultReasoningEffort: "default",
+    });
+    expect(acpNativeReasoningLevelToValue("default", thoughtLevel)).toBe(
+      "default",
+    );
+    expect(acpNativeReasoningLevelToValue("max", thoughtLevel)).toBe("max");
+    expect(
+      acpNativeReasoningLevelToValue("default", {
+        ...thoughtLevel,
+        options: [{ value: "max" }],
+      }),
+    ).toBeUndefined();
+  });
+
   it("preserves an explicit empty thought_level option as no reasoning control", () => {
     expect(
       buildAcpNativeReasoningSupport({

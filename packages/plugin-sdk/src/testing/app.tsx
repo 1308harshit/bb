@@ -724,6 +724,7 @@ function TestProviderModelPicker({
     [providerId, model, reasoningLevel, serviceTier],
   );
   const reasoningLevels = [
+    "default",
     "none",
     "low",
     "medium",

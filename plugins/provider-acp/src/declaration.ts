@@ -13,7 +13,7 @@ const ACP_BASE_CAPABILITIES: PluginProviderCapabilities = {
   supportsThreadRename: false,
   fork: "none",
   permissionModes: ["accept-edits", "full"],
-  reasoningLevels: ["low", "medium", "high", "xhigh", "max"],
+  reasoningLevels: ["default", "low", "medium", "high", "xhigh", "max"],
 };
 
 const ACP_SERVICE_TIERS = [

@@ -52,6 +52,7 @@ interface PromptBoxProviderModelReasoningPreference {
 
 function isReasoningLevel(value: string): value is ReasoningLevel {
   return (
+    value === "default" ||
     value === "none" ||
     value === "low" ||
     value === "medium" ||

@@ -11,13 +11,19 @@ export function reconcileReasoningLevel(
   }
   if (supported.includes(previous)) return previous;
 
+  if (previous === "default") {
+    return supported.includes("medium") ? "medium" : supported[0];
+  }
+  const explicitLevels = supported.filter((level) => level !== "default");
+  if (explicitLevels.length === 0) return "default";
+
   const effectivePrevious = previous === "ultracode" ? "xhigh" : previous;
   if (supported.includes(effectivePrevious)) return effectivePrevious;
 
   const previousRank = reasoningRank(effectivePrevious);
-  let bestLevel = supported[0];
+  let bestLevel = explicitLevels[0];
   let bestDistance = Math.abs(reasoningRank(bestLevel) - previousRank);
-  for (const candidate of supported.slice(1)) {
+  for (const candidate of explicitLevels.slice(1)) {
     const distance = Math.abs(reasoningRank(candidate) - previousRank);
     if (distance < bestDistance) {
       bestLevel = candidate;

@@ -1922,3 +1922,9 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 The publishing workflow verifies the signed APK and publishes both the checksum-named
 asset and the stable `bb-android.apk` alias, then `latest.json`.
+
+ACP agents that advertise a `default` reasoning option expose it as **Default**
+in the model picker. Use `--reasoning-level default` in the CLI or
+`reasoningLevel: "default"` in SDK execution options to select the agent’s own
+default; it is distinct from an explicit effort such as `max`. Only models
+that advertise this option support it.

@@ -1234,9 +1234,11 @@ export type PluginProviderPermissionMode = "accept-edits" | "auto" | "full";
 /**
  * Coarse reasoning-effort ladder entries, ordered lowest to highest. The
  * declared ladder is a fallback only: precise per-model reasoning sets come
- * from the provider's model list at runtime.
+ * from the provider's model list at runtime. "default" selects the provider's
+ * own default and is not a ranked effort level.
  */
 export type PluginProviderReasoningLevel =
+  | "default"
   | "none"
   | "low"
   | "medium"

@@ -25,7 +25,7 @@ Spawning:
     --lifecycle-owner-thread <id>  Archive/delete with this owner
     --provider <id>                Provider override
     --model <model>                Model override
-    --reasoning-level <level>      Reasoning level: low, medium, high, xhigh, max (provider-dependent)
+    --reasoning-level <level>      Reasoning level: default, none, low, medium, high, xhigh, ultracode, max, ultra (provider-dependent)
     --environment <id-or-path>     Attach to an existing environment (ID or workspace path)
     --new-environment <kind>       Create a fresh personal workspace or managed worktree
     --base-branch <branch>         Exact Git ref for a new managed worktree

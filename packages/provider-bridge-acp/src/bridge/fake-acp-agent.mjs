@@ -139,7 +139,16 @@ const pendingClientRequests = new Map();
 let currentMcpServers = [];
 
 const effortsByModel = new Map([
-  ["fake/strong", ["none", "low", "medium", "high", "xhigh"]],
+  [
+    "fake/strong",
+    process.env.FAKE_ACP_EFFORTS?.split(",") ?? [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ],
+  ],
 ]);
 
 const modelCount = Number(process.env.FAKE_ACP_MODEL_COUNT ?? "0");

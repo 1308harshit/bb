@@ -1289,6 +1289,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Embed the thread view and the new-thread prompt box as components",
           "Seed experimental_NewThreadComposer or navigate.toCompose with initialPrompt containing @thread:<id>, @project:<id>, or @section:<id> to create mention pills with host-resolved labels; composer seeds preserve non-empty drafts",
           "Render message text with the same Markdown renderer bb uses",
+          "Provider reasoning options may include default, which selects the provider’s own default independently of the ranked efforts; expose it only when supported by the model",
           "Embed experimental_ProviderModelPicker and experimental_PermissionModePicker with the host's provider defaults, capabilities, and machine permission ceiling",
           "Render supplied code and diffs with experimental_SourceCode and experimental_Diff, or use experimental_useCodeTheme to theme an embedded editor",
           "Use UrlLink or useBbNavigate().openUrl for bb's browser preference; use experimental_FileLink for workspace, host, or thread-storage targets with optional line or range locations",

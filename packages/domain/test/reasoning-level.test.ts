@@ -70,6 +70,18 @@ describe("reconcileReasoningLevel", () => {
     expect(reconcileReasoningLevel("low", ["none"])).toBe("none");
   });
 
+  it("keeps provider default outside the explicit effort ladder", () => {
+    expect(reconcileReasoningLevel("default", ["default", "max"])).toBe(
+      "default",
+    );
+    expect(reconcileReasoningLevel("low", ["default", "max"])).toBe("max");
+    expect(reconcileReasoningLevel("max", ["default"])).toBe("default");
+    expect(reconcileReasoningLevel("default", ["low", "medium", "high"])).toBe(
+      "medium",
+    );
+    expect(reconcileReasoningLevel("default", ["high", "max"])).toBe("high");
+  });
+
   it("throws when supported is empty", () => {
     expect(() => reconcileReasoningLevel("medium", [])).toThrow();
   });

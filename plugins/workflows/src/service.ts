@@ -77,6 +77,7 @@ import { prepareWorkflowSource } from "./workflow-input.js";
 const executionValuesSchema = z.object({
   model: z.string().min(1),
   reasoningLevel: z.enum([
+    "default",
     "none",
     "low",
     "medium",

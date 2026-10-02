@@ -98,6 +98,7 @@ export function findAcpThoughtLevelConfigOption(
 const ACP_NATIVE_REASONING_LEVEL_BY_VALUE: Readonly<
   Partial<Record<string, ReasoningLevel>>
 > = {
+  default: "default",
   none: "none",
   minimal: "low",
   low: "low",
@@ -112,6 +113,7 @@ const ACP_NATIVE_REASONING_LEVEL_BY_VALUE: Readonly<
 const ACP_NATIVE_REASONING_VALUE_CANDIDATES_BY_LEVEL: Readonly<
   Partial<Record<ReasoningLevel, readonly string[]>>
 > = {
+  default: ["default"],
   none: ["none"],
   low: ["low", "minimal"],
   medium: ["medium"],

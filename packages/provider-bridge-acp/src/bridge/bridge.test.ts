@@ -1402,6 +1402,23 @@ describe("acp bridge", () => {
     expect(agentMessageTexts()).toContain("selected-effort:xhigh");
   });
 
+  it("resets an ACP model from its initial max effort to provider default", async () => {
+    const { providerThreadId } = await startThread({
+      envVars: {
+        FAKE_ACP_MODEL_CONFIG: "1",
+        FAKE_ACP_THOUGHT_LEVEL_CONFIG: "1",
+        FAKE_ACP_EFFORTS: "max,default",
+      },
+      model: "fake/strong",
+      reasoningLevel: "default",
+    });
+    sendTurnRequest("turn/start", providerThreadId, {
+      input: [{ type: "text", text: "echo-selected-effort", mentions: [] }],
+    });
+    await waitForTurnCompleted();
+    expect(agentMessageTexts()).toContain("selected-effort:default");
+  });
+
   it("applies configured native reasoning when the ACP agent does not advertise thought_level", async () => {
     const { providerThreadId } = await startThread({
       envVars: {

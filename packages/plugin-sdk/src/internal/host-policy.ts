@@ -506,6 +506,7 @@ export const PLUGIN_PROVIDER_PERMISSION_MODE_VALUES = [
 ] as const satisfies readonly PluginProviderPermissionMode[];
 
 export const PLUGIN_PROVIDER_REASONING_LEVEL_VALUES = [
+  "default",
   "none",
   "low",
   "medium",

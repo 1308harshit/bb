@@ -37,6 +37,10 @@ const ULTRA_REASONING_EFFORT: ModelReasoningEffort = {
 
 const REASONING_EFFORT_BY_LEVEL: Record<ReasoningLevel, ModelReasoningEffort> =
   {
+    default: {
+      reasoningEffort: "default",
+      description: "Use the provider’s default reasoning effort",
+    },
     none: NONE_REASONING_EFFORT,
     low: LOW_REASONING_EFFORT,
     medium: MEDIUM_REASONING_EFFORT,

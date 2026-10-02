@@ -33,6 +33,7 @@ export function mapBbReasoningLevelToCodex(
   level: ReasoningLevel,
 ): string | null {
   switch (level) {
+    case "default":
     case "none":
     case "ultracode":
       return null;

@@ -23,6 +23,7 @@ import type {
 } from "./provider-registry.js";
 
 const REASONING_LEVEL_LABELS: Readonly<Record<string, string>> = {
+  default: "Default",
   none: "None",
   low: "Low",
   medium: "Medium",

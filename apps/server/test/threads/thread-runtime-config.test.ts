@@ -746,6 +746,32 @@ describe("thread runtime config", () => {
     },
   );
 
+  it("accepts provider-default reasoning for OpenCode execution", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps, {
+        id: "host-runtime-default-reasoning",
+      });
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+      });
+      const thread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        providerId: "acp-opencode",
+      });
+      const execution = await buildExecutionOptions(
+        harness.deps,
+        { model: "opencode/kimi-k3", reasoningLevel: "default" },
+        { threadId: thread.id },
+      );
+      expect(execution.reasoningLevel).toBe("default");
+    });
+  });
+
   it("rejects reasoning levels unsupported by the provider", async () => {
     await withTestHarness(async (harness) => {
       const { host } = seedHostSession(harness.deps, {

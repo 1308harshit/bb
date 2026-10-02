@@ -19,6 +19,7 @@ function toPiThinkingLevel(
     case "xhigh":
     case "max":
       return reasoningLevel;
+    case "default":
     case "ultracode":
     case "ultra":
     case undefined:

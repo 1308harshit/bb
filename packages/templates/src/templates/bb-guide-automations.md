@@ -26,7 +26,7 @@ Schedules:
 Agent execution:
 
 --prompt <text> --provider <id> --model <model>
-[--reasoning <none|low|medium|high|xhigh|ultracode|max|ultra>]
+[--reasoning <default|none|low|medium|high|xhigh|ultracode|max|ultra>]
 [--service-tier <tier>]
 [--permission-mode <accept-edits|auto|full>]
 [--environment <environment-id|path> | --new-environment worktree]

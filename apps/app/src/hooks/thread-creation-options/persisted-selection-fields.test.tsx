@@ -129,6 +129,16 @@ function seedSelections() {
 }
 
 describe("tab-local composer selections", () => {
+  it("restores the provider-default reasoning selection after reload", () => {
+    window.localStorage.setItem("bb.promptbox.provider", "acp-opencode");
+    window.localStorage.setItem("bb.promptbox.reasoning-acp-opencode-1", "max");
+    const first = renderSelections();
+    act(() => first.result.current.reasoning.setValue("default"));
+    first.unmount();
+    const reloaded = renderSelections();
+    expect(reloaded.result.current.reasoning.value).toBe("default");
+  });
+
   it.each(selections)(
     "ignores another tab changing $field and preserves the inherited value on reload",
     ({ field, key, initial, remote }) => {

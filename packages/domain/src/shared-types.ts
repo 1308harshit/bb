@@ -2,6 +2,7 @@ import { z } from "zod";
 import { jsonObjectSchema } from "./json-value.js";
 
 export const reasoningLevelValues = [
+  "default",
   "none",
   "low",
   "medium",
