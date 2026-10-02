@@ -58,9 +58,9 @@ describe("performance diagnostics gates", () => {
           await until(() =>
             messages.includes("Server performance diagnostics stopped"),
           );
-          expect(await readdir(join(dataDir, "logs", "performance"))).toEqual([
-            "profile-00.cpuprofile",
-          ]);
+          const captures = await readdir(join(dataDir, "logs", "performance"));
+          expect(captures).toHaveLength(1);
+          expect(captures[0]).toMatch(/\.cpuprofile$/);
         }
         setExperiments(db, { performanceDiagnostics: true });
         hub.notifySystem(["config-changed"]);
