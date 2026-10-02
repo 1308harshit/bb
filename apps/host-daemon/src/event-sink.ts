@@ -9,6 +9,8 @@ import type { HostDaemonLogger } from "./logger.js";
 import { ServerResponseError } from "./server-client.js";
 
 const DEFAULT_DEBOUNCE_MS = 100;
+const MAX_EVENT_BATCH_SIZE = 64;
+const MAX_EVENT_BATCH_BYTES = 1024 * 1024;
 
 const QUEUE_DEPTH_WARN_THRESHOLD = 512;
 const QUEUE_DEPTH_WARN_MIN_AGE_MS = 5_000;
@@ -102,6 +104,22 @@ function summarizeRejectedEvents(
     reason: event.reason,
     threadId: event.threadId,
   }));
+}
+
+function takeEventBatch(
+  queue: readonly HostDaemonEventEnvelope[],
+): HostDaemonEventEnvelope[] {
+  const batch: HostDaemonEventEnvelope[] = [];
+  let bytes = 2;
+  for (const envelope of queue) {
+    if (batch.length === MAX_EVENT_BATCH_SIZE) break;
+    const envelopeBytes = Buffer.byteLength(JSON.stringify(envelope)) + 1;
+    if (batch.length > 0 && bytes + envelopeBytes > MAX_EVENT_BATCH_BYTES)
+      break;
+    batch.push(envelope);
+    bytes += envelopeBytes;
+  }
+  return batch;
 }
 
 export function createEventSink(options: CreateEventSinkOptions): EventSink {
@@ -214,7 +232,7 @@ export function createEventSink(options: CreateEventSinkOptions): EventSink {
 
   async function drainQueue(): Promise<void> {
     while (queue.length > 0 && !disposed && options.isSessionOpen()) {
-      const batch = queue.slice();
+      const batch = takeEventBatch(queue);
       const delivered = await deliverBatch(batch);
       queue.splice(0, delivered);
       if (queue.length === 0) {
