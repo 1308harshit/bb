@@ -8,6 +8,28 @@ import {
 import { ProviderRequestDecodeError } from "@get-bb/plugin-sdk/provider-bridge";
 
 describe("decodeCodexInteractiveRequest", () => {
+  it("rejects secret input instead of displaying it in an unprotected question form", () => {
+    expect(() =>
+      decodeCodexInteractiveRequest({
+        id: 13,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          questions: [
+            {
+              id: "secret",
+              header: "Secret",
+              question: "Enter token",
+              isSecret: true,
+            },
+          ],
+        },
+      }),
+    ).toThrow("Codex secret user input is not supported");
+  });
+
   it("maps command approval requests into pending interaction payloads", () => {
     expect(
       decodeCodexInteractiveRequest({

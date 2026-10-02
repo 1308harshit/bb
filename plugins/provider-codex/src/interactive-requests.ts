@@ -1,6 +1,9 @@
 import {
   ProviderRequestDecodeError as ProviderRequestDecodeErrorValue,
   ProviderResponseEncodeError,
+  userQuestionInteractionOutcomeSchema,
+  isApprovalInteractionOutcome,
+  type UserQuestionInteractionOutcome,
   type ApprovalInteractionOutcome,
   type DecodedInteractiveRequest,
   type ProviderInboundRequest,
@@ -18,6 +21,7 @@ import {
   codexCommandExecutionRequestApprovalParamsSchema,
   codexFileChangeRequestApprovalParamsSchema,
   codexPermissionsRequestApprovalParamsSchema,
+  codexToolRequestUserInputParamsSchema,
 } from "./schemas.js";
 import type {
   CodexAdditionalPermissions,
@@ -29,7 +33,8 @@ import type {
 type CodexInteractiveResponse =
   | CommandExecutionRequestApprovalResponse
   | FileChangeRequestApprovalResponse
-  | PermissionsRequestApprovalResponse;
+  | PermissionsRequestApprovalResponse
+  | { answers: Record<string, { answers: string[] }> };
 
 function assertNever(value: never): never {
   throw new ProviderResponseEncodeError(`Unexpected value: ${String(value)}`);
@@ -87,6 +92,45 @@ export function decodeCodexInteractiveRequest(
   }
 
   switch (request.method) {
+    case "item/tool/requestUserInput": {
+      const parsed = codexToolRequestUserInputParamsSchema.safeParse(
+        request.params,
+      );
+      if (!parsed.success) {
+        return null;
+      }
+      if (parsed.data.questions.some((question) => question.isSecret)) {
+        throw new ProviderRequestDecodeErrorValue(
+          "Codex secret user input is not supported by the BB question form",
+        );
+      }
+      const payload =
+        userQuestionInteractionOutcomeSchema.shape.payload.safeParse({
+          kind: "user_question",
+          questions: parsed.data.questions.map((question) => ({
+            id: question.id,
+            prompt: question.question,
+            shortLabel: question.header,
+            multiSelect: false,
+            options: question.options?.map((option, index) => ({
+              value: `${question.id}:option-${index + 1}`,
+              label: option.label,
+              description: option.description,
+            })),
+            allowFreeText: true,
+          })),
+        });
+      if (!payload.success) {
+        throw new ProviderRequestDecodeErrorValue(payload.error.message);
+      }
+      return {
+        requestId: request.id,
+        method: request.method,
+        providerThreadId: parsed.data.threadId,
+        turnId: parsed.data.turnId,
+        payload: payload.data,
+      };
+    }
     case "item/commandExecution/requestApproval": {
       const parsed = codexCommandExecutionRequestApprovalParamsSchema.safeParse(
         request.params,
@@ -204,8 +248,40 @@ export function decodeCodexInteractiveRequest(
 }
 
 export function buildCodexInteractiveResponse(
-  args: ApprovalInteractionOutcome,
+  args: ApprovalInteractionOutcome | UserQuestionInteractionOutcome,
 ): CodexInteractiveResponse {
+  if (!isApprovalInteractionOutcome(args)) {
+    const answers: Record<string, { answers: string[] }> = {};
+    for (const question of args.payload.questions) {
+      const answer = args.resolution.answers[question.id];
+      if (!answer) {
+        throw new ProviderResponseEncodeError(
+          `Missing answer for user question '${question.id}'`,
+        );
+      }
+      const selected = answer.selected.map((value) => {
+        const option = question.options?.find(
+          (candidate) => candidate.value === value,
+        );
+        if (!option) {
+          throw new ProviderResponseEncodeError(
+            `Unknown selected option '${value}' for user question '${question.id}'`,
+          );
+        }
+        return option.label;
+      });
+      const values = answer.freeText
+        ? [...selected, answer.freeText]
+        : selected;
+      if (values.length === 0) {
+        throw new ProviderResponseEncodeError(
+          `Answer for user question '${question.id}' is empty`,
+        );
+      }
+      answers[question.id] = { answers: values };
+    }
+    return { answers };
+  }
   switch (args.payload.subject.kind) {
     case "command": {
       const response: CommandExecutionRequestApprovalResponse = {
