@@ -829,6 +829,7 @@ export type HostDaemonInteractiveRequestResponse = z.infer<
 >;
 
 export const hostDaemonInteractiveInterruptRequestSchema = z.object({
+  providerRequestId: z.string().min(1).optional(),
   sessionId: z.string().min(1),
   providerId: z.string().min(1),
   threadIds: z.array(z.string().min(1)).min(1),

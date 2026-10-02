@@ -9,6 +9,8 @@ import {
   type ServiceTier,
   type ThreadDelta,
   BRIDGE_INBOUND_REQUEST_METHODS,
+  interactionResolveParamsSchema,
+  PROVIDER_TOOL_CALL_CANCELLED_METHOD,
   BRIDGE_JSON_RPC_ERRORS,
   BRIDGE_NOTIFICATION_METHODS,
   PROVIDER_BRIDGE_PROTOCOL_VERSION,
@@ -1522,6 +1524,11 @@ function resolvePendingInteractiveRequests(
 ): void {
   for (const [requestId, pending] of threadSession.pendingInteractiveRequests) {
     threadSession.pendingInteractiveRequests.delete(requestId);
+    send({
+      jsonrpc: "2.0",
+      method: PROVIDER_TOOL_CALL_CANCELLED_METHOD,
+      params: { requestId },
+    });
     pending.resolve({
       behavior: "deny",
       interrupt: true,
@@ -1736,6 +1743,14 @@ function createForwardInteractiveRequest(
         return;
       }
 
+      if (args.signal.aborted) {
+        resolve({
+          behavior: "deny",
+          message: "Interactive request cancelled",
+          toolUseID: args.toolUseId,
+        });
+        return;
+      }
       let params: ClaudePermissionRequestApprovalParams;
       try {
         params = buildInteractiveRequestParams(args);
@@ -1759,6 +1774,11 @@ function createForwardInteractiveRequest(
         if (!threadSession.pendingInteractiveRequests.delete(requestId)) {
           return;
         }
+        send({
+          jsonrpc: "2.0",
+          method: PROVIDER_TOOL_CALL_CANCELLED_METHOD,
+          params: { requestId },
+        });
         finish({
           behavior: "deny",
           message: "Interactive request cancelled",
@@ -1789,6 +1809,7 @@ function createForwardInteractiveRequest(
           turnId: null,
           providerNativeIds: true,
           payload,
+          requiresResponseAcknowledgement: true,
         },
       });
     });
@@ -1811,6 +1832,14 @@ function createForwardUserQuestionRequest(
         return;
       }
 
+      if (args.signal.aborted) {
+        resolve({
+          behavior: "deny",
+          message: "User question request cancelled",
+          toolUseID: args.toolUseId,
+        });
+        return;
+      }
       const params = buildUserQuestionRequestParams(args);
       const requestId = nextInteractiveRequestId();
 
@@ -1823,6 +1852,11 @@ function createForwardUserQuestionRequest(
         if (!threadSession.pendingInteractiveRequests.delete(requestId)) {
           return;
         }
+        send({
+          jsonrpc: "2.0",
+          method: PROVIDER_TOOL_CALL_CANCELLED_METHOD,
+          params: { requestId },
+        });
         finish({
           behavior: "deny",
           message: "User question request cancelled",
@@ -1850,6 +1884,7 @@ function createForwardUserQuestionRequest(
           turnId: null,
           providerNativeIds: true,
           payload,
+          requiresResponseAcknowledgement: true,
         },
       });
     });
@@ -2530,7 +2565,55 @@ function buildPromptText(input: unknown): string | undefined {
   return chunks.length > 0 ? chunks.join("\n") : undefined;
 }
 
+const acceptedInteractionResponses = new Map<string | number, unknown>();
+
 function handleParsedMessage(parsed: unknown): void {
+  const deliveryRequest = z
+    .object({
+      jsonrpc: z.literal("2.0"),
+      id: z.union([z.string(), z.number()]),
+      method: z.literal("interaction/resolve"),
+      params: interactionResolveParamsSchema,
+    })
+    .safeParse(parsed);
+  if (deliveryRequest.success) {
+    const { id, params } = deliveryRequest.data;
+    if (acceptedInteractionResponses.has(params.requestId)) {
+      if (
+        isDeepStrictEqual(
+          acceptedInteractionResponses.get(params.requestId),
+          params.result,
+        )
+      )
+        sendResult(id, { accepted: true });
+      else
+        sendError(id, -32602, "This question was already answered differently");
+      return;
+    }
+    const session = findSessionByPendingInteractiveRequest(params.requestId);
+    const pending = session?.pendingInteractiveRequests.get(params.requestId);
+    if (!session || !pending) {
+      sendError(id, -32000, "This question is no longer awaiting an answer");
+      return;
+    }
+    const outcome = decodePendingInteractiveResponse(pending, params.result);
+    if (outcome === null) {
+      sendError(id, -32602, "Invalid interactive response payload");
+      return;
+    }
+    handleParsedMessage({
+      jsonrpc: "2.0",
+      id: params.requestId,
+      result: params.result,
+    });
+    acceptedInteractionResponses.set(params.requestId, params.result);
+    if (acceptedInteractionResponses.size > 1000) {
+      const oldest = acceptedInteractionResponses.keys().next().value;
+      if (oldest !== undefined) acceptedInteractionResponses.delete(oldest);
+    }
+    sendResult(id, { accepted: true });
+    return;
+  }
   const response = decodeBridgeJsonRpcResponse(parsed);
   if (response && handleToolCallResponse(response)) {
     return;

@@ -407,6 +407,7 @@ export {
   listActivePluginPendingInteractions,
   listPendingInteractionsByThread,
   setPendingInteractionInterrupted,
+  saveInterruptedInteractionResolution,
   setPendingInteractionResolving,
   setPendingInteractionResolved,
 } from "./pending-interactions.js";

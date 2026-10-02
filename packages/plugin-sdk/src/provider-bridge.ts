@@ -59,6 +59,8 @@ export type {
 
 export {
   BRIDGE_INBOUND_REQUEST_METHODS,
+  interactionResolveParamsSchema,
+  interactionResolveResultSchema,
   BRIDGE_JSON_RPC_ERRORS,
   BRIDGE_NOTIFICATION_METHODS,
   BRIDGE_REQUEST_METHODS,
@@ -184,6 +186,7 @@ export {
   createBridgeIo,
   createBridgeLineHandler,
   createPendingToolCallTracker,
+  PROVIDER_TOOL_CALL_CANCELLED_METHOD,
   createProviderVisibilityMetadata,
   decodeBridgeJsonRpcResponse,
   decodeToolCallResponsePayload,

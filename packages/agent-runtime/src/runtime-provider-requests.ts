@@ -33,7 +33,10 @@ export class RuntimeToolCalls {
     >
   >();
 
-  start(scope: string, request: ToolCallRequest): AbortController | null {
+  start(
+    scope: string,
+    request: Pick<ToolCallRequest, "requestId" | "threadId" | "turnId">,
+  ): AbortController | null {
     let calls = this.pending.get(scope);
     if (!calls) {
       calls = new Map();
@@ -111,6 +114,10 @@ interface HandleRuntimeProviderRequestArgs extends RuntimeProviderRequestArgs {
   onInteractiveRequest: AgentRuntimeOptions["onInteractiveRequest"];
   onToolCall: AgentRuntimeOptions["onToolCall"];
   toolCalls: RuntimeToolCalls;
+  acknowledgeInteraction?: (args: {
+    requestId: string | number;
+    result: unknown;
+  }) => Promise<void>;
   resolveThreadId: (
     args: ResolveRuntimeProviderRequestThreadIdArgs,
   ) => string | null;
@@ -342,20 +349,45 @@ function handleInteractiveProviderRequest(
     return true;
   }
 
-  void args
-    .onInteractiveRequest(scopedInteractiveReq)
-    .then((resolution) => {
-      const result = buildInteractiveResponse({
-        request: resolvedInteractiveReq,
-        resolution,
-      });
+  const scope = args.providerProcess.interactiveRequestScope;
+  const controller = args.toolCalls.start(scope, {
+    requestId: args.parsedId,
+    threadId: resolvedThreadId,
+    turnId: resolvedTurnId,
+  });
+  if (!controller) return true;
+  let delivered = false;
+  const deliverResolution = async (
+    resolution: PendingInteractionResolution,
+  ): Promise<void> => {
+    controller.signal.throwIfAborted();
+    const result = buildInteractiveResponse({
+      request: resolvedInteractiveReq,
+      resolution,
+    });
+    if (interactiveReq.requiresResponseAcknowledgement) {
+      if (!args.acknowledgeInteraction)
+        throw new Error("Provider interaction acknowledgement is unavailable");
+      await args.acknowledgeInteraction({ requestId: args.parsedId, result });
+    } else {
       sendJsonRpcResult({
         child: args.providerProcess.child,
         id: args.parsedId,
         result,
       });
+    }
+    delivered = true;
+  };
+  void args
+    .onInteractiveRequest(scopedInteractiveReq, {
+      signal: controller.signal,
+      deliverResolution,
+    })
+    .then(async (resolution) => {
+      if (!delivered) await deliverResolution(resolution);
     })
     .catch((err) => {
+      if (controller.signal.aborted) return;
       if (
         sendProviderResponseEncodeErrorIfKnown({
           child: args.providerProcess.child,
@@ -370,7 +402,8 @@ function handleInteractiveProviderRequest(
         id: args.parsedId,
         message: err instanceof Error ? err.message : String(err),
       });
-    });
+    })
+    .finally(() => args.toolCalls.finish(scope, args.parsedId, controller));
   return true;
 }
 

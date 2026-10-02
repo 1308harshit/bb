@@ -342,6 +342,8 @@ Interactions:
                                            Grant a permission interaction
   bb thread interactions answer <interaction-id> [id] --choice <questionId=value> --text <questionId=text>
                                            Answer a provider's user question
+  bb thread interactions recover <interaction-id> [id]
+                                           Send a saved answer from an interrupted question as a new message (queues when active)
   bb thread interactions respond <interaction-id> [id] --value '<json>'
                                            Answer a plugin form: a plugin's own request, or a request the agent raised through a provider (kind `<pluginId>/<name>`)
     --self                                 Target current thread (every subcommand)

@@ -16,6 +16,65 @@ describe("bb thread interactions command output", () => {
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
+  it.each(["interrupted", "resolved"] as const)(
+    "recovers saved answers only from interrupted questions (%s)",
+    async (status) => {
+      const getInteraction = vi.fn(async () =>
+        fixtures.makePendingInteraction({
+          id: "int-recover",
+          threadId: "thread-recover",
+          providerId: "claude-code",
+          status,
+          payload: fixtures.makeUserQuestionPayload(),
+          resolution: {
+            kind: "user_answer",
+            answers: {
+              "question-1": {
+                selected: ["staging"],
+                freeText: "Explain first",
+              },
+            },
+          },
+        }),
+      );
+      const send = vi.fn(async () => ({ ok: true, delivery: "sent" }));
+      stubServerApi({
+        "v1.threads.:id.interactions.:interactionId.$get": getInteraction,
+        "v1.threads.:id.send.$post": send,
+      });
+      const run = runCommand(
+        ["thread", "interactions", "recover", "int-recover", "thread-recover"],
+        register,
+      );
+      if (status === "interrupted") await run;
+      else await expect(run).rejects.toThrow("process.exit:1");
+      if (status === "interrupted") {
+        expect(send).toHaveBeenCalledOnce();
+        expect(send).toHaveBeenCalledWith({
+          param: { id: "thread-recover" },
+          json: {
+            mode: "queue-if-active",
+            input: [
+              {
+                type: "text",
+                mentions: [],
+                text: "Which deployment path?\nStaging, Explain first",
+              },
+            ],
+          },
+        });
+        expect(collectLogLines(vi.mocked(console.log))).toContain(
+          "Saved answer sent as a message.",
+        );
+      } else {
+        expect(send).not.toHaveBeenCalled();
+        expect(collectLogLines(vi.mocked(console.error)).join("\n")).toContain(
+          "Only an interrupted question with a saved answer can be recovered",
+        );
+      }
+    },
+  );
+
   it("bb thread interactions list renders the shared borderless table", async () => {
     const listInteractions = vi.fn(async () => [
       fixtures.makePendingInteraction({

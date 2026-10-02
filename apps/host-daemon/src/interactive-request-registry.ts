@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
@@ -21,7 +22,15 @@ interface InteractiveRequestRegistrationFailure {
   request: PendingInteractionCreate;
 }
 
+export interface InteractiveRequestDelivery {
+  signal: AbortSignal;
+  deliverResolution: (
+    resolution: PendingInteractionResolution,
+  ) => Promise<void>;
+}
+
 interface InteractiveRequestRegistryOptions {
+  onCancellation?: (request: PendingInteractionCreate) => void;
   onRegistrationFailure?: (
     failure: InteractiveRequestRegistrationFailure,
   ) => void;
@@ -42,6 +51,9 @@ interface PendingInteractiveRequestEntry {
   reject: (error: Error) => void;
   resolve: (resolution: PendingInteractionResolution) => void;
   request: PendingInteractionCreate;
+  delivery?: InteractiveRequestDelivery;
+  delivering?: Promise<void>;
+  submittedResolution?: PendingInteractionResolution;
 }
 
 interface DeliveredInteractiveRequestTombstone {
@@ -105,6 +117,7 @@ export class InteractiveRequestRegistry {
 
   async registerAndWait(
     request: PendingInteractionCreate,
+    delivery?: InteractiveRequestDelivery,
   ): Promise<PendingInteractionResolution> {
     const key = buildInteractiveRequestKey(request);
     const existing = this.pendingEntries.get(key);
@@ -128,8 +141,24 @@ export class InteractiveRequestRegistry {
       reject: (error) => rejectEntry(error),
       resolve: (resolution) => resolveEntry(resolution),
       request,
+      delivery,
     };
     this.pendingEntries.set(key, entry);
+    const onAbort = (): void => {
+      if (this.pendingEntries.get(key) !== entry || entry.delivering) return;
+      this.pendingEntries.delete(key);
+      entry.reject(
+        new InteractiveRequestRegistryError(
+          "stale_interactive_request",
+          "The provider cancelled this question before delivery was confirmed",
+        ),
+      );
+      if (entry.interactionId !== null) this.options.onCancellation?.(request);
+    };
+    delivery?.signal.addEventListener("abort", onAbort, { once: true });
+    void promise
+      .finally(() => delivery?.signal.removeEventListener("abort", onAbort))
+      .catch(() => {});
 
     try {
       const response = await this.options.registerRequest(request);
@@ -145,6 +174,13 @@ export class InteractiveRequestRegistry {
       }
 
       entry.interactionId = response.interactionId;
+      if (delivery?.signal.aborted) {
+        if (!entry.delivering) {
+          if (this.pendingEntries.get(key) === entry) onAbort();
+          else this.options.onCancellation?.(request);
+        }
+        return promise;
+      }
       if (response.status !== "pending" && response.status !== "resolving") {
         this.pendingEntries.delete(key);
         entry.reject(
@@ -166,11 +202,11 @@ export class InteractiveRequestRegistry {
     return promise;
   }
 
-  resolve(request: InteractiveResolveCommandInput): void {
+  resolve(request: InteractiveResolveCommandInput): Promise<void> {
     const key = buildInteractiveRequestKey(request);
     const tombstoneKey = buildDeliveredTombstoneKey(request);
     if (this.deliveredTombstones.has(tombstoneKey)) {
-      return;
+      return Promise.resolve();
     }
 
     const entry = this.pendingEntries.get(key);
@@ -190,9 +226,36 @@ export class InteractiveRequestRegistry {
       );
     }
 
-    this.pendingEntries.delete(key);
-    this.addDeliveredTombstone(tombstoneKey);
-    entry.resolve(request.resolution);
+    if (
+      entry.submittedResolution &&
+      !isDeepStrictEqual(entry.submittedResolution, request.resolution)
+    ) {
+      throw new InteractiveRequestRegistryError(
+        "interactive_resolution_mismatch",
+        "This question already has a different answer in delivery",
+      );
+    }
+    if (entry.delivering) return entry.delivering;
+    entry.submittedResolution = request.resolution;
+    if (!entry.delivery) {
+      this.pendingEntries.delete(key);
+      this.addDeliveredTombstone(tombstoneKey);
+      entry.resolve(request.resolution);
+      return Promise.resolve();
+    }
+    entry.delivering = entry.delivery
+      .deliverResolution(request.resolution)
+      .then(() => {
+        this.pendingEntries.delete(key);
+        this.addDeliveredTombstone(tombstoneKey);
+        entry.resolve(request.resolution);
+      })
+      .catch((error: unknown) => {
+        this.pendingEntries.delete(key);
+        entry.reject(normalizeCaughtError(error));
+        throw error;
+      });
+    return entry.delivering;
   }
 
   interruptThreads(args: InterruptInteractiveThreadsArgs): void {

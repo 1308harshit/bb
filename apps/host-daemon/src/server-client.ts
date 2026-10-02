@@ -221,6 +221,7 @@ export interface ServerClient {
     providerId: string;
     reason: string;
     threadIds: readonly string[];
+    providerRequestId?: string;
   }): Promise<HostDaemonInteractiveInterruptResponse>;
 }
 
@@ -670,6 +671,7 @@ export function createServerClient(
         sessionId: requireSessionId(),
         providerId: args.providerId,
         threadIds: [...args.threadIds],
+        providerRequestId: args.providerRequestId,
         reason: args.reason,
       };
       const response = await fetchFn(

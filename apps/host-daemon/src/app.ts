@@ -141,6 +141,7 @@ interface PendingInteractiveInterruptRequest {
   providerId: string;
   reason: string;
   threadIds: readonly string[];
+  providerRequestId?: string;
 }
 
 export function startIdleProviderSessionReaper(
@@ -298,6 +299,7 @@ export async function createHostDaemonApp(
     return [
       request.providerId,
       request.reason,
+      request.providerRequestId ?? "",
       [...request.threadIds].sort().join(","),
     ].join("|");
   }
@@ -415,6 +417,13 @@ export async function createHostDaemonApp(
   });
 
   const interactiveRequestRegistry = new InteractiveRequestRegistry({
+    onCancellation: (request) =>
+      enqueueInteractiveInterrupt({
+        providerId: request.providerId,
+        providerRequestId: request.providerRequestId,
+        threadIds: [request.threadId],
+        reason: "Provider cancelled the question before delivery was confirmed",
+      }),
     registerRequest: (request) =>
       runSessionRequest({
         source: "registerInteractiveRequest",
@@ -423,6 +432,7 @@ export async function createHostDaemonApp(
     onRegistrationFailure: ({ error, request }) => {
       enqueueInteractiveInterrupt({
         providerId: request.providerId,
+        providerRequestId: request.providerRequestId,
         reason: `Failed to register interactive request while provider was waiting: ${error.message}`,
         threadIds: [request.threadId],
       });
@@ -575,9 +585,12 @@ export async function createHostDaemonApp(
         throw error;
       }
     },
-    onInteractiveRequest: async (request) => {
+    onInteractiveRequest: async (request, delivery) => {
       try {
-        return await interactiveRequestRegistry.registerAndWait(request);
+        return await interactiveRequestRegistry.registerAndWait(
+          request,
+          delivery,
+        );
       } catch (error) {
         if (
           error instanceof InteractiveRequestRegistryError &&
@@ -786,7 +799,7 @@ export async function createHostDaemonApp(
       await runtimeShellEnvCache.refresh(args);
     },
     resolveInteractiveRequest: async (request) => {
-      interactiveRequestRegistry.resolve(request);
+      await interactiveRequestRegistry.resolve(request);
     },
     ensureConnectTunnelIdentity: () => connectTunnel.ensureTunnelIdentity(),
     serverMove,

@@ -639,6 +639,8 @@ export function createBridgeProtocolAdapter(
       return {
         requestId: request.id,
         method: request.method,
+        requiresResponseAcknowledgement:
+          decoded.requiresResponseAcknowledgement ?? false,
         providerThreadId: decoded.providerThreadId,
         turnId,
         payload,

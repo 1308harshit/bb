@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { PendingInteractionStatus } from "@bb/domain";
 import type { DbConnection, DbTransaction } from "../connection.js";
@@ -45,7 +45,7 @@ export interface ListPendingInteractionsArgs {
 export interface SetPendingInteractionTerminalStateArgs {
   allowedCurrentStatuses: readonly PendingInteractionStatus[];
   id: string;
-  resolution: string | null;
+  resolution: string | null | undefined;
   status: "interrupted" | "resolved";
   statusReason: string | null;
 }
@@ -56,6 +56,7 @@ export interface SetPendingInteractionResolvingArgs {
 }
 
 export interface InterruptPendingInteractionsForThreadsArgs {
+  providerRequestId?: string;
   providerId: string;
   statusReason: string;
   threadIds: readonly string[];
@@ -286,7 +287,7 @@ export function setPendingInteractionInterrupted(
   return updatePendingInteractionTerminalState(db, {
     id: args.id,
     allowedCurrentStatuses: ["pending", "resolving"],
-    resolution: null,
+    resolution: undefined,
     status: "interrupted",
     statusReason: args.statusReason,
   });
@@ -340,6 +341,9 @@ export function interruptPendingInteractionsForThreads(
     extraConditions: [
       eq(pendingInteractions.originKind, "provider"),
       eq(pendingInteractions.providerId, args.providerId),
+      ...(args.providerRequestId === undefined
+        ? []
+        : [eq(pendingInteractions.providerRequestId, args.providerRequestId)]),
     ],
     statusReason: args.statusReason,
     threadIds: args.threadIds,
@@ -379,4 +383,24 @@ export function interruptPendingInteractionsForThreadIds(
     statusReason: args.statusReason,
     threadIds: args.threadIds,
   });
+}
+
+export function saveInterruptedInteractionResolution(
+  db: PendingInteractionWriteConnection,
+  args: { id: string; resolution: string },
+): PendingInteractionRow | null {
+  return (
+    db
+      .update(pendingInteractions)
+      .set({ resolution: args.resolution, updatedAt: Date.now() })
+      .where(
+        and(
+          eq(pendingInteractions.id, args.id),
+          eq(pendingInteractions.status, "interrupted"),
+          isNull(pendingInteractions.resolution),
+        ),
+      )
+      .returning()
+      .get() ?? null
+  );
 }

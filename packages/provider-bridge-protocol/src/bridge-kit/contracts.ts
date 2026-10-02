@@ -45,6 +45,7 @@ export interface DecodedToolCallRequest {
 }
 
 export interface DecodedInteractiveRequest {
+  requiresResponseAcknowledgement?: boolean;
   requestId: string | number;
   method: string;
   providerThreadId: string;

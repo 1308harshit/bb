@@ -446,6 +446,7 @@ type ExpectedThreadEventsKey = "list" | "wait";
  */
 type ExpectedThreadQueueKey = "list";
 type ExpectedThreadInteractionsKey =
+  | "recover"
   | "cancel"
   | "get"
   | "list"

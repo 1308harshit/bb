@@ -828,6 +828,63 @@ describe("internal interactive request lifecycle", () => {
     });
   });
 
+  it("ignores delayed cancellation for an earlier provider request", async () => {
+    await withTestHarness(async (harness) => {
+      const { host, session } = seedHostSession(harness.deps);
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+      });
+      const thread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+      });
+      const registration = await registerInteractiveRequest({
+        harness,
+        body: buildCommandApprovalInteractiveRequest({
+          sessionId: session.id,
+          suffix: "replacement",
+          threadId: thread.id,
+        }),
+      });
+      expect(registration.status).toBe(200);
+      const payload = {
+        sessionId: session.id,
+        providerId: "codex",
+        threadIds: [thread.id],
+        reason: "Question cancelled",
+        providerRequestId: "old-request",
+      };
+      const cancel = async (providerRequestId: string) =>
+        harness.app.request("/internal/session/interactive-request/interrupt", {
+          method: "POST",
+          headers: internalAuthHeaders(harness),
+          body: JSON.stringify({ ...payload, providerRequestId }),
+        });
+      const unrelated = await cancel("old-request");
+      await expect(readJson(unrelated)).resolves.toMatchObject({
+        interactionIds: [],
+      });
+      const interaction = listPendingInteractionsByThread(harness.db, {
+        threadId: thread.id,
+      })[0];
+      expect(interaction?.status).toBe("pending");
+      if (!interaction?.providerRequestId)
+        throw new Error("Expected live provider request");
+      const matching = await cancel(interaction.providerRequestId);
+      await expect(readJson(matching)).resolves.toMatchObject({
+        interactionIds: [interaction.id],
+      });
+      expect(
+        listPendingInteractionsByThread(harness.db, { threadId: thread.id })[0]
+          ?.status,
+      ).toBe("interrupted");
+    });
+  });
+
   it("interrupts threads whose environment was destroyed and skips never-attached threads", async () => {
     await withTestHarness(async (harness) => {
       const { host, session } = seedHostSession(harness.deps, {

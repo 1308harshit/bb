@@ -32,7 +32,11 @@ function isWorkRowExpandable(row: TimelineViewWorkRow): boolean {
     case "image-view":
       return true;
     case "question":
-      return row.lifecycle === "answered" || row.lifecycle === "resolving";
+      return (
+        row.lifecycle === "answered" ||
+        row.lifecycle === "resolving" ||
+        (row.lifecycle === "interrupted" && row.answers !== null)
+      );
     case "form":
       return (
         row.presentation.detail !== undefined &&

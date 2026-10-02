@@ -33,12 +33,22 @@ export const toolCallResultSchema = z
   })
   .passthrough();
 
+export const interactionResolveParamsSchema = z.object({
+  requestId: z.union([z.string(), z.number()]),
+  result: z.unknown(),
+});
+
+export const interactionResolveResultSchema = z.object({
+  accepted: z.literal(true),
+});
+
 export const interactionRequestParamsSchema = z
   .object({
     providerThreadId: z.string().min(1),
     threadId: z.string().min(1).optional(),
     turnId: z.union([z.string().min(1), z.null()]),
     payload: pendingInteractionPayloadSchema,
+    requiresResponseAcknowledgement: z.boolean().optional(),
     providerNativeIds: z.boolean().optional(),
   })
   .passthrough();

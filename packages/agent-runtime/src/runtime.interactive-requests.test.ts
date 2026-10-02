@@ -1,3 +1,4 @@
+import type { AgentRuntimeOptions } from "./types.js";
 import { RuntimeToolCalls } from "./runtime-provider-requests.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -260,12 +261,12 @@ describe("createAgentRuntime interactive requests", () => {
   });
 
   it("drops unresolved interactive requests when no active turn is known", async () => {
-    const onInteractiveRequest = vi.fn(
-      async (): Promise<PendingInteractionResolution> => ({
-        decision: "allow_once",
-        grantedPermissions: null,
-      }),
-    );
+    const onInteractiveRequest = vi.fn<
+      NonNullable<AgentRuntimeOptions["onInteractiveRequest"]>
+    >(async (): Promise<PendingInteractionResolution> => ({
+      decision: "allow_once",
+      grantedPermissions: null,
+    }));
     const answer = await answerDirectRequest({
       rawRequest: commandApprovalRequest(77, { turnId: null }),
       getActiveTurnId: () => null,
@@ -322,12 +323,12 @@ describe("createAgentRuntime interactive requests", () => {
   });
 
   it("does not reclassify provider-filtered approvals against mutable thread settings", async () => {
-    const onInteractiveRequest = vi.fn(
-      async (): Promise<PendingInteractionResolution> => ({
-        decision: "allow_once",
-        grantedPermissions: null,
-      }),
-    );
+    const onInteractiveRequest = vi.fn<
+      NonNullable<AgentRuntimeOptions["onInteractiveRequest"]>
+    >(async (): Promise<PendingInteractionResolution> => ({
+      decision: "allow_once",
+      grantedPermissions: null,
+    }));
     const answer = await answerDirectRequest({
       rawRequest: commandApprovalRequest(78),
       handshake: { approvalEnforcedBy: "provider" },
@@ -340,7 +341,7 @@ describe("createAgentRuntime interactive requests", () => {
       result: { decision: "allow_once" },
     });
     expect(onInteractiveRequest).toHaveBeenCalledTimes(1);
-    expect(onInteractiveRequest).toHaveBeenCalledWith(
+    expect(onInteractiveRequest.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         payload: {
           kind: "approval",
@@ -539,12 +540,12 @@ describe("createAgentRuntime interactive requests", () => {
   });
 
   it("forwards a plugin-defined request even under a deny escalation and returns its answer", async () => {
-    const onInteractiveRequest = vi.fn(
-      async (): Promise<PendingInteractionResolution> => ({
-        kind: "request_answer",
-        value: { TOKEN: "x" },
-      }),
-    );
+    const onInteractiveRequest = vi.fn<
+      NonNullable<AgentRuntimeOptions["onInteractiveRequest"]>
+    >(async (): Promise<PendingInteractionResolution> => ({
+      kind: "request_answer",
+      value: { TOKEN: "x" },
+    }));
     const answer = await answerDirectRequest({
       rawRequest: {
         jsonrpc: "2.0",
@@ -565,7 +566,7 @@ describe("createAgentRuntime interactive requests", () => {
       getThreadExecutionOptions: () => deniedEscalationOptions,
       onInteractiveRequest,
     });
-    expect(onInteractiveRequest).toHaveBeenCalledWith(
+    expect(onInteractiveRequest.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         payload: expect.objectContaining({ kind: "secrets/secret-request" }),
       }),
@@ -578,12 +579,12 @@ describe("createAgentRuntime interactive requests", () => {
   });
 
   it("refuses a plugin-defined request whose data exceeds 64 KiB at the wire", async () => {
-    const onInteractiveRequest = vi.fn(
-      async (): Promise<PendingInteractionResolution> => ({
-        kind: "request_answer",
-        value: null,
-      }),
-    );
+    const onInteractiveRequest = vi.fn<
+      NonNullable<AgentRuntimeOptions["onInteractiveRequest"]>
+    >(async (): Promise<PendingInteractionResolution> => ({
+      kind: "request_answer",
+      value: null,
+    }));
     const answer = await answerDirectRequest({
       rawRequest: {
         jsonrpc: "2.0",
