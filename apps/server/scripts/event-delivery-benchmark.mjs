@@ -1,4 +1,3 @@
-import { startDatabaseCheckpointer } from "../src/services/system/database-checkpointer.ts";
 import {
   createConnection,
   appendDaemonEventsInTransaction,
@@ -213,7 +212,9 @@ await once(worker, "message");
 const checkpointInterval = mode === "on" ? 20 : 0;
 let checkpointErrors = 0;
 const checkpointWorker = checkpointInterval
-  ? startDatabaseCheckpointer({
+  ? (
+      await import("../src/services/system/database-checkpointer.ts")
+    ).startDatabaseCheckpointer({
       databasePath: path,
       logger: {
         warn() {
