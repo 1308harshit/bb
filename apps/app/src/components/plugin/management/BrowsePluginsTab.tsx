@@ -377,25 +377,17 @@ function BrowseShelf({
         )
       }
       browseAction={
-        shelf.entries.length > 2 ? (
-          <ResourceShelfAction
-            asChild
-            className={cn(
-              "underline underline-offset-4",
-              shelf.entries.length <= SHELF_ENTRY_LIMIT && "sm:hidden",
-            )}
+        <ResourceShelfAction asChild className="underline underline-offset-4">
+          <Link
+            to={{
+              pathname: getPluginsRoutePath(),
+              search: shelfParams.toString(),
+            }}
+            aria-label={`See all ${shelf.label}`}
           >
-            <Link
-              to={{
-                pathname: getPluginsRoutePath(),
-                search: shelfParams.toString(),
-              }}
-              aria-label={`See all ${shelf.label}`}
-            >
-              See all
-            </Link>
-          </ResourceShelfAction>
-        ) : undefined
+            See all
+          </Link>
+        </ResourceShelfAction>
       }
     >
       <div data-plugin-shelf>

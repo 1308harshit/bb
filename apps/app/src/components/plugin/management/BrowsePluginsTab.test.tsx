@@ -222,6 +222,9 @@ describe("BrowsePluginsTab", () => {
     ].map((heading) => heading.textContent);
     expect(labels).toEqual(["New & notable", "Security"]);
     expect(screen.getAllByText("Memory")).toHaveLength(1);
+    expect(
+      screen.getByRole("link", { name: "See all Security" }),
+    ).toBeTruthy();
     expect(screen.queryByText("BB Official plugins")).toBeNull();
   });
 
