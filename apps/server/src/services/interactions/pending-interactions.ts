@@ -11,7 +11,6 @@ import {
   listActivePluginPendingInteractions,
   listPendingInteractionsByThread,
   setPendingInteractionInterrupted,
-  saveInterruptedInteractionResolution,
   setPendingInteractionResolved,
   setPendingInteractionResolving,
   type PendingInteractionRow,
@@ -751,20 +750,6 @@ export class PendingInteractionLifecycle {
       );
     }
     if (current.status !== "pending") {
-      if (
-        current.status === "interrupted" &&
-        current.payload.kind === "user_question" &&
-        "kind" in args.resolution &&
-        args.resolution.kind === "user_answer"
-      ) {
-        validatePendingInteractionResolution(current, args.resolution);
-        const saved = saveInterruptedInteractionResolution(this.deps.db, {
-          id: current.id,
-          resolution: JSON.stringify(args.resolution),
-        });
-        if (saved)
-          this.settleInteractionTerminalState(toPendingInteraction(saved));
-      }
       if (
         (current.status === "resolving" || current.status === "resolved") &&
         pendingInteractionResolutionEquals(current.resolution, args.resolution)

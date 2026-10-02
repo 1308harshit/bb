@@ -432,11 +432,6 @@ Read the installed declarations for exact current signatures.
 - `ExperimentalHostEntryHarness`
 - `ExperimentalHostHarnessSignal`
 
-## `@get-bb/plugin-sdk/provider-bridge` interaction delivery
+## `@get-bb/plugin-sdk/provider-bridge`
 
 - `PROVIDER_TOOL_CALL_CANCELLED_METHOD`
-- `interactionResolveParamsSchema`
-- `interactionResolveResultSchema`
-
-Use the Plugin Guide's Agent providers card for the opt-in acknowledgement
-contract and request-scoped cancellation behavior.

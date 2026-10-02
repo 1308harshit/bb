@@ -1,4 +1,3 @@
-import { ApiError } from "../../src/errors.js";
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -684,96 +683,6 @@ describe("pending interaction lifecycle", () => {
         resolution: answerResolution,
         status: "resolved",
       });
-    });
-  });
-
-  it.each([
-    "during-delivery",
-    "after-cancellation",
-    "lost-acknowledgement",
-    "host-disconnected",
-  ])("preserves the submitted answer for recovery %s", async (timing) => {
-    await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
-        hostId: host.id,
-      });
-      const environment = seedEnvironment(harness.deps, {
-        hostId: host.id,
-        projectId: project.id,
-      });
-      const thread = seedThread(harness.deps, {
-        projectId: project.id,
-        environmentId: environment.id,
-        providerId: "claude-code",
-      });
-      const created = registerPendingInteraction(
-        harness.deps,
-        harness.deps.pendingInteractions,
-        {
-          threadId: thread.id,
-          turnId: "turn-answer-recovery",
-          providerId: "claude-code",
-          providerThreadId: "provider-answer-recovery",
-          providerRequestId: "request-answer-recovery",
-          payload: createUserQuestionPayload(),
-        },
-      );
-      if (created.outcome === "rejected") throw new Error(created.reason);
-      const resolution = createUserAnswerResolution({
-        freeText: "Please explain first",
-      });
-      const args = {
-        threadId: thread.id,
-        interactionId: created.interaction.id,
-        resolution,
-      };
-      if (timing === "lost-acknowledgement" || timing === "host-disconnected") {
-        const failure =
-          timing === "host-disconnected"
-            ? new ApiError(502, "host_unavailable", "Host is not connected")
-            : new Error(
-                "Timed out waiting for interaction/resolve acknowledgement",
-              );
-        const delivery = vi
-          .spyOn(harness.hub, "requestHostOnlineRpc")
-          .mockRejectedValue(failure);
-        harness.deps.pendingInteractions.resolvePendingInteraction(args);
-        await expect
-          .poll(
-            () =>
-              harness.deps.pendingInteractions.getThreadInteraction(args)
-                .status,
-          )
-          .toBe("interrupted");
-        expect(
-          harness.deps.pendingInteractions.getThreadInteraction(args),
-        ).toMatchObject({ statusReason: failure.message, resolution });
-        expect(() =>
-          harness.deps.pendingInteractions.resolvePendingInteraction(args),
-        ).toThrow("already interrupted");
-        expect(delivery).toHaveBeenCalledTimes(1);
-        delivery.mockRestore();
-        return;
-      }
-      if (timing === "during-delivery")
-        harness.deps.pendingInteractions.resolvePendingInteraction(args);
-      harness.db.transaction((db) =>
-        harness.deps.pendingInteractions.interruptPendingInteractionInTransaction(
-          { db, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            reason: "Question cancelled",
-          },
-        ),
-      );
-      if (timing === "after-cancellation")
-        expect(() =>
-          harness.deps.pendingInteractions.resolvePendingInteraction(args),
-        ).toThrow("already interrupted");
-      expect(
-        harness.deps.pendingInteractions.getThreadInteraction(args),
-      ).toMatchObject({ status: "interrupted", resolution });
     });
   });
 

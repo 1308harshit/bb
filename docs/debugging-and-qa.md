@@ -596,16 +596,9 @@ older daemons install the server's matching bb-app artifact; disabled or failed
 updates leave the machine disconnected until a manual update succeeds. This
 is an intentional version gate, not backward-compatible field defaulting.
 
-## Question answer delivery
+## Question cancellation
 
-Native Claude questions stay `resolving` until the provider bridge acknowledges
-that its live request accepted the answer. Provider cancellation interrupts only
-the matching request. Interrupted questions retain submitted answers, including
-answers submitted from a stale form after cancellation. Acknowledgement timeouts
-mean delivery is unconfirmed; they do not prove the provider never received it.
-
-Recover a saved answer explicitly with the timeline's **Send as message** button,
-`bb thread interactions recover <interaction-id> <thread-id>`, or
-`sdk.threads.interactions.recover({ interactionId, threadId })`. Recovery sends a
-new message and queues it when the thread is active. It never automatically
-resumes a stopped thread. Repeating recovery intentionally sends another message.
+Claude's bridge forwards provider cancellation with the interactive request ID.
+The host daemon interrupts only that request, and the server notifies clients
+to remove its active form. Cancellation during registration is forwarded once
+the server has registered the request.

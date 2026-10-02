@@ -1268,10 +1268,7 @@ function mapQuestionTitle(row: TimelineQuestionViewWorkRow): TimelineTitle {
     }
     case "interrupted":
       return makeTitle({
-        segments: [
-          segment(row.answers ? "Answer delivery unconfirmed" : "Asked"),
-          subject,
-        ],
+        segments: [segment("Asked"), subject],
         decorations: [statusDecoration("interrupted", null)],
       });
     default:

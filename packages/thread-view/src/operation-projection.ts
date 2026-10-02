@@ -339,13 +339,6 @@ function mergeUserQuestionLifecycleMessage(
   const mergedStatus = mergeLifecycleStatus(existing.status, incoming.status);
   existing.status = mergedStatus;
   if (wasTerminal) {
-    if (
-      existing.lifecycle === "interrupted" &&
-      incoming.lifecycle === "interrupted" &&
-      incoming.answers !== null
-    ) {
-      existing.answers = incoming.answers;
-    }
     return;
   }
 

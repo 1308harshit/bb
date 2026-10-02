@@ -114,10 +114,6 @@ interface HandleRuntimeProviderRequestArgs extends RuntimeProviderRequestArgs {
   onInteractiveRequest: AgentRuntimeOptions["onInteractiveRequest"];
   onToolCall: AgentRuntimeOptions["onToolCall"];
   toolCalls: RuntimeToolCalls;
-  acknowledgeInteraction?: (args: {
-    requestId: string | number;
-    result: unknown;
-  }) => Promise<void>;
   resolveThreadId: (
     args: ResolveRuntimeProviderRequestThreadIdArgs,
   ) => string | null;
@@ -356,35 +352,19 @@ function handleInteractiveProviderRequest(
     turnId: resolvedTurnId,
   });
   if (!controller) return true;
-  let delivered = false;
-  const deliverResolution = async (
-    resolution: PendingInteractionResolution,
-  ): Promise<void> => {
-    controller.signal.throwIfAborted();
-    const result = buildInteractiveResponse({
-      request: resolvedInteractiveReq,
-      resolution,
-    });
-    if (interactiveReq.requiresResponseAcknowledgement) {
-      if (!args.acknowledgeInteraction)
-        throw new Error("Provider interaction acknowledgement is unavailable");
-      await args.acknowledgeInteraction({ requestId: args.parsedId, result });
-    } else {
+  void args
+    .onInteractiveRequest(scopedInteractiveReq, controller.signal)
+    .then((resolution) => {
+      if (controller.signal.aborted) return;
+      const result = buildInteractiveResponse({
+        request: resolvedInteractiveReq,
+        resolution,
+      });
       sendJsonRpcResult({
         child: args.providerProcess.child,
         id: args.parsedId,
         result,
       });
-    }
-    delivered = true;
-  };
-  void args
-    .onInteractiveRequest(scopedInteractiveReq, {
-      signal: controller.signal,
-      deliverResolution,
-    })
-    .then(async (resolution) => {
-      if (!delivered) await deliverResolution(resolution);
     })
     .catch((err) => {
       if (controller.signal.aborted) return;

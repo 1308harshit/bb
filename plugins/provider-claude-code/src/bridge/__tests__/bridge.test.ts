@@ -648,9 +648,9 @@ async function forwardAskUserQuestion({
   });
   await bridge.flushWork();
 
-  const questionRequest = [...bridge.messages]
-    .reverse()
-    .find((message) => isUserQuestionInteraction(message));
+  const questionRequest = bridge.messages.find((message) =>
+    isUserQuestionInteraction(message),
+  );
   if (questionRequest?.id === undefined) {
     throw new Error("Expected AskUserQuestion JSON-RPC request id");
   }
@@ -1665,62 +1665,13 @@ describe("bridge", () => {
     }
   });
 
-  it("acknowledges live question delivery, deduplicates retries, and rejects cancelled questions", async () => {
+  it("notifies BB when Claude cancels a pending question", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     queryMock.mockImplementation(() => createControlledClaudeQuery());
     try {
-      await startBridgeThread({ bridge, threadId: "thread-question-delivery" });
-      const first = await forwardAskUserQuestion({
+      await startBridgeThread({
         bridge,
-        toolUseID: "live-question",
-      });
-      const result = {
-        kind: "user_answer",
-        answers: {
-          "live-question:question-1": {
-            selected: ["live-question:question-1:option-1"],
-          },
-        },
-      };
-      const deliver = (
-        id: number,
-        requestId: string | number,
-        response: unknown,
-      ) =>
-        handleLine(
-          JSON.stringify({
-            jsonrpc: "2.0",
-            id,
-            method: "interaction/resolve",
-            params: { requestId, result: response },
-          }),
-        );
-      deliver(901, first.questionRequest.id!, result);
-      await bridge.flushWork();
-      expect(
-        bridge.messages.find((message) => message.id === 901),
-      ).toMatchObject({ result: { accepted: true } });
-      await expect(first.resultPromise).resolves.toMatchObject({
-        behavior: "allow",
-        updatedInput: {
-          answers: { "Which deployment target should I use?": "Staging" },
-        },
-      });
-      deliver(902, first.questionRequest.id!, result);
-      expect(
-        bridge.messages.find((message) => message.id === 901),
-      ).toMatchObject({ result: { accepted: true } });
-      expect(
-        bridge.messages.find((message) => message.id === 902),
-      ).toMatchObject({ result: { accepted: true } });
-      deliver(903, first.questionRequest.id!, {
-        kind: "user_answer",
-        answers: {},
-      });
-      expect(
-        bridge.messages.find((message) => message.id === 903),
-      ).toMatchObject({
-        error: { message: "This question was already answered differently" },
+        threadId: "thread-question-cancellation",
       });
       const controller = new AbortController();
       const cancelled = await forwardAskUserQuestion({
@@ -1736,19 +1687,6 @@ describe("bridge", () => {
         jsonrpc: "2.0",
         method: "notifications/cancelled",
         params: { requestId: cancelled.questionRequest.id },
-      });
-      deliver(904, cancelled.questionRequest.id!, {
-        kind: "user_answer",
-        answers: {
-          "cancelled-question:question-1": {
-            selected: ["cancelled-question:question-1:option-1"],
-          },
-        },
-      });
-      expect(
-        bridge.messages.find((message) => message.id === 904),
-      ).toMatchObject({
-        error: { message: "This question is no longer awaiting an answer" },
       });
     } finally {
       bridge.restore();

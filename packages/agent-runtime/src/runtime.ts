@@ -1,4 +1,3 @@
-import { interactionResolveResultSchema } from "@bb/provider-bridge-protocol";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { z } from "zod";
@@ -1336,14 +1335,6 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         getThreadExecutionOptions: (threadId) =>
           threadRuntimeConfigs.get(threadId)?.options,
         onInteractiveRequest: options.onInteractiveRequest,
-        acknowledgeInteraction: async (params) => {
-          await sendCommand({
-            proc,
-            message: { jsonrpc: "2.0", method: "interaction/resolve", params },
-            resultSchema: interactionResolveResultSchema,
-            timeoutMs: 10_000,
-          });
-        },
         onToolCall: options.onToolCall,
         toolCalls,
         parsedId: parsedLine.parsedId,

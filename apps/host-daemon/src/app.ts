@@ -422,7 +422,7 @@ export async function createHostDaemonApp(
         providerId: request.providerId,
         providerRequestId: request.providerRequestId,
         threadIds: [request.threadId],
-        reason: "Provider cancelled the question before delivery was confirmed",
+        reason: "Provider cancelled the interactive request",
       }),
     registerRequest: (request) =>
       runSessionRequest({
@@ -585,11 +585,11 @@ export async function createHostDaemonApp(
         throw error;
       }
     },
-    onInteractiveRequest: async (request, delivery) => {
+    onInteractiveRequest: async (request, signal) => {
       try {
         return await interactiveRequestRegistry.registerAndWait(
           request,
-          delivery,
+          signal,
         );
       } catch (error) {
         if (
@@ -799,7 +799,7 @@ export async function createHostDaemonApp(
       await runtimeShellEnvCache.refresh(args);
     },
     resolveInteractiveRequest: async (request) => {
-      await interactiveRequestRegistry.resolve(request);
+      interactiveRequestRegistry.resolve(request);
     },
     ensureConnectTunnelIdentity: () => connectTunnel.ensureTunnelIdentity(),
     serverMove,

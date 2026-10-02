@@ -2644,34 +2644,6 @@ describe("buildThreadTimelineFromEvents", () => {
     },
   );
 
-  it("shows answers saved after a question was interrupted without changing its delivery status", () => {
-    const answers = {
-      "question-1": { selected: ["production"], freeText: "Saved answer" },
-    };
-    const rows = buildTimelineRows([
-      turnStartedEvent({ seq: 0 }),
-      userQuestionLifecycleEvent({
-        seq: 1,
-        status: "interrupted",
-        statusReason: "Question cancelled",
-      }),
-      userQuestionLifecycleEvent({
-        seq: 2,
-        status: "interrupted",
-        statusReason: "Question cancelled",
-        resolution: { kind: "user_answer", answers },
-      }),
-    ]);
-    expect(collectQuestionRows(rows)).toEqual([
-      expect.objectContaining({
-        answers,
-        lifecycle: "interrupted",
-        status: "interrupted",
-        statusReason: "Question cancelled",
-      }),
-    ]);
-  });
-
   it("preserves terminal user-question interrupted rows after late resolving events", () => {
     const statusReason = "Thread stopped by user request";
     const rows = buildTimelineRows([

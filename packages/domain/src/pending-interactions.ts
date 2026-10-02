@@ -818,23 +818,3 @@ export function toInteractionLifecycle(
       interaction.resolution === null ? null : { kind: "request_answer" },
   };
 }
-
-export function formatUserQuestionAnswers(
-  questions: readonly PendingInteractionUserQuestionQuestion[],
-  answers: Readonly<Record<string, PendingInteractionUserAnswer>>,
-): string {
-  return questions
-    .map((question) => {
-      const answer = answers[question.id];
-      if (!answer) return null;
-      const parts = answer.selected.map(
-        (value) =>
-          question.options?.find((option) => option.value === value)?.label ??
-          value,
-      );
-      if (answer.freeText) parts.push(answer.freeText);
-      return `${question.prompt}\n${parts.join(", ")}`;
-    })
-    .filter((answer) => answer !== null)
-    .join("\n\n");
-}

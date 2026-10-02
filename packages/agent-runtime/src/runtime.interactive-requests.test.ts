@@ -206,6 +206,49 @@ describe("createAgentRuntime interactive requests", () => {
     await runtime.shutdown();
   });
 
+  it("aborts a pending interaction when its thread stops", async () => {
+    const onInteractiveRequest = vi.fn<
+      NonNullable<AgentRuntimeOptions["onInteractiveRequest"]>
+    >(async (_request, signal) => {
+      if (!signal) throw new Error("Missing interaction cancellation signal");
+      await new Promise<void>((resolve) => {
+        signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      return { decision: "deny" };
+    });
+    const runtime = createScriptedEchoRuntime({
+      runtime: {
+        workspacePath: tmpDir,
+        onEvent: () => {},
+        onInteractiveRequest,
+      },
+    });
+    try {
+      await runtime.startThread({
+        environmentId: "env-1",
+        threadId: "t1",
+        projectId: "p1",
+        providerId: "fake",
+        options: fullRuntimeOptions,
+      });
+      await runtime.runTurn({
+        clientRequestId: "creq_222222224h",
+        threadId: "t1",
+        input: [promptTextInput({ text: "approve:command ship it" })],
+        options: fullRuntimeOptions,
+      });
+      await vi.waitFor(() =>
+        expect(onInteractiveRequest).toHaveBeenCalledOnce(),
+      );
+      const signal = onInteractiveRequest.mock.calls[0]?.[1];
+      expect(signal?.aborted).toBe(false);
+      await runtime.stopThread({ threadId: "t1" });
+      expect(signal?.aborted).toBe(true);
+    } finally {
+      await runtime.shutdown();
+    }
+  });
+
   it("completes the turn with Denied when the user denies the approval", async () => {
     const requests: PendingInteractionCreate[] = [];
     const events: ThreadEvent[] = [];

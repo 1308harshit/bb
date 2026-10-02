@@ -308,15 +308,6 @@ function printInteraction(interaction: PendingInteraction): void {
   }
 
   if (isUserQuestionPendingInteraction(interaction)) {
-    if (
-      interaction.status === "interrupted" &&
-      interaction.resolution !== null
-    ) {
-      console.log("  Delivery: unconfirmed; answer saved");
-      console.log(
-        `  Recover: bb thread interactions recover ${interaction.id} ${interaction.threadId}`,
-      );
-    }
     printUserQuestionInteraction(interaction);
     return;
   }
@@ -796,32 +787,6 @@ export function registerInteractionCommands(
             return;
           }
           printInteraction(interaction);
-        },
-      ),
-    );
-
-  interactions
-    .command("recover <interactionId> [id]")
-    .description(
-      "Send a saved answer from an interrupted question as a new message",
-    )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
-    .option("--json", "Print machine-readable JSON output")
-    .action(
-      action(
-        async (
-          interactionId: string,
-          id: string | undefined,
-          opts: ThreadInteractionTargetOptions,
-        ) => {
-          const result = await createCliBbSdk(
-            getUrl(),
-          ).threads.interactions.recover({
-            interactionId,
-            threadId: requireThreadIdOrSelf(id, opts),
-          });
-          if (!outputJson(opts, result))
-            console.log("Saved answer sent as a message.");
         },
       ),
     );

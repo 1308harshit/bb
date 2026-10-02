@@ -1,7 +1,5 @@
 import {
   parseThreadEventRow,
-  isUserQuestionPendingInteraction,
-  formatUserQuestionAnswers,
   type PromptInput,
   type PendingInteraction,
   type PendingInteractionResolution,
@@ -490,7 +488,6 @@ export class ThreadWaitUnreachableError extends Error {
 }
 
 export interface ThreadInteractionsArea {
-  recover(args: ThreadInteractionTargetArgs): Promise<ThreadSendResult>;
   cancel(
     args: ThreadInteractionTargetArgs,
   ): Promise<ThreadInteractionCancelResult>;
@@ -925,36 +922,6 @@ export function createThreadsArea(args: CreateSdkAreaArgs): ThreadsArea {
     },
   };
   const interactions: ThreadInteractionsArea = {
-    async recover(input) {
-      const interaction = await interactions.get(input);
-      if (
-        !isUserQuestionPendingInteraction(interaction) ||
-        interaction.status !== "interrupted" ||
-        interaction.resolution === null
-      ) {
-        throw new Error(
-          "Only an interrupted question with a saved answer can be recovered",
-        );
-      }
-      return transport.readJson(
-        transport.api.v1.threads[":id"].send.$post({
-          param: { id: input.threadId },
-          json: {
-            mode: "queue-if-active",
-            input: [
-              {
-                type: "text",
-                mentions: [],
-                text: formatUserQuestionAnswers(
-                  interaction.payload.questions,
-                  interaction.resolution.answers,
-                ),
-              },
-            ],
-          },
-        }),
-      );
-    },
     async cancel(input) {
       return transport.readJson(
         transport.api.v1.threads[":id"].interactions[
