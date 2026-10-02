@@ -458,4 +458,7 @@ with `bb plugin enable bb--storage-retention`.
 Its sidebar panel and `bb storage` commands own retention policies and machine
 cleanup. Use `bb storage clear-archived-files --machine HOST_ID --yes` to clear
 all stored files from archived, stopped, unpinned threads on that machine.
+`bb storage usage --machine HOST_ID` also reports worktree counts by project
+and, after a scan, a separate `~/.bb-dev` breakdown when that folder exists,
+including recovered source paths, checkout existence, and links to known threads.
 See the plugin’s storage-retention skill for commands and limitations.
