@@ -26,6 +26,13 @@ on:
         description: Optional commit to compare native thread-mention notifications against
         required: false
         default: ""
+      runner:
+        description: macOS runner for this manual run
+        type: choice
+        options:
+          - blacksmith-6vcpu-macos-15
+          - macos-15
+        default: blacksmith-6vcpu-macos-15
   schedule:
     # Nightly, 09:17 UTC (runs on the default branch).
     - cron: "17 9 * * *"
@@ -65,7 +72,7 @@ jobs:
       github.repository == 'get-bb/bb'
       && (github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'mobile-e2e'))
-    runs-on: blacksmith-6vcpu-macos-15
+    runs-on: ${{ inputs.runner || 'blacksmith-6vcpu-macos-15' }}
     timeout-minutes: 90
 
     steps:
