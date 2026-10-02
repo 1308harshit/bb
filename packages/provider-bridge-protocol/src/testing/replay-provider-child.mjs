@@ -65,7 +65,7 @@ const EMIT_GAP_MS = 2;
 const RESPONSE_GAP_MS = 50;
 /** A request that opens or addresses a provider session; see segment release. */
 const SESSION_DEFINING_KEY =
-  /^((thread|session)\/(start|resume|fork|new|load|archive|unarchive|name\/set)|prompt|compact|fork_session|get_available_models)$/;
+  /^(thread|session)\/(start|resume|fork|new|load|archive|unarchive|name\/set)$/;
 
 /**
  * Only the replay flags are read; anything else on argv (the Agent SDK's
@@ -354,6 +354,70 @@ function readNewlineDelimitedLines(input, onLine) {
 // Player
 // ---------------------------------------------------------------------------
 
+function servePiCatalog(entries) {
+  const models = new Map();
+  let state = {};
+  for (const entry of entries) {
+    if (entry.dir !== "provider→bridge") continue;
+    const message = parseLine(entry.line);
+    if (message?.type !== "response" || message.success !== true) continue;
+    const candidates = [];
+    if (message.command === "get_state" && message.data?.model) {
+      candidates.push(message.data.model);
+      if (!state.model) state = message.data;
+    }
+    if (
+      message.command === "get_available_models" &&
+      Array.isArray(message.data?.models)
+    ) {
+      candidates.push(...message.data.models);
+    }
+    for (const model of candidates) {
+      if (typeof model?.provider === "string" && typeof model.id === "string") {
+        models.set(`${model.provider}/${model.id}`, model);
+      }
+    }
+  }
+  const channelOut = createWriteStream(null, { fd: 3 });
+  const channelIn = new Socket({ fd: 4, readable: true, writable: false });
+  channelIn.on("error", () => {});
+  channelIn.unref();
+  readNewlineDelimitedLines(channelIn, (line) => {
+    const message = parseLine(line);
+    if (message?.kind !== "request" || message.method !== "model-scope") return;
+    channelOut.write(
+      `${JSON.stringify({
+        kind: "reply",
+        id: message.id,
+        result: {
+          scopedModelIds: [...models.keys()],
+          ...(state.model
+            ? { defaultModelId: `${state.model.provider}/${state.model.id}` }
+            : {}),
+        },
+      })}\n`,
+    );
+  });
+  readNewlineDelimitedLines(process.stdin, (line) => {
+    const message = parseLine(line);
+    if (typeof message?.id !== "string") return;
+    process.stdout.write(
+      `${JSON.stringify({
+        id: message.id,
+        type: "response",
+        command: message.type,
+        success: true,
+        data:
+          message.type === "get_available_models"
+            ? { models: [...models.values()] }
+            : state,
+      })}\n`,
+    );
+  });
+  process.stdin.on("end", () => process.exit(0));
+  process.on("SIGTERM", () => process.exit(0));
+}
+
 function main() {
   // A bridge's install gate may probe `<cli> --version` through the replay
   // command; answer like a CLI instead of claiming a segment and waiting.
@@ -369,20 +433,14 @@ function main() {
     ...readLane(args.recording, "provider→bridge"),
     ...readLane(args.recording, "bridge→provider"),
   ].sort((left, right) => left.run - right.run || left.seq - right.seq);
-  const piCatalogModels = [
-    ...new Map(
-      entries.flatMap((entry) => {
-        if (args.dialect !== "pi-rpc" || entry.dir !== "provider→bridge") return [];
-        const data = parseLine(entry.line)?.data;
-        if (data === null || typeof data !== "object") return [];
-        return [data.model, ...(Array.isArray(data.models) ? data.models : [])]
-          .filter((model) =>
-            model !== null && typeof model === "object" &&
-            typeof model.provider === "string" && typeof model.id === "string")
-          .map((model) => [`${model.provider}/${model.id}`, model]);
-      }),
-    ).values(),
-  ];
+  if (
+    args.dialect === "pi-rpc" &&
+    process.argv.includes("--no-session") &&
+    !process.argv.includes("--session-dir")
+  ) {
+    servePiCatalog(entries);
+    return;
+  }
   const segments = buildSegments(entries, dialect);
   const segmentIndex = claimSegmentIndex(args.state);
   let script = segments[segmentIndex] ?? [];
@@ -571,15 +629,7 @@ function main() {
   function answerGenerically(live, reason) {
     if (live.classified.kind === "request") {
       log(`${reason}: answering ${live.classified.key} (${String(live.classified.id)}) generically`);
-      emit(args.dialect === "pi-rpc" && live.classified.key === "get_available_models"
-        ? {
-            id: live.classified.id,
-            type: "response",
-            command: "get_available_models",
-            success: true,
-            data: { models: piCatalogModels },
-          }
-        : dialect.genericResponse(live.classified.id, live.classified));
+      emit(dialect.genericResponse(live.classified.id, live.classified));
     } else {
       log(`${reason}: dropping unmatched ${live.classified.kind} ${live.classified.key}`);
     }

@@ -1,5 +1,52 @@
 # APIs To Audit
 
+## Composer popups
+
+`ComposerCustomization.experimental_popups` registers an array of
+`{ id, label, component }` popups, honoring the customization's composer scopes.
+`PluginComposerApi.experimental_openPopup(id)` opens that plugin's popup in
+that mounted composer. It returns false for missing, suppressed or out-of-scope
+registrations. Popup ids are unique across all composer customizations within a plugin,
+independently of customization ids. Duplicate and malformed entries are rejected
+without dropping valid popups or other contributions.
+
+Core mentions, commands and plugin popups share one composer-menu state,
+Escape/dismissal lifecycle, `ComposerPopupHost`, and above/below placement.
+Opening a plugin popup dismisses the built-in suggestions. Inside its component,
+`useComposer()` targets the opening composer. Its `experimental_closePopup()`
+closes the calling plugin's popup and restores the retained editor selection,
+returning false if that plugin has no open popup. Desktop dismissal handles
+Escape and outside clicks; returning to the editor also closes the popup.
+Compact interactive popups use the shared persistent responsive drawer;
+editor-driven suggestions remain inline so typing continues in the editor. The
+component owns search, results and keyboard navigation. No automatic menu row
+is added; actions, plus-menu rows and composer commands call
+`experimental_openPopup`.
+
+Before stabilization, verify multiple composers, selection retention, plugin
+reload and crash recovery, scope suppression, and compact Safari
+keyboard/drawer behavior. Verify multiple popups in one customization and popup-id uniqueness across
+customizations.
+
+## Composer commands
+
+`PluginAppComposer.experimental_registerCommand({ id, title, defaultShortcut?,
+run })` registers a command that is listed in the palette and Settings →
+Keyboard, rebindable under `plugin:<plugin-id>/<command-id>`, and shares the
+`app.commands` ID namespace. Each prompt box provides command ownership and
+mounts its composer commands through `useComposerCommand`, the same hook bb's
+`composer.focus` uses; `run` receives that composer's plugin-bound
+`PluginComposerApi`. Ownership (`composerOwnsCommand`, per
+`[data-app-composer]` shell): the composer holding the caret, otherwise the
+focused pane's primary composer. Plugin composer commands use bb's composer
+keybinding context (prompt available; no terminal, browser or modal focus).
+The palette evaluates ownership against the element focused when it opened.
+
+Before stabilization, verify split panes, side chat, inline queued-message
+editing, palette invocation from each, plugin reload, and rebinding. Audit
+whether composer scopes should filter commands the way they filter other
+composer contributions, and whether commands need an availability callback.
+
 ## `settingsSection.experimental_page`
 
 `experimental_page: "mobile"` mounts a plugin settings section exclusively on Settings → Mobile when that plugin owns the selected access provider, retaining plugin context, lifecycle, and error boundaries. Omission keeps the section on its plugin configuration page. Stabilization requires verifying placement isolation, plugin disable/uninstall, loading and failure states, and pairing lifecycle on Mobile.
@@ -1128,6 +1175,25 @@ hook; confirm the `{ threadId | null }` scope is the right key once bridges
 multiplex several threads over one child; and settle the recording entry
 shape (`{ ts, run, seq, dir, line }`) as a documented fixture format.
 
+## Portable provider spawn (`experimental_spawnPortableProcess`, `experimental_killPortableProcess`) (`@get-bb/plugin-sdk/provider-bridge`)
+
+**What it does.** `experimental_spawnPortableProcess` spawns a provider
+executable with the daemon's portable launcher instead of `node:child_process`
+`spawn`. It takes `{ command, args, cwd?, env?, stdio?, detached? }` and returns
+a `ChildProcess`. On Windows it resolves the command through PATH and PATHEXT,
+runs npm `.cmd` shims, and hides the console window; on macOS and Linux it
+behaves like `spawn`. `experimental_killPortableProcess(child, signal)` ends
+such a child: on Windows it terminates the child's whole process tree, because a
+`.cmd` shim makes the child a `cmd.exe` wrapper and Windows delivers no signals;
+on macOS and Linux it sends `signal` to the child. The Codex and Pi bridges
+launch and stop their CLIs with the pair.
+
+**Audit before stabilizing.** Decide whether bridges should receive the managed
+process handle (an awaited stop that reports whether the tree is confirmed gone)
+instead of a raw `ChildProcess` plus a fire-and-forget kill. Confirm argument
+quoting for `.cmd` targets with untrusted arguments, and whether `detached`
+belongs in the public shape.
+
 ## `experimental_BridgeRecoveryError`
 
 **Kept experimental (2026-08-22).** it is part of the provider-bridge authoring surface and stabilizes together with `experimental_defineProviderBridge` / `experimental_apiVersion` in the later bridge-kit audit.
@@ -1154,8 +1220,9 @@ whether `retryable` should be per kind (only `sessionArchived` and
 bridge's `provider/health`, `provider/usage` and `provider/installation/*`
 answers when its provider is a user-installed CLI. The probes:
 `experimental_resolveExecutablePath` (the command's absolute path — the path
-itself when given absolute and executable, else the first `which`/`where`
-hit, null when absent; 5 s), `experimental_readCliVersion` (`<command>
+itself when given absolute and executable, else the first `which` hit, or on
+Windows the first `where` hit whose extension is in `PATHEXT` so an npm `.cmd`
+launcher wins over the extensionless shim beside it, null when absent; 5 s), `experimental_readCliVersion` (`<command>
 --version` with stdin closed, so CLIs that start a stdio server on unknown
 flags exit instead of hitting the timeout; the first version token on stdout
 or stderr, or null if it is invalid SemVer; 5 s),
@@ -1172,7 +1239,8 @@ install verifies by existence; an update by reaching the latest version the
 status saw, or by any change when the registry was unreachable). The
 actions: `experimental_npmGlobalInstallCommand` (`npm install -g
 <package>@latest` with its display string), `experimental_downloadedInstallerCommand`
-(a vendor's `curl | bash` script run from a temp file),
+(a vendor's `curl | bash` script run from a temp file; given
+`{ powershellUrl }` it returns `powershell.exe … "irm <url> | iex"` on Windows),
 `experimental_npmCommand` (`npm` / `npm.cmd`) and
 `experimental_formatCommand` (a display command line with shell-unsafe
 arguments single-quoted). `experimental_clampPercent` rounds a usage
@@ -3609,3 +3677,9 @@ across restart. Add `"environment"` or `"machine"` only together with a consumer
 Stabilize after validating first-install discovery, shared-plugin enablement,
 dynamic provider removal, plugin upgrades, and duplicate-ID ownership behavior
 with third-party providers.
+
+## Global prompt history (`bb.sdk.experimental_promptHistory`)
+
+`bb.sdk.experimental_promptHistory.list({ cursor?, limit?, signal? })` returns `{ entries, nextCursor }`: every accepted user prompt across projects and threads, newest first, each with `id`, `createdAt`, `input`, `projectId`, and `threadId`. `limit` is a digit string, defaulting to 100 and capped at 1000. `nextCursor` is an opaque string, or null on the last page. A page can hold fewer than `limit` entries while `nextCursor` is set, because stored rows whose input no longer parses are skipped. Prompts from a deleted thread remain listed until the thread row is removed, which cascades to its prompt history. The same route backs `bb prompt-history list`.
+
+Before stabilization, audit whether `limit` should be a number, whether the cursor format needs versioning, whether project or thread filters belong on this call rather than on `projects.promptHistory` and `threads.promptHistory`, and whether skipped rows should fill the page.
