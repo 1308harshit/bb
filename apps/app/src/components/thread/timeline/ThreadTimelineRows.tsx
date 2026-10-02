@@ -530,6 +530,30 @@ function useStableReadonlySet(
   return valuesRef.current;
 }
 
+function areReadonlyStringMapsEqual(
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>,
+): boolean {
+  if (left === right) return true;
+  if (left.size !== right.size) return false;
+  for (const [key, value] of left) {
+    if (right.get(key) !== value) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function useStableReadonlyStringMap(
+  values: ReadonlyMap<string, string>,
+): ReadonlyMap<string, string> {
+  const valuesRef = useRef(values);
+  if (!areReadonlyStringMapsEqual(valuesRef.current, values)) {
+    valuesRef.current = values;
+  }
+  return valuesRef.current;
+}
+
 function useTimelineSearchExpansionRowIds(
   rows: readonly ThreadTimelineViewRow[],
 ): ReadonlySet<string> {
@@ -2107,9 +2131,11 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       ),
     [senderThreadMetadataById],
   );
-  const agentReplyRecipients = useMemo(
-    () => collectAgentReplyRecipients(rows, isExcludedAgentSender),
-    [isExcludedAgentSender, rows],
+  const agentReplyRecipients = useStableReadonlyStringMap(
+    useMemo(
+      () => collectAgentReplyRecipients(rows, isExcludedAgentSender),
+      [isExcludedAgentSender, rows],
+    ),
   );
   const messageDirectiveSlots = useSyncExternalStore(
     subscribePluginSlots,

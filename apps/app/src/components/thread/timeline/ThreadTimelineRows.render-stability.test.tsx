@@ -24,6 +24,7 @@ function timelineRowsFixture() {
       role: "user",
       initiator: "agent",
       senderThreadId: "thr_sender",
+      turnId: "turn_agent_message",
       text: "Message from the sender thread.",
       sourceSeqStart: 1,
       sourceSeqEnd: 1,
