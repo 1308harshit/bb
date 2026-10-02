@@ -210,6 +210,10 @@ describe("plugin browse shelves", () => {
       ["Thread Content", ["thread"]],
       ["Themes & Appearance", ["theme"]],
     ]);
+    expect(
+      pluginBrowseShelves(data, { omitCollectionEntriesFromCategories: true })
+        .find((shelf) => shelf.label === "Themes & Appearance")?.totalCount,
+    ).toBe(2);
   });
 });
 

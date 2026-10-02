@@ -37,6 +37,7 @@ import {
 import { PluginCategoryIcon } from "./plugin-ui";
 
 const SHELF_ENTRY_LIMIT = 6;
+const MOBILE_SHELF_ENTRY_LIMIT = 2;
 
 export function BrowsePluginsTab({
   onInstall,
@@ -377,17 +378,26 @@ function BrowseShelf({
         )
       }
       browseAction={
-        <ResourceShelfAction asChild className="underline underline-offset-4">
-          <Link
-            to={{
-              pathname: getPluginsRoutePath(),
-              search: shelfParams.toString(),
-            }}
-            aria-label={`View all ${shelf.label}`}
+        shelf.totalCount >
+        Math.min(shelf.entries.length, MOBILE_SHELF_ENTRY_LIMIT) ? (
+          <ResourceShelfAction
+            asChild
+            className={cn(
+              "underline underline-offset-4",
+              shelf.totalCount <= visible.length && "sm:hidden",
+            )}
           >
-            View all
-          </Link>
-        </ResourceShelfAction>
+            <Link
+              to={{
+                pathname: getPluginsRoutePath(),
+                search: shelfParams.toString(),
+              }}
+              aria-label={`View all ${shelf.label}`}
+            >
+              View all
+            </Link>
+          </ResourceShelfAction>
+        ) : undefined
       }
     >
       <div data-plugin-shelf>

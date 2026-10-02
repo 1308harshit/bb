@@ -19,6 +19,7 @@ export interface PluginBrowseShelf {
   label: string;
   description?: string;
   entries: PluginCatalogSearchEntry[];
+  totalCount: number;
   kind: "collection" | "category" | "uncategorized";
 }
 
@@ -117,6 +118,7 @@ export function pluginBrowseShelves(
             key: `collection:${collection.id}`,
             label: collection.displayName,
             entries: shelfEntries,
+            totalCount: shelfEntries.length,
             kind: "collection" as const,
           },
         ];
@@ -127,14 +129,16 @@ export function pluginBrowseShelves(
       : [],
   );
   const entriesByCategory = new Map<string, PluginCatalogSearchEntry[]>();
+  const categoryTotals = new Map<string, number>();
   const categoryLabels = new Map<string, string>();
   const unknownCategoryOrder: string[] = [];
   for (const entry of entries) {
     if (!isCategorized(entry)) continue;
-    if (collectionMembers.has(entry)) continue;
     const categoryId = entry.categoryId;
     const categoryLabel = entry.category;
     if (categoryId === undefined || categoryLabel === undefined) continue;
+    categoryTotals.set(categoryId, (categoryTotals.get(categoryId) ?? 0) + 1);
+    if (collectionMembers.has(entry)) continue;
     const categoryEntries = entriesByCategory.get(categoryId);
     if (categoryEntries === undefined) {
       entriesByCategory.set(categoryId, [entry]);
@@ -162,13 +166,15 @@ export function pluginBrowseShelves(
         ? {}
         : { description: knownCategory.description }),
       entries: shelfEntries,
+      totalCount: categoryTotals.get(categoryId) ?? shelfEntries.length,
       kind: "category",
     });
   }
-  const uncategorizedEntries = entries.filter(
-    (entry) =>
-      !isCategorized(entry) &&
-      !collectionMembers.has(entry),
+  const allUncategorizedEntries = entries.filter(
+    (entry) => !isCategorized(entry),
+  );
+  const uncategorizedEntries = allUncategorizedEntries.filter(
+    (entry) => !collectionMembers.has(entry),
   );
   if (uncategorizedEntries.length > 0) {
     shelves.push({
@@ -176,6 +182,7 @@ export function pluginBrowseShelves(
       categoryId: UNCATEGORIZED_PLUGIN_CATEGORY_ID,
       label: "More plugins",
       entries: uncategorizedEntries,
+      totalCount: allUncategorizedEntries.length,
       kind: "uncategorized",
     });
   }
