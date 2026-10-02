@@ -26,7 +26,7 @@ const fake = createFakePluginHost({
       get: async () => thread,
       resolveMentions: async () => [
         { threadId: "thr_3456789abc", projectId: thread.projectId, label: "Fix login redirect" },
-        { threadId: "thr_456789abcd", projectId: thread.projectId, label: "Polish settings" },
+        { threadId: "thr_456789abcd", projectId: thread.projectId, label: "Polish settings and notification preferences" },
       ],
     },
   },
@@ -46,14 +46,13 @@ const sender = createPushSender({
   getExpoPushUrl: async () => "https://expo.test/push",
   fetch: async (_url, init) => {
     const messages = z.array(z.object({
-      categoryId: z.string().optional(),
       title: z.string(),
       body: z.string(),
       data: z.record(z.string(), z.string()),
     })).nonempty().parse(JSON.parse(init.body));
     const message = messages[0];
     await writeFile(output, JSON.stringify({
-      aps: { alert: { title: message.title, body: message.body }, sound: "default", ...(message.categoryId ? { category: message.categoryId } : {}) },
+      aps: { alert: { title: message.title, body: message.body }, sound: "default" },
       body: message.data,
     }, null, 2));
     delivered = true;
@@ -64,7 +63,7 @@ try {
   await sender.start();
   sender.onThreadIdle({
     thread,
-    lastAssistantText: "Ready for review: @thread:thr_3456789abc. Follow-up: thr_456789abcd.",
+    lastAssistantText: "See @thread:thr_3456789abc and thr_456789abcd",
   });
   await new Promise((resolve) => setTimeout(resolve, 50));
   await sender.settle();

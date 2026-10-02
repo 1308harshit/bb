@@ -26,6 +26,8 @@ const DEFAULT_COALESCE_MS = 2_000;
 const PUSH_TITLE_MAX_LENGTH = 80;
 const PUSH_BODY_MAX_LENGTH = 180;
 const THREAD_MENTION_BATCH_SIZE = 32;
+const THREAD_MENTION_MAX_LENGTH = 32;
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const THREAD_REFERENCE_PATTERN =
   /(?<![\p{L}\p{N}_.+/@\\-])(?:@thread:)?(thr_[23456789abcdefghijkmnpqrstuvwxyz]{10})(?![\p{L}\p{N}_+/@\\-]|\.[\p{L}\p{N}_])/gu;
 const NETWORK_WARNING_INTERVAL_MS = 60 * 60 * 1_000;
@@ -81,7 +83,6 @@ interface PushNotificationData {
   projectId: string;
   serverUrl?: string;
   threadId: string;
-  mentionPreview?: string;
 }
 
 export interface ExpoPushMessage {
@@ -92,7 +93,6 @@ export interface ExpoPushMessage {
   sound: "default";
   channelId: "threads";
   priority: "high";
-  categoryId?: string;
 }
 
 export type PushSenderFetch = (
@@ -157,8 +157,9 @@ function firstLine(text: string): string {
 }
 
 function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+  const characters = Array.from(graphemes.segment(text), ({ segment }) => segment);
+  if (characters.length <= maxLength) return text;
+  return `${characters.slice(0, maxLength - 1).join("").trimEnd()}…`;
 }
 
 function threadDisplayTitle(thread: ThreadResponse): string {
@@ -314,7 +315,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
 
   async function resolveThreadNames(
     texts: readonly string[],
-  ): Promise<Array<{ text: string; mentions: Array<{ offset: number; length: number }> }>> {
+  ): Promise<string[]> {
     const threadIds = [
       ...new Set(
         texts.flatMap((text) =>
@@ -342,19 +343,13 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
         }
       }
     }
-    return texts.map((source) => {
-      let text = "";
-      let cursor = 0;
-      const mentions: Array<{ offset: number; length: number }> = [];
-      for (const match of source.matchAll(THREAD_REFERENCE_PATTERN)) {
-        text += source.slice(cursor, match.index);
-        const label = labels.get(match[1]!) ?? "Unavailable thread";
-        mentions.push({ offset: text.length, length: label.length });
-        text += label;
-        cursor = match.index + match[0].length;
-      }
-      return { text: text + source.slice(cursor), mentions };
-    });
+    return texts.map((text) =>
+      text.replace(
+        THREAD_REFERENCE_PATTERN,
+        (_match, threadId: string) =>
+          `@${truncate(labels.get(threadId) || "Unavailable thread", THREAD_MENTION_MAX_LENGTH)}`,
+      ),
+    );
   }
 
   async function flushThread(
@@ -384,22 +379,8 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       threadDisplayTitle(thread),
       resolved.body,
     ]);
-    const title = truncate(resolvedTitle!.text, PUSH_TITLE_MAX_LENGTH);
-    const body = truncate(resolvedBody!.text, PUSH_BODY_MAX_LENGTH);
-    const visibleMentions = (
-      resolved: { text: string; mentions: Array<{ offset: number; length: number }> },
-      preview: string,
-    ) => {
-      const end = preview.length - (resolved.text.length > preview.length ? 1 : 0);
-      return resolved.mentions.flatMap(({ offset, length }) =>
-        offset < end ? [{ offset, length: Math.min(length, end - offset) }] : [],
-      );
-    };
-    const mentionPreview = {
-      title: visibleMentions(resolvedTitle!, title),
-      body: visibleMentions(resolvedBody!, body),
-    };
-    const hasMentions = mentionPreview.title.length + mentionPreview.body.length > 0;
+    const title = truncate(resolvedTitle!, PUSH_TITLE_MAX_LENGTH);
+    const body = truncate(resolvedBody!, PUSH_BODY_MAX_LENGTH);
     const config = await args.getDeliverySettings();
     const channels: ClientNotification["channels"] = [];
     if (config.webEnabled) channels.push("web");
@@ -428,13 +409,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
           projectId: thread.projectId,
           ...(serverUrl === null ? {} : { serverUrl }),
           threadId: thread.id,
-          ...(hasMentions && subscription.platform === "ios"
-            ? { mentionPreview: JSON.stringify(mentionPreview) }
-            : {}),
         },
-        ...(hasMentions && subscription.platform === "ios"
-          ? { categoryId: "bb-thread-mentions" }
-          : {}),
         sound: "default",
         channelId: "threads",
         priority: "high",

@@ -475,15 +475,11 @@ iOS keeps its existing APNs registration behavior.
   when no hint matches. The shell accepts a bridge `badge` message
   (`useShellBridge` → `updateAppBadgeCount`), and `AppBadgeSync` writes that
   count on background; the web app does not send it yet.
-- Expanded iOS notifications: `BBNotificationContent` renders thread references
-  as non-clickable pills when the push category is `bb-thread-mentions`.
-  The server supplies UTF-16 ranges in the JSON string `data.mentionPreview`;
-  the extension uses the already-resolved title and body without network access.
-  Compact banners and older clients keep readable names. The Expo config plugin
-  generates and embeds this target; EAS declares its separate signing identity.
-  For CI evidence, dispatch Mobile E2E with `flows=shell-push-notifications` and
-  `notification_baseline=<40-character base commit>`. The notification artifacts
-  include both payloads, expanded screenshots, and source revisions.
+- Native notification evidence: dispatch Mobile E2E with
+  `flows=shell-push-notifications` and
+  `notification_baseline=<40-character base commit>`. Artifacts include compact
+  banner screenshots and payloads produced by the baseline and current sender,
+  displayed by the CI-built iOS app.
 - Simulator check without APNs: `xcrun simctl push <udid> app.getbb.mobile
 payload.apns` with `{"aps":{"alert":{…}},"body":{"kind":"turn-finished",
 "threadId":"…","projectId":"…","serverUrl":"https://…"}}`

@@ -366,24 +366,37 @@ describe("push sender", () => {
       });
       await vi.waitFor(() => expect(host.expo.requests).toHaveLength(1));
       const expected = {
-        title: "Follow Release / Release / Release / Release",
-        body: "Done: Release and Fix login. See Unavailable thread. Keep https://bb.test/thr_abcdefghij and thr_abcdefghij.log.",
+        title: "Follow @Release / @Release / @Release / @Release",
+        body: "Done: @Release and @Fix login. See @Unavailable thread. Keep https://bb.test/thr_abcdefghij and thr_abcdefghij.log.",
       };
-      expect(host.expo.requests[0]?.[0]).toMatchObject({
-        ...expected,
-        categoryId: "bb-thread-mentions",
-        data: {
-          mentionPreview: JSON.stringify({
-            title: [7, 17, 27, 37].map((offset) => ({ offset, length: 7 })),
-            body: [
-              { offset: 6, length: 7 },
-              { offset: 18, length: 9 },
-              { offset: 33, length: 18 },
-            ],
-          }),
-        },
-      });
+      expect(host.expo.requests[0]?.[0]).toMatchObject(expected);
       expect(host.harness.realtimeSignals[0]?.payload).toMatchObject(expected);
+    } finally {
+      await host.cleanup();
+    }
+  });
+
+  it("shortens long mention names without splitting emoji or consuming the following text", async () => {
+    const host = await setup();
+    try {
+      await host.addSubscription();
+      host.setThread({
+        id: "thr_abcdefghij",
+        title: "Polish settings and notification preferences",
+      });
+      host.setThread({
+        id: "thr_kmnpqrstuv",
+        title: `${"a".repeat(30)}👨‍👩‍👧‍👦e\u0301 extra`,
+      });
+      const thread = host.setThread();
+      await host.harness.behavior.emitThreadEvent("thread.idle", {
+        thread,
+        lastAssistantText: "See @thread:thr_abcdefghij and thr_kmnpqrstuv next",
+      });
+      await vi.waitFor(() => expect(host.expo.requests).toHaveLength(1));
+      expect(host.expo.requests[0]?.[0]?.body).toBe(
+        `See @Polish settings and notification… and @${"a".repeat(30)}👨‍👩‍👧‍👦… next`,
+      );
     } finally {
       await host.cleanup();
     }
@@ -405,7 +418,7 @@ describe("push sender", () => {
       });
       await vi.waitFor(() => expect(host.expo.requests).toHaveLength(1));
       expect(host.expo.requests[0]?.[0]?.body).toBe(
-        "Continue with Thread (name unavailable)?",
+        "Continue with @Thread (name unavailable)?",
       );
     } finally {
       await host.cleanup();
