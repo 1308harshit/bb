@@ -1,3 +1,4 @@
+import { withQueuedMessageDeliveryContext } from "./queued-message-delivery.js";
 import {
   claimNextQueuedThreadMessageGroup,
   claimQueuedThreadMessageGroup,
@@ -481,6 +482,11 @@ async function sendClaimedQueuedMessageForIdleProviderThread(
     }),
   );
   let input = flattenPromptInputGroups(inputGroups);
+  ({ input, inputGroups } = withQueuedMessageDeliveryContext(
+    { input, inputGroups },
+    args.queuedMessages,
+    args.sendNow,
+  ));
   ({ input, inputGroups } = await appendPluginMentionContext({
     input,
     inputGroups,

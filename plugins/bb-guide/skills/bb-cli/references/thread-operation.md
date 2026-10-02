@@ -66,6 +66,11 @@
   row as a steer with the same send-now behavior: it bypasses the row's schedule
   and plugin waits, while core waits still apply. During provisioning it reports
   that the row is still queued and leaves it waiting for the workspace.
+- Scheduled messages include agent-only `<queued_message_delivery>` context when
+  dispatched: `queuedMessageId`, `sendAt` (epoch milliseconds), and `reason`
+  (`automatic` or `explicit-send`). This context remains in the durable turn
+  request input, available through thread events in the SDK and CLI. An explicit
+  send may arrive before `sendAt`; ordinary activity does not release a time wait.
 - Queueing writes nothing to the timeline: a queued message reaches the thread
   log only once it dispatches. Ask the queue instead. In the app the same fact
   reaches the sidebar as a clock on any thread that holds queued work and is not

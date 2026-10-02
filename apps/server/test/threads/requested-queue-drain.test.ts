@@ -17,9 +17,12 @@ import {
   runQueuedMessageDispatch,
 } from "../../src/services/threads/queued-message-dispatch.js";
 import { applyLoggedThreadLifecycleEvent } from "../../src/services/threads/lifecycle-outcome.js";
+import { deliverParentSystemMessage } from "../../src/services/threads/parent-system-messages.js";
+import { sendQueuedMessageNow } from "../../src/services/threads/queued-messages.js";
 import { acceptThreadSendRequest } from "../../src/services/threads/thread-send-request.js";
 import { textInput } from "../helpers/prompt-input.js";
 import {
+  listQueuedThreadCommands,
   reportQueuedCommandSuccess,
   waitForQueuedCommand,
 } from "../helpers/commands.js";
@@ -125,6 +128,143 @@ async function stopThread(harness: TestAppHarness, threadId: string) {
 }
 
 describe("the requested queue drain", () => {
+  it.each(["active", "idle"] as const)(
+    "retains scheduling provenance when explicitly promoting an %s thread's grouped messages",
+    async (status) => {
+      await withTestHarness(async (harness) => {
+        const { thread } = seedRunnableThread(harness, {
+          hostId: `host-promoted-${status}`,
+          status,
+        });
+        const sendAt = Date.now() + 30 * 60_000;
+        for (const [index, due] of [sendAt, sendAt + 60_000].entries()) {
+          await acceptThreadSendRequest(harness.deps, {
+            thread,
+            payload: {
+              input: textInput(`scheduled marker ${index}`),
+              senderThreadId: thread.id,
+              mode: "auto",
+              sendAt: due,
+            },
+          });
+        }
+        const queued = listQueuedThreadMessages(harness.db, thread.id);
+        expect(queued).toMatchObject([
+          { sendAt, failureReason: null, groupWithNext: false },
+          {
+            sendAt: sendAt + 60_000,
+            failureReason: null,
+            groupWithNext: false,
+          },
+        ]);
+        setQueuedThreadMessageGroupBoundary({
+          db: harness.db,
+          notifier: harness.deps.hub,
+          threadId: thread.id,
+          expectedGroupedPrefixQueuedMessageIds: queued.map((row) => row.id),
+          groupBoundaryQueuedMessageId: queued[1]!.id,
+        });
+
+        await sendQueuedMessageNow(harness.deps, {
+          threadId: thread.id,
+          queuedMessageId: queued[0]!.id,
+          mode: "auto",
+        });
+
+        expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+        const request = turnRequestEventDataSchema.parse(
+          JSON.parse(turnRequests(harness, thread.id).at(-1)!.data),
+        );
+        expect(
+          listQueuedThreadCommands(harness, "turn.submit", thread.id).at(-1),
+        ).toMatchObject({ input: request.input });
+        expect(request.inputGroups).toHaveLength(2);
+        for (const row of queued) {
+          expect(request.input).toContainEqual({
+            type: "text",
+            visibility: "agent-only",
+            mentions: [],
+            text: `<queued_message_delivery>\n${JSON.stringify({ queuedMessageId: row.id, sendAt: row.sendAt, reason: "explicit-send" })}\n</queued_message_delivery>`,
+          });
+        }
+      });
+    },
+  );
+
+  it.each(["active-turn wakes", "child notice"] as const)(
+    "retains a future time wait through %s and delivers only when due",
+    async (activity) => {
+      await withTestHarness(async (harness) => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        const { thread } = seedRunnableThread(harness, {
+          hostId: `host-future-${activity}`,
+          status: "active",
+        });
+        const sendAt = Date.now() + 30 * 60_000;
+        await acceptThreadSendRequest(harness.deps, {
+          thread,
+          payload: {
+            input: textInput("future marker"),
+            senderThreadId: thread.id,
+            mode: "steer",
+            sendAt,
+          },
+        });
+        const [queued] = listQueuedThreadMessages(harness.db, thread.id);
+        const before = turnRequests(harness, thread.id).length;
+        if (activity === "child notice") {
+          expect(
+            await deliverParentSystemMessage(harness.deps, {
+              parentThread: thread,
+              input: textInput("Child finished its work"),
+              systemMessageKind: "child-completed",
+              systemMessageSubject: null,
+            }),
+          ).toBe(true);
+        } else {
+          for (const kind of [
+            "turn-started",
+            "thread-ready",
+            "interaction-settled",
+          ] as const) {
+            await runQueuedMessageDispatch(harness.deps, {
+              kind,
+              threadId: thread.id,
+            });
+          }
+        }
+        await runTimeWake(harness, Date.now());
+        expect(listQueuedThreadMessages(harness.db, thread.id)).toMatchObject([
+          {
+            id: queued!.id,
+            sendAt,
+            waitingOn: JSON.stringify({ kind: "time" }),
+            claimToken: null,
+          },
+        ]);
+        expect(turnRequests(harness, thread.id)).toHaveLength(
+          before + (activity === "child notice" ? 1 : 0),
+        );
+
+        vi.setSystemTime(sendAt);
+        await runTimeWake(harness, Date.now());
+        expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+        const request = turnRequestEventDataSchema.parse(
+          JSON.parse(turnRequests(harness, thread.id).at(-1)!.data),
+        );
+        expect(
+          listQueuedThreadCommands(harness, "turn.submit", thread.id).at(-1),
+        ).toMatchObject({ input: request.input });
+        expect(request.input).toContainEqual({
+          type: "text",
+          visibility: "agent-only",
+          mentions: [],
+          text: `<queued_message_delivery>\n${JSON.stringify({ queuedMessageId: queued!.id, sendAt, reason: "automatic" })}\n</queued_message_delivery>`,
+        });
+      });
+    },
+  );
+
   it("keeps child interruption details when an offline parent notice dispatches", async () => {
     await withTestHarness(async (harness) => {
       const { thread, environment } = seedRunnableThread(harness, {

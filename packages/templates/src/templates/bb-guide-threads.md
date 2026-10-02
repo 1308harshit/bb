@@ -381,6 +381,12 @@ Queued messages:
   again. `--mode steer` uses those same send-now bypasses and re-attempts the row
   as a steer; it does not bypass the invariants, so a provisioning row remains
   queued until the workspace is ready.
+  Scheduled messages include agent-only `<queued_message_delivery>` context when
+  dispatched: `queuedMessageId`, `sendAt` (epoch milliseconds), and `reason`
+  (`automatic` or `explicit-send`). This context remains in the durable turn
+  request input, available through thread events in the SDK and CLI. An explicit
+  send may arrive before `sendAt`; ordinary activity does not release a time wait.
+
   `queue delete` discards it instead. Both are always permitted.
 
   --send-at takes an ISO 8601 timestamp (2026-08-25T09:00, local without an

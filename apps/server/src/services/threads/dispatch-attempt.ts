@@ -1,3 +1,4 @@
+import { withQueuedMessageDeliveryContext } from "./queued-message-delivery.js";
 import { requestQueuedMachineReadiness } from "./queued-message-dispatch.js";
 import {
   cancelPreparingMachinePause,
@@ -498,7 +499,11 @@ async function runDispatchAttempt(
     if (firstDispatch) {
       admitted.value = await admitPendingThread(deps, {
         claimed,
-        payload: resolvedPayload,
+        payload: withQueuedMessageDeliveryContext(
+          resolvedPayload,
+          claimed,
+          sendNow,
+        ),
         respectManualStopPause,
         startContext: args.startContext ?? retryStartContext,
         thread,
@@ -594,7 +599,11 @@ async function runDispatchAttempt(
   try {
     await sendThreadMessage(deps, {
       environment,
-      payload: resolvedPayload,
+      payload: withQueuedMessageDeliveryContext(
+        resolvedPayload,
+        claimed,
+        sendNow,
+      ),
       thread,
       trigger: args.trigger,
       ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
