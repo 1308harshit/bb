@@ -395,7 +395,7 @@ describe("push sender", () => {
       });
       await vi.waitFor(() => expect(host.expo.requests).toHaveLength(1));
       expect(host.expo.requests[0]?.[0]?.body).toBe(
-        `See @Polish settings and notification… and @${"a".repeat(30)}👨‍👩‍👧‍👦… next`,
+        `See @Polish settings and notificatio… and @${"a".repeat(30)}👨‍👩‍👧‍👦… next`,
       );
     } finally {
       await host.cleanup();
