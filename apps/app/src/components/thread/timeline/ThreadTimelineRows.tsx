@@ -135,6 +135,14 @@ import {
   type PluginComposerHost,
 } from "@/components/plugin/plugin-composer-host";
 import { isPluginSideChatSenderThread } from "@/lib/side-chat-plugin.js";
+import { AgentReplyMessage } from "./AgentReplyMessage.js";
+import { AgentExchangeGroupRow } from "./AgentExchangeGroupRow.js";
+import {
+  collectAgentReplyRecipients,
+  groupAgentExchanges,
+  type AgentExchangeGroup,
+  type IsExcludedAgentSender,
+} from "./agent-exchanges.js";
 import {
   buildMessageDirectiveRegistry,
   MessageDirectiveRegistryProvider,
@@ -272,8 +280,14 @@ interface TimelineSystemDetailBlockProps {
 }
 
 interface BuildTimelineRowsListItemsArgs {
+  agentExchangeGrouping: AgentExchangeGrouping | null;
   rows: readonly ThreadTimelineViewRow[];
   unreadDividerPlacement: ThreadTimelineUnreadDividerPlacement | null;
+}
+
+interface AgentExchangeGrouping {
+  isExcludedSender: IsExcludedAgentSender;
+  pinnedRowIds: ReadonlySet<string>;
 }
 
 interface FindUnreadDividerIndexArgs {
@@ -330,6 +344,10 @@ type TimelineRowsListItem =
   | {
       kind: "unread-divider";
       id: "thread-unread-divider";
+    }
+  | {
+      kind: "agent-exchanges";
+      group: AgentExchangeGroup;
     };
 
 interface ConversationRowProps {
@@ -350,6 +368,12 @@ const SenderThreadMetadataContext = createContext<ReadonlyMap<
 > | null>(null);
 const TimelineTurnStateContext =
   createContext<TimelineTurnStateContextValue | null>(null);
+const EMPTY_AGENT_REPLY_RECIPIENTS: ReadonlyMap<string, string> = new Map();
+const AgentReplyRecipientsContext = createContext<ReadonlyMap<string, string>>(
+  EMPTY_AGENT_REPLY_RECIPIENTS,
+);
+const IsExcludedAgentSenderContext =
+  createContext<IsExcludedAgentSender | null>(null);
 const LatestActionableAssistantMessageIdContext = createContext<string | null>(
   null,
 );
@@ -881,6 +905,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
     workspaceRootPath,
   } = useTimelineRendererStaticContext();
   const senderThreadMetadataById = useSenderThreadMetadataContext();
+  const agentReplyRecipients = useContext(AgentReplyRecipientsContext);
   if (
     row.role === "user" &&
     inlineMessageEditor !== undefined &&
@@ -978,6 +1003,27 @@ const ConversationRowContent = memo(function ConversationRowContent({
         timestamp={row.startedAt}
         threadId={row.threadId}
         turnRequest={row.turnRequest}
+        workspaceRootPath={workspaceRootPath}
+      />
+    );
+  }
+  const replyRecipientThreadId = agentReplyRecipients.get(row.id);
+  if (replyRecipientThreadId !== undefined) {
+    return (
+      <AgentReplyMessage
+        attachments={row.attachments}
+        onOpenLink={onOpenLink}
+        onOpenLocalFileLink={onOpenLocalFileLink}
+        onTitleAction={onTitleAction}
+        projectId={projectId}
+        recipientMetadata={
+          senderThreadMetadataById.get(replyRecipientThreadId) ?? null
+        }
+        recipientThreadId={replyRecipientThreadId}
+        resolveMentionLink={resolveMentionLink}
+        resolveUserAttachmentImageSrc={resolveUserAttachmentImageSrc}
+        text={row.text}
+        threadId={row.threadId}
         workspaceRootPath={workspaceRootPath}
       />
     );
@@ -1656,24 +1702,54 @@ function isUnreadDividerCandidateAfterCutoff({
   return !isUserAuthoredConversationRow(row);
 }
 
+function groupTimelineRowsListSegment(
+  rows: readonly ThreadTimelineViewRow[],
+  grouping: AgentExchangeGrouping | null,
+): TimelineRowsListItem[] {
+  if (grouping === null) {
+    return rows.map((row) => ({ kind: "row", row }));
+  }
+  return groupAgentExchanges({ ...grouping, rows }).map((entry) =>
+    entry.kind === "row"
+      ? { kind: "row", row: entry.row }
+      : { kind: "agent-exchanges", group: entry.group },
+  );
+}
+
 function buildTimelineRowsListItems({
+  agentExchangeGrouping,
   rows,
   unreadDividerPlacement,
 }: BuildTimelineRowsListItemsArgs): TimelineRowsListItem[] {
-  const items: TimelineRowsListItem[] = [];
   const dividerIndex = findUnreadDividerIndex({
     rows,
     unreadDividerPlacement,
   });
-
-  for (const [index, row] of rows.entries()) {
-    if (index === dividerIndex) {
-      items.push({ kind: "unread-divider", id: "thread-unread-divider" });
-    }
-    items.push({ kind: "row", row });
+  if (dividerIndex < 0) {
+    return groupTimelineRowsListSegment(rows, agentExchangeGrouping);
   }
+  return [
+    ...groupTimelineRowsListSegment(
+      rows.slice(0, dividerIndex),
+      agentExchangeGrouping,
+    ),
+    { kind: "unread-divider", id: "thread-unread-divider" },
+    ...groupTimelineRowsListSegment(
+      rows.slice(dividerIndex),
+      agentExchangeGrouping,
+    ),
+  ];
+}
 
-  return items;
+function timelineRowsListItemKey(item: TimelineRowsListItem): string {
+  switch (item.kind) {
+    case "row":
+      return item.row.id;
+    case "unread-divider":
+      return `divider:${item.id}`;
+    case "agent-exchanges":
+      return item.group.id;
+  }
 }
 
 function TimelineRowItemWrapper({
@@ -1773,22 +1849,41 @@ function TimelineRowsList({
     () => findActiveLatestBundleId(rows),
     [rows],
   );
+  const isExcludedAgentSender = useContext(IsExcludedAgentSenderContext);
+  const agentExchangeGrouping = useMemo<AgentExchangeGrouping | null>(() => {
+    if (spacing !== "top-level" || isExcludedAgentSender === null) {
+      return null;
+    }
+    const pinnedRowIds = new Set(stableSearchExpandedRowIds);
+    if (scrollRestoreRowId !== null) {
+      pinnedRowIds.add(scrollRestoreRowId);
+    }
+    if (navigationTargetRowId != null) {
+      pinnedRowIds.add(navigationTargetRowId);
+    }
+    return { isExcludedSender: isExcludedAgentSender, pinnedRowIds };
+  }, [
+    isExcludedAgentSender,
+    navigationTargetRowId,
+    scrollRestoreRowId,
+    spacing,
+    stableSearchExpandedRowIds,
+  ]);
   const items = useMemo(
-    () => buildTimelineRowsListItems({ rows, unreadDividerPlacement }),
-    [rows, unreadDividerPlacement],
-  );
-  const itemKeys = useMemo(
     () =>
-      items.map((item) =>
-        item.kind === "row" ? item.row.id : `divider:${item.id}`,
-      ),
-    [items],
+      buildTimelineRowsListItems({
+        agentExchangeGrouping,
+        rows,
+        unreadDividerPlacement,
+      }),
+    [agentExchangeGrouping, rows, unreadDividerPlacement],
   );
+  const itemKeys = useMemo(() => items.map(timelineRowsListItemKey), [items]);
   const alwaysMountedKeys = useMemo(() => {
     const keys = new Set<string>();
-    const lastRow = rows.at(-1);
-    if (lastRow !== undefined) {
-      keys.add(lastRow.id);
+    const lastItem = items.at(-1);
+    if (lastItem !== undefined) {
+      keys.add(timelineRowsListItemKey(lastItem));
     }
     for (const item of items) {
       if (item.kind === "unread-divider") {
@@ -1807,7 +1902,6 @@ function TimelineRowsList({
     return keys;
   }, [
     items,
-    rows,
     scrollRestoreRowId,
     spacing,
     stableSearchExpandedRowIds,
@@ -1872,6 +1966,40 @@ function TimelineRowsList({
                     {windowedState.isRealized ? (
                       <TimelineUnreadDivider
                         autoScroll={unreadDividerAutoScroll}
+                      />
+                    ) : null}
+                  </div>
+                );
+              }
+              if (item.kind === "agent-exchanges") {
+                return (
+                  <div
+                    key={item.group.id}
+                    ref={windowedState.itemRef}
+                    data-index={windowedState.itemIndex}
+                    data-timeline-window-key={item.group.id}
+                    data-timeline-windowed-realized={
+                      windowedState.windowingEnabled
+                        ? String(windowedState.isRealized)
+                        : undefined
+                    }
+                    style={windowedState.itemStyle}
+                  >
+                    {windowedState.isRealized ? (
+                      <AgentExchangeGroupRow
+                        group={item.group}
+                        renderRows={(groupRows) => (
+                          <TimelineRowsList
+                            rows={groupRows}
+                            scopeActive={false}
+                            showAssistantMessageActions={false}
+                            compactActivityIntents={false}
+                            spacing="nested"
+                            className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}
+                            unreadDividerAutoScroll={false}
+                            unreadDividerPlacement={null}
+                          />
+                        )}
                       />
                     ) : null}
                   </div>
@@ -1972,6 +2100,17 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
   );
   const projectId = props.projectId;
   const senderThreadMetadataById = useSenderThreadMetadataById();
+  const isExcludedAgentSender = useCallback<IsExcludedAgentSender>(
+    (senderThreadId) =>
+      isPluginSideChatSenderThread(
+        senderThreadMetadataById.get(senderThreadId) ?? null,
+      ),
+    [senderThreadMetadataById],
+  );
+  const agentReplyRecipients = useMemo(
+    () => collectAgentReplyRecipients(rows, isExcludedAgentSender),
+    [isExcludedAgentSender, rows],
+  );
   const messageDirectiveSlots = useSyncExternalStore(
     subscribePluginSlots,
     () => getPluginSlotSnapshot().messageDirectives,
@@ -2139,60 +2278,66 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
           <SenderThreadMetadataContext.Provider
             value={senderThreadMetadataById}
           >
-            <LatestActionableAssistantMessageIdContext.Provider
-              value={latestActionableAssistantMessageId}
-            >
-              <LatestActionableUserMessageIdContext.Provider
-                value={latestActionableUserMessageId}
+            <AgentReplyRecipientsContext.Provider value={agentReplyRecipients}>
+              <IsExcludedAgentSenderContext.Provider
+                value={isExcludedAgentSender}
               >
-                <StreamingAssistantMessageIdContext.Provider
-                  value={streamingAssistantMessageId}
+                <LatestActionableAssistantMessageIdContext.Provider
+                  value={latestActionableAssistantMessageId}
                 >
-                  <TimelineTurnStateContext.Provider
-                    value={turnStateContextValue}
+                  <LatestActionableUserMessageIdContext.Provider
+                    value={latestActionableUserMessageId}
                   >
-                    <TimelineWindowingMeasurementsContext.Provider
-                      value={windowingMeasurements}
+                    <StreamingAssistantMessageIdContext.Provider
+                      value={streamingAssistantMessageId}
                     >
-                      <AutoHeightContainer
-                        snapRevision={heightSnapRevision}
-                        animateGrowth={!scopeActive}
+                      <TimelineTurnStateContext.Provider
+                        value={turnStateContextValue}
                       >
-                        <TimelineRowsList
-                          hasOlderTimelineRows={props.hasOlderTimelineRows}
-                          isLoadingOlderTimelineRows={
-                            props.isLoadingOlderTimelineRows
-                          }
-                          navigationTargetRowId={
-                            props.timelineNavigationTargetRowId
-                          }
-                          onLoadOlderRows={props.onLoadOlderRows}
-                          rows={rows}
-                          scopeActive={scopeActive}
-                          showAssistantMessageActions={true}
-                          compactActivityIntents={false}
-                          spacing="top-level"
-                          unreadDividerAutoScroll={
-                            props.unreadDividerAutoScroll ?? true
-                          }
-                          unreadDividerPlacement={
-                            props.unreadDividerPlacement ?? null
-                          }
-                        />
-                      </AutoHeightContainer>
-                    </TimelineWindowingMeasurementsContext.Provider>
-                    {hasSelectionActions ? (
-                      <TimelineSelectionMenu
-                        selection={activeSelection?.selection ?? null}
-                        onAddToChat={selectionAddToChatHandler}
-                        pluginActions={selectionPluginActions}
-                        onDismiss={dismissSelection}
-                      />
-                    ) : null}
-                  </TimelineTurnStateContext.Provider>
-                </StreamingAssistantMessageIdContext.Provider>
-              </LatestActionableUserMessageIdContext.Provider>
-            </LatestActionableAssistantMessageIdContext.Provider>
+                        <TimelineWindowingMeasurementsContext.Provider
+                          value={windowingMeasurements}
+                        >
+                          <AutoHeightContainer
+                            snapRevision={heightSnapRevision}
+                            animateGrowth={!scopeActive}
+                          >
+                            <TimelineRowsList
+                              hasOlderTimelineRows={props.hasOlderTimelineRows}
+                              isLoadingOlderTimelineRows={
+                                props.isLoadingOlderTimelineRows
+                              }
+                              navigationTargetRowId={
+                                props.timelineNavigationTargetRowId
+                              }
+                              onLoadOlderRows={props.onLoadOlderRows}
+                              rows={rows}
+                              scopeActive={scopeActive}
+                              showAssistantMessageActions={true}
+                              compactActivityIntents={false}
+                              spacing="top-level"
+                              unreadDividerAutoScroll={
+                                props.unreadDividerAutoScroll ?? true
+                              }
+                              unreadDividerPlacement={
+                                props.unreadDividerPlacement ?? null
+                              }
+                            />
+                          </AutoHeightContainer>
+                        </TimelineWindowingMeasurementsContext.Provider>
+                        {hasSelectionActions ? (
+                          <TimelineSelectionMenu
+                            selection={activeSelection?.selection ?? null}
+                            onAddToChat={selectionAddToChatHandler}
+                            pluginActions={selectionPluginActions}
+                            onDismiss={dismissSelection}
+                          />
+                        ) : null}
+                      </TimelineTurnStateContext.Provider>
+                    </StreamingAssistantMessageIdContext.Provider>
+                  </LatestActionableUserMessageIdContext.Provider>
+                </LatestActionableAssistantMessageIdContext.Provider>
+              </IsExcludedAgentSenderContext.Provider>
+            </AgentReplyRecipientsContext.Provider>
           </SenderThreadMetadataContext.Provider>
         </TimelineRendererStaticContext.Provider>
       </MessageDirectiveRegistryProvider>

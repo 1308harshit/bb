@@ -391,6 +391,7 @@ function UserConversationMessage({
     return (
       <GeneratedConversationMessage
         {...generatedSource}
+        agentDirection="incoming"
         attachmentItems={attachmentItems}
         mentions={bodyMentions}
         onOpenLink={onOpenLink}

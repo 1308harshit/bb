@@ -19,6 +19,7 @@ function systemTitle({
   systemMessageSubject,
 }: SystemTitleArgs) {
   return generatedConversationTitle({
+    agentDirection: "incoming",
     originKind: null,
     sourceKind: "system",
     sourceName: "BB",
@@ -145,6 +146,7 @@ describe("generatedConversationTitle — system source", () => {
 describe("generatedConversationTitle — agent source", () => {
   it("links the sender thread name (reference pattern, unchanged)", () => {
     const title = generatedConversationTitle({
+      agentDirection: "incoming",
       originKind: null,
       sourceKind: "agent",
       sourceName: "Worker 2",
@@ -158,5 +160,21 @@ describe("generatedConversationTitle — agent source", () => {
     expect(title.segments).toHaveLength(2);
     expect(title.segments[1]?.text).toBe("Worker 2");
     expect(title.segments[1]?.link).toEqual(threadLink("thr_sender"));
+  });
+
+  it("labels an outgoing reply with its recipient thread", () => {
+    const title = generatedConversationTitle({
+      agentDirection: "outgoing",
+      originKind: null,
+      sourceKind: "agent",
+      sourceName: "Manager",
+      sourceThreadId: "thr_manager",
+      sourceIsPluginSideChat: false,
+      systemMessageKind: "unlabeled",
+      systemMessageSubject: null,
+    });
+
+    expect(title.plain).toBe("Reply to Manager");
+    expect(title.segments[1]?.link).toEqual(threadLink("thr_manager"));
   });
 });

@@ -42,6 +42,7 @@ import {
 } from "@bb/client-core";
 
 interface GeneratedConversationMessageProps {
+  agentDirection: GeneratedAgentMessageDirection;
   attachmentItems: ConversationAttachmentItems;
   originKind: ThreadOriginKind | null;
   mentions: readonly PromptTextMention[];
@@ -59,11 +60,12 @@ interface GeneratedConversationMessageProps {
   systemMessageSubject: SystemMessageSubject | null;
   text: string;
   threadId?: string;
-  turnRequest: TimelineUserConversationRow["turnRequest"];
+  turnRequest: TimelineUserConversationRow["turnRequest"] | null;
   workspaceRootPath?: string;
 }
 
 type GeneratedConversationSourceKind = "agent" | "system";
+export type GeneratedAgentMessageDirection = "incoming" | "outgoing";
 
 interface GeneratedConversationBodyTextArgs {
   initiator: TimelineUserConversationRow["initiator"];
@@ -91,6 +93,7 @@ interface TimelineTitleSegmentArgs {
 }
 
 interface GeneratedConversationTitleArgs {
+  agentDirection: GeneratedAgentMessageDirection;
   originKind: ThreadOriginKind | null;
   sourceKind: GeneratedConversationSourceKind;
   sourceName: string;
@@ -246,6 +249,7 @@ function systemMessageTitleSegments(
 }
 
 export function generatedConversationTitle({
+  agentDirection,
   originKind,
   sourceKind,
   sourceName,
@@ -254,11 +258,14 @@ export function generatedConversationTitle({
   systemMessageKind,
   systemMessageSubject,
 }: GeneratedConversationTitleArgs): TimelineTitle {
-  const agentLeadIn = sourceIsPluginSideChat
-    ? "Replying to"
-    : originKind === "fork"
-      ? "Forked from"
-      : "Message from";
+  const agentLeadIn =
+    agentDirection === "outgoing"
+      ? "Reply to"
+      : sourceIsPluginSideChat
+        ? "Replying to"
+        : originKind === "fork"
+          ? "Forked from"
+          : "Message from";
   const sideChatAction =
     sourceIsPluginSideChat && sourceThreadId !== null
       ? ({ kind: "open-plugin-side-chat", threadId: sourceThreadId } as const)
@@ -333,6 +340,7 @@ function systemMessageIconName(systemMessageKind: SystemMessageKind): IconName {
 }
 
 function generatedConversationIconName(
+  agentDirection: GeneratedAgentMessageDirection,
   sourceKind: GeneratedConversationSourceKind,
   originKind: ThreadOriginKind | null,
   systemMessageKind: SystemMessageKind,
@@ -342,7 +350,7 @@ function generatedConversationIconName(
   }
   switch (sourceKind) {
     case "agent":
-      return "MessageSquare";
+      return agentDirection === "outgoing" ? "Sent" : "MessageSquare";
     case "system":
       return systemMessageIconName(systemMessageKind);
   }
@@ -424,6 +432,7 @@ const COLLAPSED_MARKDOWN_PREVIEW_CLASS = cn(
 
 export const GeneratedConversationMessage = memo(
   function GeneratedConversationMessage({
+    agentDirection,
     attachmentItems,
     originKind,
     mentions,
@@ -455,7 +464,8 @@ export const GeneratedConversationMessage = memo(
         }),
       [mentions, messageText.length, trimStartLength],
     );
-    const requestLabel = turnRequestLabel(turnRequest);
+    const requestLabel =
+      turnRequest === null ? null : turnRequestLabel(turnRequest);
     const linkRouting = useMemo<MarkdownLinkRouting | undefined>(
       () =>
         buildMarkdownMessageLinkRouting({
@@ -469,6 +479,7 @@ export const GeneratedConversationMessage = memo(
     const title = useMemo(
       () =>
         generatedConversationTitle({
+          agentDirection,
           originKind,
           sourceKind,
           sourceName,
@@ -478,6 +489,7 @@ export const GeneratedConversationMessage = memo(
           systemMessageSubject,
         }),
       [
+        agentDirection,
         originKind,
         sourceKind,
         sourceName,
@@ -499,6 +511,7 @@ export const GeneratedConversationMessage = memo(
         />
       ) : undefined;
     const leadingIcon = generatedConversationIconName(
+      agentDirection,
       sourceKind,
       originKind,
       systemMessageKind,
@@ -541,7 +554,9 @@ export const GeneratedConversationMessage = memo(
         ? closeUnterminatedMarkdownCodeSpan(collapsedPreviewBody.text)
         : collapsedPreviewBody.text;
     const suppressGeneratedAgentImages =
-      sourceKind === "agent" && !sourceIsPluginSideChat;
+      sourceKind === "agent" &&
+      agentDirection === "incoming" &&
+      !sourceIsPluginSideChat;
     const collapsedPreview =
       !titleOnly && collapsedPreviewBody.text ? (
         <div
@@ -617,7 +632,7 @@ export const GeneratedConversationMessage = memo(
               onOpenLocalFileLink={onOpenLocalFileLink}
               projectId={projectId}
             />
-            {requestLabel ? (
+            {requestLabel !== null && turnRequest !== null ? (
               <div className="mt-1 flex items-center justify-start gap-2">
                 <TurnRequestLabel turnRequest={turnRequest} />
               </div>
