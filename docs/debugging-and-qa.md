@@ -674,3 +674,25 @@ experiment takes effect live on that server. Without startup permission it
 cannot start collection. Turning it off restores normal logging thresholds,
 stops the sampler and flushes the in-flight profile; existing files remain.
 The launch flag only grants permission and still requires a restart to change.
+
+### Diagnose a captured stall
+
+1. Record the affected request path and approximate UTC time. Find its
+   `Slow API request` and nearby `Event loop stalled` records. For timelines,
+   match the thread ID to `Thread timeline build blocked the event loop` and
+   inspect the stage timings. `currentWork` can name an unrelated asynchronous
+   long poll; it is not proof of what blocked the loop. Compare `slowestWork`
+   and the profile stacks instead.
+2. Find the `Server CPU profile saved` interval covering that time and PID.
+   Copy the file before rotation overwrites it. In the JavaScript profiler,
+   select the affected time window and inspect the bottom-up view and caller
+   stack. Packaged captures name functions and bundled JavaScript locations;
+   match function names against the exact source revision used to build it.
+3. Compare sampled stacks with `mainThreadCpuMs`, GC totals and SQL
+   `cpuDurationMs`. A native SQLite call may appear throughout an elapsed wait
+   without consuming equivalent CPU. A slow SQL operation with very little
+   CPU indicates waiting, but does not identify the lock owner or prove disk
+   I/O. Interval CPU totals include other requests and background work.
+4. Repeat with a small control workload. Expected long polls can generate
+   slow-request records without blocking the event loop; require corroborating
+   loop delay, stage timings or sampled execution before calling them stalls.
