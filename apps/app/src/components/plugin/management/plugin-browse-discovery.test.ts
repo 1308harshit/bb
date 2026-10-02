@@ -64,6 +64,7 @@ describe("plugin browse shelves", () => {
           pluginIds: ["notable"],
         },
       ],
+      categories: [],
     });
 
     expect(shelves.map((shelf) => shelf.label)).toEqual([
@@ -107,6 +108,7 @@ describe("plugin browse shelves", () => {
           pluginIds: ["theme", "unknown-first"],
         },
       ],
+      categories: [],
     };
 
     expect(
@@ -143,9 +145,71 @@ describe("plugin browse shelves", () => {
           pluginIds: ["shared"],
         },
       ],
+      categories: [],
     });
 
     expect(shelves[0]?.entries).toEqual([first]);
+  });
+
+  it("follows the catalog category order and can omit collection members from category shelves", () => {
+    const featured = entry("featured", {
+      categoryId: "themes-and-appearance",
+      category: "Themes & Appearance",
+      collections: [{ id: "new-and-notable", rank: 0 }],
+    });
+    const data: PluginCatalogSearchData = {
+      entries: [
+        featured,
+        entry("theme", {
+          categoryId: "themes-and-appearance",
+          category: "Themes & Appearance",
+        }),
+        entry("thread"),
+        entry("security", { categoryId: "security", category: "Security" }),
+      ],
+      collections: [
+        {
+          id: "new-and-notable",
+          displayName: "New & notable",
+          pluginIds: ["featured"],
+        },
+      ],
+      categories: [
+        {
+          id: "security",
+          displayName: "Security",
+          description: "Protect credentials or prevent unsafe code.",
+        },
+        {
+          id: "thread-content",
+          displayName: "Thread Content",
+          description: "Change what people see or do inside an open thread.",
+        },
+      ],
+    };
+
+    const summarize = (shelves: ReturnType<typeof pluginBrowseShelves>) =>
+      shelves.map((shelf) => [
+        shelf.label,
+        shelf.entries.map((candidate) => candidate.pluginId),
+      ]);
+
+    expect(summarize(pluginBrowseShelves(data))).toEqual([
+      ["New & notable", ["featured"]],
+      ["Security", ["security"]],
+      ["Thread Content", ["thread"]],
+      ["Themes & Appearance", ["featured", "theme"]],
+    ]);
+    expect(
+      summarize(
+        pluginBrowseShelves(data, { omitCollectionEntriesFromCategories: true }),
+      ),
+    ).toEqual([
+      ["New & notable", ["featured"]],
+      ["Security", ["security"]],
+      ["Thread Content", ["thread"]],
+      ["Themes & Appearance", ["theme"]],
+    ]);
   });
 });
 

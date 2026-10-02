@@ -91,7 +91,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function stubCatalog(data: PluginCatalogSearchData) {
+type CatalogFixture = Omit<PluginCatalogSearchData, "categories"> &
+  Partial<Pick<PluginCatalogSearchData, "categories">>;
+
+function stubCatalog(data: CatalogFixture) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
@@ -100,6 +103,7 @@ function stubCatalog(data: PluginCatalogSearchData) {
         return jsonResponse({
           results: data.entries,
           collections: data.collections,
+          categories: data.categories ?? [],
         });
       }
       return jsonResponse({ error: "not found" }, 404);
@@ -113,7 +117,7 @@ function LocationProbe() {
 }
 
 function renderBrowse(
-  data: PluginCatalogSearchData,
+  data: CatalogFixture,
   initialEntry = "/plugins",
   onInstall = vi.fn(),
   onOpenPlugin = vi.fn(),
@@ -190,7 +194,7 @@ describe("BrowsePluginsTab", () => {
     );
   });
 
-  it("shows collection shelves before category shelves", async () => {
+  it("shows collection shelves before category shelves without repeating their plugins", async () => {
     renderBrowse({
       entries: [
         {
@@ -216,13 +220,8 @@ describe("BrowsePluginsTab", () => {
     const labels = [
       ...document.querySelectorAll("[data-testid='plugin-browse-shelves'] h2"),
     ].map((heading) => heading.textContent);
-    expect(labels).toEqual([
-      "New & notable",
-      "Memory & Context",
-      "Security",
-      "Tasks & Workflows",
-    ]);
-    expect(screen.getAllByText("Memory")).toHaveLength(2);
+    expect(labels).toEqual(["New & notable", "Security"]);
+    expect(screen.getAllByText("Memory")).toHaveLength(1);
     expect(screen.queryByText("BB Official plugins")).toBeNull();
   });
 
