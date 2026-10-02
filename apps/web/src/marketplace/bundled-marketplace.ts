@@ -111,12 +111,10 @@ export function withBundledPlugins(
     });
     return pluginIds.length === 0 ? [] : [{ ...collection, pluginIds }];
   });
-  const [lead, ...rest] = community.collections;
   return {
     ...community,
     categories,
-    collections:
-      lead === undefined ? collections : [lead, ...collections, ...rest],
+    collections: [...collections, ...community.collections],
     plugins: [...community.plugins, ...plugins],
   };
 }

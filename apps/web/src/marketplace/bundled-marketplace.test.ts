@@ -107,12 +107,12 @@ describe("withBundledPlugins", () => {
     expect(ids.filter((id) => id === "promptlibrary")).toHaveLength(1);
   });
 
-  it("places the bundled shelf after the lead community collection", () => {
+  it("places the bundled shelf before the community collections", () => {
     expect(merged.collections.map((collection) => collection.id)).toEqual([
-      "new-and-notable",
       "bb-official",
+      "new-and-notable",
     ]);
-    expect(merged.collections[1]?.pluginIds).toEqual([
+    expect(merged.collections[0]?.pluginIds).toEqual([
       "memory",
       "promptlibrary",
       "guide",
