@@ -101,6 +101,7 @@ interface ThreadSearchQueryFilters {
 export type ArchivedThreadsKindFilter = "all" | "root" | "child";
 
 export interface ArchivedThreadsListFilters {
+  titleSearch?: string;
   projectId?: string;
   kind?: ArchivedThreadsKindFilter;
 }

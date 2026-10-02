@@ -16,7 +16,7 @@ describe("sidebar archive cache", () => {
     "keeps a restored row in its sidebar hierarchy before the server responds (%s)",
     async (projectId) => {
       const queryClient = new QueryClient();
-      const archivedKey = archivedThreadsListQueryKey({});
+      const archivedKey = archivedThreadsListQueryKey({ titleSearch: "archived" });
       const archived = makeThreadListEntry({
         id: "archived",
         projectId,

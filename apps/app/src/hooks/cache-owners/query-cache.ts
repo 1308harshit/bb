@@ -159,11 +159,16 @@ function isArchivedThreadsListFilters(
   }
 
   for (const key of Object.keys(candidate)) {
-    if (key !== "projectId" && key !== "kind") {
+    if (key !== "projectId" && key !== "kind" && key !== "titleSearch") {
       return false;
     }
   }
 
+  if ("titleSearch" in candidate && candidate.titleSearch !== undefined) {
+    if (typeof candidate.titleSearch !== "string") {
+      return false;
+    }
+  }
   if ("projectId" in candidate && candidate.projectId !== undefined) {
     if (typeof candidate.projectId !== "string") {
       return false;

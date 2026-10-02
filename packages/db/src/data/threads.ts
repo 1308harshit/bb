@@ -423,6 +423,7 @@ export function listThreadMentionRowsByIds(
 }
 
 export interface ListThreadsOptions {
+  titleSearch?: string;
   projectId?: string;
   environmentId?: string;
   hostId?: string;
@@ -692,6 +693,9 @@ function statusTransitionNeedsAttention(args: StatusTransition): boolean {
 
 function buildListThreadsFilters(options: ListThreadsOptions) {
   return [
+    options.titleSearch
+      ? sql`instr(lower(COALESCE(NULLIF(trim(${threads.title}), ''), ${threads.titleFallback}, '')), lower(${options.titleSearch})) > 0`
+      : undefined,
     options.projectId ? eq(threads.projectId, options.projectId) : undefined,
     options.environmentId
       ? eq(threads.environmentId, options.environmentId)

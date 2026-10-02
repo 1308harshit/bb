@@ -328,6 +328,7 @@ export function hasThreadSearchableQuery(value: string): boolean {
 }
 
 export interface UseArchivedThreadsFilters {
+  titleSearch?: string;
   projectId?: string;
   kind?: ArchivedThreadsKindFilter;
 }
@@ -336,7 +337,7 @@ export function useArchivedThreads(
   filters: UseArchivedThreadsFilters,
   options?: QueryOptions,
 ) {
-  const { projectId, kind = "all" } = filters;
+  const { projectId, kind = "all", titleSearch } = filters;
   const enabled = options?.enabled ?? true;
   const hasParent = kind === "all" ? undefined : kind === "child";
   useThreadListRealtimeSubscription({ enabled });
@@ -349,6 +350,7 @@ export function useArchivedThreads(
     number
   >({
     queryKey: archivedThreadsListQueryKey({
+      ...(titleSearch ? { titleSearch } : {}),
       ...(projectId ? { projectId } : {}),
       ...(kind !== "all" ? { kind } : {}),
     }),
@@ -357,6 +359,7 @@ export function useArchivedThreads(
         ...(projectId ? { projectId } : {}),
         ...(hasParent !== undefined ? { hasParent } : {}),
         archived: true,
+        ...(titleSearch ? { titleSearch } : {}),
         limit: ARCHIVED_THREADS_PAGE_SIZE,
         offset: pageParam,
         signal,

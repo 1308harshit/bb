@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ThreadListEntry } from "@bb/domain";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@bb/shared-ui/button";
 import { ProjectSelector } from "@/components/pickers/ProjectSelector";
 import {
@@ -16,9 +17,7 @@ import { Pill } from "@bb/shared-ui/pill";
 import { ThreadUnarchiveButton } from "@/components/thread/ThreadUnarchiveButton";
 import { useUnarchiveThread } from "@/hooks/mutations/thread-state-mutations";
 import {
-  hasThreadSearchableQuery,
   useArchivedThreads,
-  useThreadSearch,
   type UseArchivedThreadsFilters,
 } from "@/hooks/queries/thread-queries";
 import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
@@ -26,13 +25,9 @@ import type { ArchivedThreadsKindFilter } from "@/hooks/queries/query-keys";
 import { getThreadRoutePath } from "@/lib/route-paths";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { getThreadDisplayTitle } from "@/lib/thread-title";
-import {
-  ThreadTitle,
-  useResolveThreadTitle,
-} from "@/components/thread/ThreadTitleMentions";
+import { ThreadTitle } from "@/components/thread/ThreadTitleMentions";
 
 const ALL_PROJECTS = "all";
-const ARCHIVED_THREAD_SEARCH_LIMIT = 50;
 
 const KIND_OPTIONS: ReadonlyArray<{
   label: string;
@@ -90,41 +85,18 @@ function ArchiveFilterMenu<T extends string>({
   );
 }
 
-function filterArchivedThreadsBySearch(
-  threads: ThreadListEntry[],
-  search: string,
-  resolveTitle: (title: string) => string,
-): ThreadListEntry[] {
-  const normalizedSearch = search.trim().toLocaleLowerCase();
-  if (normalizedSearch.length === 0) return threads;
-  return threads.filter((thread) => {
-    const title = getThreadDisplayTitle(thread);
-    return [title, resolveTitle(title)].some((text) =>
-      text.toLocaleLowerCase().includes(normalizedSearch),
-    );
-  });
-}
-
 export function ArchivedThreadsSettingsSection() {
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<ArchivedThreadsKindFilter>("all");
   const [projectId, setProjectId] = useState(ALL_PROJECTS);
   const sidebarNavigation = useSidebarNavigation();
-  const searchIsActive = hasThreadSearchableQuery(search);
-  const archivedThreadsQuery = useArchivedThreads(
-    {
-      ...(projectId === ALL_PROJECTS ? {} : { projectId }),
-      kind,
-    } satisfies UseArchivedThreadsFilters,
-    { enabled: !searchIsActive },
-  );
-  const threadSearch = useThreadSearch({
-    active: searchIsActive,
-    limitPerGroup: ARCHIVED_THREAD_SEARCH_LIMIT,
-    query: search,
-  });
+  const titleSearch = useDebouncedValue(search.trim(), 150);
+  const archivedThreadsQuery = useArchivedThreads({
+    ...(projectId === ALL_PROJECTS ? {} : { projectId }),
+    kind,
+    ...(titleSearch ? { titleSearch } : {}),
+  } satisfies UseArchivedThreadsFilters);
   const unarchiveThread = useUnarchiveThread();
-  const resolveTitle = useResolveThreadTitle();
 
   const projects = useMemo(() => {
     if (!sidebarNavigation.data) return [];
@@ -138,30 +110,10 @@ export function ArchivedThreadsSettingsSection() {
     [projects],
   );
 
-  const archivedThreads = useMemo(() => {
-    const threads = searchIsActive
-      ? (threadSearch.data?.archived.results.map((result) => result.thread) ??
-        [])
-      : (archivedThreadsQuery.data?.pages ?? []).flat();
-    const filteredThreads = threads.filter(
-      (thread) =>
-        thread.archivedAt !== null &&
-        (projectId === ALL_PROJECTS || thread.projectId === projectId) &&
-        (kind === "all" ||
-          (thread.parentThreadId !== null) === (kind === "child")),
-    );
-    return searchIsActive
-      ? filteredThreads
-      : filterArchivedThreadsBySearch(filteredThreads, search, resolveTitle);
-  }, [
-    archivedThreadsQuery.data,
-    kind,
-    projectId,
-    search,
-    searchIsActive,
-    threadSearch.data,
-    resolveTitle,
-  ]);
+  const archivedThreads = useMemo(
+    () => (archivedThreadsQuery.data?.pages ?? []).flat(),
+    [archivedThreadsQuery.data],
+  );
 
   const groupedThreads = useMemo(() => {
     const groups = new Map<string, ThreadListEntry[]>();
@@ -176,10 +128,8 @@ export function ArchivedThreadsSettingsSection() {
   const selectedKindLabel =
     KIND_OPTIONS.find((option) => option.value === kind)?.label ??
     "All threads";
-  const isInitialLoading = searchIsActive
-    ? threadSearch.isDebouncing ||
-      (threadSearch.isLoading && threadSearch.data === undefined)
-    : archivedThreadsQuery.isPending;
+  const isInitialLoading =
+    search.trim() !== titleSearch || archivedThreadsQuery.isPending;
 
   return (
     <section className="space-y-5">
@@ -202,7 +152,7 @@ export function ArchivedThreadsSettingsSection() {
             aria-label="Search archived threads"
             className="h-8 pl-8 text-xs"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search archived threads…"
+            placeholder="Search archived thread titles…"
             value={search}
           />
         </div>
@@ -296,7 +246,7 @@ export function ArchivedThreadsSettingsSection() {
         </div>
       )}
 
-      {!searchIsActive && archivedThreadsQuery.hasNextPage ? (
+      {archivedThreadsQuery.hasNextPage ? (
         <Button
           type="button"
           variant="ghost"

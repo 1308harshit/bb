@@ -20,6 +20,8 @@ import {
   listThreadsWithPendingInteractionStateForProjects,
   listThreadsWithPendingInteractionState,
   updateThread,
+  upsertThreadSearchSegments,
+  searchThreadsWithPendingInteractionState,
   deleteThread,
   archiveThread,
   markThreadDeleted,
@@ -669,6 +671,78 @@ describe("threads", () => {
     });
     expect(rootThreads).toHaveLength(2);
     expect(rootThreads.map((thread) => thread.id)).toContain(parent.id);
+  });
+
+  it("filters archived display titles before pagination within project and parent filters", () => {
+    const { db, host, project } = setup();
+    const { project: otherProject } = createProject(db, noopNotifier, {
+      name: "other-project",
+      source: { type: "local_path", hostId: host.id, path: "/tmp/other" },
+    });
+    const parent = createThread(db, noopNotifier, {
+      projectId: project.id,
+      providerId: "codex",
+      title: "Release 100%_ready",
+    });
+    const candidates = [
+      { title: "RELEASE 100%_ready", titleFallback: "old prompt" },
+      { title: null, titleFallback: "Release 100%_ready fallback" },
+      { title: "   ", titleFallback: "Release 100%_ready untitled" },
+      { title: "Unrelated", titleFallback: "Release 100%_ready old prompt" },
+      { title: "Release 100XYready", titleFallback: null },
+      { title: "Release 100%_ready active", archived: false },
+      { title: "Release 100%_ready hidden", visibility: "hidden" as const },
+      { title: "Release 100%_ready elsewhere", projectId: otherProject.id },
+      { title: "Release 100%_ready deleted", deleted: true },
+    ].map((candidate) => {
+      const thread = createThread(db, noopNotifier, {
+        projectId: candidate.projectId ?? project.id,
+        providerId: "codex",
+        parentThreadId: parent.id,
+        title: candidate.title,
+        titleFallback: candidate.titleFallback ?? null,
+        visibility: candidate.visibility ?? "visible",
+      });
+      if (candidate.archived !== false) archiveThread(db, noopNotifier, thread.id);
+      if (candidate.deleted) markThreadDeleted(db, noopNotifier, { threadId: thread.id });
+      return thread;
+    });
+    archiveThread(db, noopNotifier, parent.id);
+    const messageOnly = createThread(db, noopNotifier, {
+      projectId: project.id,
+      providerId: "codex",
+      parentThreadId: parent.id,
+      title: "Conversation-only match",
+    });
+    archiveThread(db, noopNotifier, messageOnly.id);
+    upsertThreadSearchSegments(db, {
+      segments: [{
+        threadId: messageOnly.id,
+        sourceKind: "user_message",
+        sourceKey: "message:1",
+        sourceSeq: 1,
+        text: "release 100%_ready",
+      }],
+    });
+    expect(searchThreadsWithPendingInteractionState(db, {
+      query: "release 100%_ready",
+      limitPerGroup: 50,
+    }).archived.results.map((result) => result.thread.id)).toContain(messageOnly.id);
+    const filters = {
+      projectId: project.id,
+      archived: true,
+      hasParent: true,
+      titleSearch: "release 100%_ready",
+      limit: 2,
+    };
+    const first = listThreadsWithPendingInteractionState(db, filters);
+    const second = listThreadsWithPendingInteractionState(db, { ...filters, offset: 2 });
+    expect(first).toHaveLength(2);
+    expect(second).toHaveLength(1);
+    expect([...first, ...second].map((thread) => thread.id).sort()).toEqual(
+      candidates.slice(0, 3).map((thread) => thread.id).sort(),
+    );
+    db.$client.close();
   });
 
   it("paginates archived threads ordered by archive recency", async () => {

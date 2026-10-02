@@ -162,6 +162,7 @@ Listing:
     --machine <id-or-name>                 Filter by the machine the environment is on (alias --host)
     --parent-thread <id>                   Filter by parent thread
     --archived                             Show only archived threads
+    --title-search <text>                  Match a case-insensitive title substring (uses fallback when untitled)
     --section <id>                         Filter by section
     --unsectioned                          Show only threads outside sections
     --include-hidden                       Include hidden threads
@@ -170,6 +171,8 @@ Listing:
   title, then the fallback title from the first prompt, then "-". Long
   titles are cut at 60 characters. Project shows the project name; the
   personal project shows "-". Use --json for the full thread records.
+  --title-search matches titles only, treating % and _ literally, and applies
+  before pagination. SDK: threads.list({ archived: true, titleSearch: "text" }).
 
   bb thread search <query> [--limit <1-50>]
                                              Search threads and messages

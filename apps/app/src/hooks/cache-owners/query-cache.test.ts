@@ -17,10 +17,12 @@ describe("query cache thread list invalidation keys", () => {
     const { queryClient } = createQueryClientTestHarness();
     const projectArchivedKey = archivedThreadsListQueryKey({
       projectId: "proj_1",
+      titleSearch: "release",
     });
     const globalArchivedKey = archivedThreadsListQueryKey({});
     const globalChildArchivedKey = archivedThreadsListQueryKey({
       kind: "child",
+      titleSearch: "release",
     });
 
     queryClient.setQueryData(projectArchivedKey, { pages: [], pageParams: [] });
@@ -70,6 +72,7 @@ describe("query cache thread list invalidation keys", () => {
     const { queryClient } = createQueryClientTestHarness();
     const projectArchivedKey = archivedThreadsListQueryKey({
       projectId: "proj_1",
+      titleSearch: "release",
     });
     const projectThreadListKey = threadListQueryKey({
       archived: false,

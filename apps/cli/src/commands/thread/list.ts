@@ -15,6 +15,7 @@ import {
 } from "../machine.js";
 
 interface ThreadListCommandOptions {
+  titleSearch?: string;
   environment?: string;
   machine?: string;
   host?: string;
@@ -45,6 +46,10 @@ export function registerListCommand(
     .option("--section <id>", "Filter by thread section ID")
     .option("--unsectioned", "Show only threads outside sections")
     .option("--archived", "Show only archived threads")
+    .option(
+      "--title-search <text>",
+      "Filter by title substring (case-insensitive)",
+    )
     .option("--include-hidden", "Include hidden threads")
     .option("--json", "Print machine-readable JSON output")
     .action(
@@ -88,6 +93,7 @@ export function registerListCommand(
           ...(hostId ? { hostId } : {}),
           ...(parentThreadId ? { parentThreadId } : {}),
           ...(opts.archived ? { archived: true } : {}),
+          ...(opts.titleSearch ? { titleSearch: opts.titleSearch } : {}),
           ...(sectionId ? { sectionId } : {}),
           ...(opts.unsectioned ? { unsectioned: true } : {}),
           ...(opts.includeHidden ? { includeHidden: true } : {}),
