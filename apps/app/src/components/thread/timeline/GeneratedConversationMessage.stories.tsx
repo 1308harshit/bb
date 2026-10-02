@@ -149,6 +149,7 @@ export function Overview() {
         <StoryRow key={row.systemMessageKind} label={row.label} hint={row.hint}>
           <TimelineStage>
             <ConversationMessageContent
+              metadata={{ timestamp: 0 }}
               role="user"
               initiator="system"
               originKind={null}
@@ -173,6 +174,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             initiator="agent"
             originKind={null}
@@ -196,6 +198,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             initiator="system"
             originKind={null}
@@ -226,6 +229,7 @@ export function ClippedAgentMessage() {
       >
         <div className="w-full max-w-[560px]">
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             initiator="agent"
             originKind={null}

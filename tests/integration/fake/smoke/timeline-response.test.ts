@@ -18,6 +18,7 @@ const ASSISTANT_ROW = {
   role: "assistant",
   text: "Done",
   attachments: null,
+  executionMetadata: null,
   turnRequest: null,
 } satisfies TimelineRow;
 

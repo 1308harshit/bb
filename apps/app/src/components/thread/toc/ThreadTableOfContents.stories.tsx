@@ -57,6 +57,7 @@ function conversationRow({
   return {
     ...base,
     role: "assistant",
+    executionMetadata: null,
     turnRequest: null,
   };
 }

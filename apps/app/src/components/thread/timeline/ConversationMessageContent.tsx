@@ -59,6 +59,7 @@ import {
 import { TurnRequestLabel } from "./TurnRequestLabel.js";
 import {
   MessageActionBar,
+  type MessageMenuMetadata,
   PROSE_COLUMN_INSET_CLASS,
 } from "./MessageActionBar.js";
 import {
@@ -74,6 +75,7 @@ import type { PromptDraftAttachment } from "@bb/client-core";
 import { buildMarkdownMessageLinkRouting } from "@/components/ui/markdown-message-link-routing";
 
 interface ConversationMessageContentBaseProps {
+  metadata: MessageMenuMetadata;
   attachments: TimelineConversationAttachments | null;
   onCopyLink?: () => void;
   onOpenLocalFileLink?: ThreadTimelineLocalFileLinkHandler;
@@ -148,6 +150,7 @@ type ConversationMessageContentProps =
   | ConversationMessageContentAssistantProps;
 
 interface UserConversationMessageProps {
+  metadata: MessageMenuMetadata;
   addToChatAttachments: readonly PromptDraftAttachment[];
   attachmentItems: ConversationAttachmentItems;
   originKind: ThreadOriginKind | null;
@@ -177,6 +180,7 @@ interface UserConversationMessageProps {
 }
 
 interface AssistantConversationMessageProps extends AssistantMessageRowIdentity {
+  metadata: MessageMenuMetadata;
   addToChatAttachments: readonly PromptDraftAttachment[];
   attachmentItems: ConversationAttachmentItems;
   pluginActions?: readonly ThreadTimelinePluginMessageAction[];
@@ -331,6 +335,7 @@ function buildAddToChatAttachments(
 }
 
 function UserConversationMessage({
+  metadata,
   addToChatAttachments,
   attachmentItems,
   originKind,
@@ -423,7 +428,7 @@ function UserConversationMessage({
   const requestLabel = turnRequestLabel(turnRequest);
 
   return (
-    <div className="w-full" data-message-column="">
+    <div className="w-full">
       <div className="group/message ml-auto flex w-fit max-w-[70%] flex-col items-end">
         {requestLabel ? (
           <div className="mb-1 flex items-center justify-end gap-2">
@@ -456,6 +461,7 @@ function UserConversationMessage({
             />
           </div>
           <MessageActionBar
+            metadata={metadata}
             messageText={messageText}
             alignment="end"
             mobileActionDisplay={mobileActionDisplay}
@@ -473,6 +479,7 @@ function UserConversationMessage({
 }
 
 function AssistantConversationMessage({
+  metadata,
   addToChatAttachments,
   attachmentItems,
   id,
@@ -574,7 +581,6 @@ function AssistantConversationMessage({
         "group/message w-full text-sm font-normal leading-relaxed",
         PROSE_COLUMN_INSET_CLASS,
       )}
-      data-message-column=""
     >
       <SelectableMessageProse onSelect={onSelectProse}>
         <MarkdownPreview
@@ -613,6 +619,7 @@ function AssistantConversationMessage({
       />
       {showActions ? (
         <MessageActionBar
+          metadata={metadata}
           messageText={text}
           alignment="start"
           mobileActionDisplay={mobileActionDisplay}
@@ -658,6 +665,7 @@ export function ConversationMessageContent(
   if (props.role === "user") {
     return (
       <UserConversationMessage
+        metadata={props.metadata}
         addToChatAttachments={addToChatAttachments}
         attachmentItems={attachmentItems}
         originKind={props.originKind}
@@ -690,6 +698,7 @@ export function ConversationMessageContent(
 
   return (
     <AssistantConversationMessage
+      metadata={props.metadata}
       addToChatAttachments={addToChatAttachments}
       attachmentItems={attachmentItems}
       id={props.id}

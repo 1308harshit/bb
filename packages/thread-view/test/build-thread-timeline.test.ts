@@ -34,6 +34,7 @@ import type { AcceptedClientRequestContext } from "../src/accepted-client-reques
 import { parseOperationMessage } from "../src/parse-operation-message.js";
 import {
   createTimelineEventFactory,
+  flattenTimelineRows,
   fromRows,
   renderTimelineFixture,
   rowsOfKind,
@@ -831,6 +832,88 @@ function fileChangeRowIdByPath(
 }
 
 describe("buildThreadTimelineFromEvents", () => {
+  it("records the model and reasoning of the request that started each response's turn", () => {
+    const event = createTimelineEventFactory({ threadId: "thread-1" });
+    const first = event.clientTurnRequested({ text: "first" });
+    const steer = event.clientTurnRequested({
+      text: "steer",
+      execution: {
+        ...first.data.execution,
+        permissionMode: "full",
+        model: "steering-model",
+        reasoningLevel: "low",
+      },
+      target: { kind: "steer", expectedTurnId: "turn-1" },
+    });
+    const second = event.clientTurnRequested({
+      text: "second",
+      execution: {
+        ...first.data.execution,
+        permissionMode: "full",
+        model: "second-model",
+        reasoningLevel: "high",
+      },
+    });
+    const fixture = renderTimelineFixture({
+      events: [
+        first,
+        event.turnStarted({ turnId: "turn-1" }),
+        event.inputAccepted({
+          turnId: "turn-1",
+          clientRequestId: first.data.requestId,
+        }),
+        steer,
+        event.inputAccepted({
+          turnId: "turn-1",
+          clientRequestId: steer.data.requestId,
+        }),
+        event.assistantCompleted({ turnId: "turn-1", text: "first response" }),
+        event.turnCompleted({ turnId: "turn-1" }),
+        second,
+        event.turnStarted({ turnId: "turn-2" }),
+        event.inputAccepted({
+          turnId: "turn-2",
+          clientRequestId: second.data.requestId,
+        }),
+        event.assistantCompleted({ turnId: "turn-2", text: "second response" }),
+        event.turnCompleted({ turnId: "turn-2" }),
+        event.turnStarted({ turnId: "turn-3" }),
+        event.assistantCompleted({
+          turnId: "turn-3",
+          text: "unrequested response",
+        }),
+        event.turnCompleted({ turnId: "turn-3" }),
+      ],
+      projectionOptions: { threadStatus: "idle", turnMessageDetail: "full" },
+      providerId: "codex",
+    });
+    const replies = flattenTimelineRows(fixture.rows).filter(
+      (row) => row.kind === "conversation" && row.role === "assistant",
+    );
+    expect(replies).toEqual([
+      expect.objectContaining({
+        text: "first response",
+        executionMetadata: {
+          providerId: "codex",
+          model: first.data.execution.model,
+          reasoningLevel: first.data.execution.reasoningLevel,
+        },
+      }),
+      expect.objectContaining({
+        text: "second response",
+        executionMetadata: {
+          providerId: "codex",
+          model: "second-model",
+          reasoningLevel: "high",
+        },
+      }),
+      expect.objectContaining({
+        text: "unrequested response",
+        executionMetadata: null,
+      }),
+    ]);
+  });
+
   it("renders one turn when daemon retry history contains duplicate turn starts", () => {
     const rows = buildTimelineRows([
       turnStartedEvent({ seq: 1 }),
@@ -1760,7 +1843,9 @@ describe("buildThreadTimelineFromEvents", () => {
         sourceSeqEnd: acceptedEvent?.meta.seq,
       }),
     ]);
-    expect(acceptedEvent?.meta.seq).toBeGreaterThan(requestEvent?.meta.seq ?? 0);
+    expect(acceptedEvent?.meta.seq).toBeGreaterThan(
+      requestEvent?.meta.seq ?? 0,
+    );
   });
 
   it("uses accepted context to suppress pending steers without rendering future accepted rows", () => {

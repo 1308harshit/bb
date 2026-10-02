@@ -60,6 +60,7 @@ function assistantRow(
     createdAt: seq,
     text: `assistant ${seq}`,
     attachments: null,
+    executionMetadata: null,
     turnRequest: null,
   };
 }

@@ -532,6 +532,7 @@ export function Overview() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -560,6 +561,7 @@ export function Overview() {
         >
           <TimelineStage>
             <ConversationMessageContent
+              metadata={{ timestamp: 0 }}
               role="user"
               originKind={null}
               initiator="user"
@@ -582,6 +584,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -601,6 +604,7 @@ export function Overview() {
       <StoryRow label="short">
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -623,6 +627,7 @@ export function Overview() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -646,6 +651,7 @@ export function Overview() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -668,6 +674,7 @@ export function Overview() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -690,6 +697,7 @@ export function Overview() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -709,6 +717,7 @@ export function Overview() {
       <StoryRow label="with image" hint="single localImage attachment">
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -732,6 +741,7 @@ export function Overview() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -762,6 +772,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="agent"
@@ -785,6 +796,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="agent"
@@ -809,6 +821,7 @@ export function Overview() {
       >
         <div className="flex w-full max-w-[760px] flex-col gap-3">
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="agent"
@@ -825,6 +838,7 @@ export function Overview() {
             turnRequest={acceptedSteer}
           />
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="system"
@@ -847,6 +861,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="system"
@@ -869,6 +884,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="system"
@@ -891,6 +907,7 @@ export function Overview() {
       >
         <TimelineStage>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="system"
@@ -946,6 +963,7 @@ export function ActionOverflow() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -967,6 +985,7 @@ export function ActionOverflow() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -990,6 +1009,7 @@ export function ActionOverflow() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -1014,6 +1034,7 @@ export function ActionOverflow() {
       >
         <TimelineStage revealMessageActions>
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             originKind={null}
             initiator="user"
@@ -1043,6 +1064,7 @@ export function ParentChildSystemMessages() {
         <StoryRow key={fixture.label} label={fixture.label} hint={fixture.hint}>
           <TimelineStage>
             <ConversationMessageContent
+              metadata={{ timestamp: 0 }}
               role="user"
               initiator="system"
               senderThreadId={null}

@@ -505,6 +505,7 @@ export function conversationRow({
     role,
     text,
     attachments,
+    executionMetadata: null,
     turnRequest: null,
   };
 }

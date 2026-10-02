@@ -66,6 +66,7 @@ function UserMessage({
   return (
     <TimelineStage revealMessageActions={revealMessageActions}>
       <ConversationMessageContent
+        metadata={{ timestamp: 0 }}
         role="user"
         initiator="user"
         originKind={null}

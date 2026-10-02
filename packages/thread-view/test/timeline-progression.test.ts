@@ -67,6 +67,7 @@ function assistantRow(text: string): TimelineConversationRow {
     role: "assistant",
     text,
     attachments: null,
+    executionMetadata: null,
     turnRequest: null,
   };
 }

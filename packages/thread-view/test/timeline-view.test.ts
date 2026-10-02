@@ -56,6 +56,7 @@ function assistantRow({
     role: "assistant",
     text,
     attachments: null,
+    executionMetadata: null,
     turnRequest: null,
   };
 }

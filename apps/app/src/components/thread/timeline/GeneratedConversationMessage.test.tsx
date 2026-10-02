@@ -55,6 +55,7 @@ function renderChildCompleted(text = MARKDOWN_BODY) {
     <MemoryRouter>
       <RouteNavigationProvider>
         <ConversationMessageContent
+          metadata={{ timestamp: 0 }}
           role="user"
           initiator="system"
           originKind={null}
@@ -171,6 +172,7 @@ function renderAgentMessage(
           threadById={new Map([[rawMentionTarget.id, rawMentionTarget]])}
         >
           <ConversationMessageContent
+            metadata={{ timestamp: 0 }}
             role="user"
             initiator="agent"
             originKind={null}
