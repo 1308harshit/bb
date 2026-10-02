@@ -66,7 +66,11 @@ interface GeneratedConversationMessageProps {
 }
 
 type GeneratedConversationSourceKind = "agent" | "system";
-export type GeneratedAgentMessageDirection = "incoming" | "outgoing";
+export type GeneratedAgentMessageDirection =
+  | "received-message"
+  | "sent-reply"
+  | "sent-message"
+  | "received-reply";
 
 interface GeneratedConversationBodyTextArgs {
   initiator: TimelineUserConversationRow["initiator"];
@@ -249,6 +253,38 @@ function systemMessageTitleSegments(
   }
 }
 
+interface AgentMessageLeadInArgs {
+  agentDirection: GeneratedAgentMessageDirection;
+  originKind: ThreadOriginKind | null;
+  sourceIsPluginSideChat: boolean;
+}
+
+function agentMessageLeadIn({
+  agentDirection,
+  originKind,
+  sourceIsPluginSideChat,
+}: AgentMessageLeadInArgs): string {
+  switch (agentDirection) {
+    case "sent-reply":
+      return "Reply to";
+    case "sent-message":
+      return "Message to";
+    case "received-reply":
+      return "Reply from";
+    case "received-message":
+      if (sourceIsPluginSideChat) {
+        return "Replying to";
+      }
+      return originKind === "fork" ? "Forked from" : "Message from";
+  }
+}
+
+function isSentAgentMessage(
+  agentDirection: GeneratedAgentMessageDirection,
+): boolean {
+  return agentDirection === "sent-reply" || agentDirection === "sent-message";
+}
+
 export function generatedConversationTitle({
   agentDirection,
   originKind,
@@ -259,14 +295,11 @@ export function generatedConversationTitle({
   systemMessageKind,
   systemMessageSubject,
 }: GeneratedConversationTitleArgs): TimelineTitle {
-  const agentLeadIn =
-    agentDirection === "outgoing"
-      ? "Reply to"
-      : sourceIsPluginSideChat
-        ? "Replying to"
-        : originKind === "fork"
-          ? "Forked from"
-          : "Message from";
+  const agentLeadIn = agentMessageLeadIn({
+    agentDirection,
+    originKind,
+    sourceIsPluginSideChat,
+  });
   const sideChatAction =
     sourceIsPluginSideChat && sourceThreadId !== null
       ? ({ kind: "open-plugin-side-chat", threadId: sourceThreadId } as const)
@@ -351,7 +384,7 @@ function generatedConversationIconName(
   }
   switch (sourceKind) {
     case "agent":
-      return agentDirection === "outgoing" ? "Sent" : "MessageSquare";
+      return isSentAgentMessage(agentDirection) ? "Sent" : "MessageSquare";
     case "system":
       return systemMessageIconName(systemMessageKind);
   }
@@ -561,7 +594,7 @@ export const GeneratedConversationMessage = memo(
         : collapsedPreviewBody.text;
     const suppressGeneratedAgentImages =
       sourceKind === "agent" &&
-      agentDirection === "incoming" &&
+      !isSentAgentMessage(agentDirection) &&
       !sourceIsPluginSideChat;
     const collapsedPreview =
       !titleOnly && collapsedPreviewBody.text ? (

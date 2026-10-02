@@ -11,6 +11,7 @@ import type {
   TimelineTurnRow,
   TimelineWorkRow,
 } from "@bb/server-contract";
+import { parseAgentThreadTellCommand } from "./agent-thread-tell-command.js";
 import { assertNever } from "./assert-never.js";
 import {
   getFileChangeAction,
@@ -740,8 +741,13 @@ function isSummarizableActivityRow(
   ) {
     return true;
   }
+  if (row.kind !== "work") {
+    return false;
+  }
+  if (row.workKind === "command") {
+    return parseAgentThreadTellCommand(row.command) === null;
+  }
   return (
-    row.kind === "work" &&
     row.workKind !== "approval" &&
     row.workKind !== "question" &&
     row.workKind !== "workflow"

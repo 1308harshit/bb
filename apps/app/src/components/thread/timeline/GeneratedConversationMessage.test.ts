@@ -19,7 +19,7 @@ function systemTitle({
   systemMessageSubject,
 }: SystemTitleArgs) {
   return generatedConversationTitle({
-    agentDirection: "incoming",
+    agentDirection: "received-message",
     originKind: null,
     sourceKind: "system",
     sourceName: "BB",
@@ -146,7 +146,7 @@ describe("generatedConversationTitle — system source", () => {
 describe("generatedConversationTitle — agent source", () => {
   it("links the sender thread name (reference pattern, unchanged)", () => {
     const title = generatedConversationTitle({
-      agentDirection: "incoming",
+      agentDirection: "received-message",
       originKind: null,
       sourceKind: "agent",
       sourceName: "Worker 2",
@@ -164,7 +164,7 @@ describe("generatedConversationTitle — agent source", () => {
 
   it("labels an outgoing reply with its recipient thread", () => {
     const title = generatedConversationTitle({
-      agentDirection: "outgoing",
+      agentDirection: "sent-reply",
       originKind: null,
       sourceKind: "agent",
       sourceName: "Manager",
@@ -176,5 +176,23 @@ describe("generatedConversationTitle — agent source", () => {
 
     expect(title.plain).toBe("Reply to Manager");
     expect(title.segments[1]?.link).toEqual(threadLink("thr_manager"));
+  });
+
+  it.each([
+    ["sent-message", "Message to Worker"],
+    ["received-reply", "Reply from Worker"],
+  ] as const)("labels %s chips", (agentDirection, plain) => {
+    const title = generatedConversationTitle({
+      agentDirection,
+      originKind: null,
+      sourceKind: "agent",
+      sourceName: "Worker",
+      sourceThreadId: "thr_worker",
+      sourceIsPluginSideChat: false,
+      systemMessageKind: "unlabeled",
+      systemMessageSubject: null,
+    });
+
+    expect(title.plain).toBe(plain);
   });
 });

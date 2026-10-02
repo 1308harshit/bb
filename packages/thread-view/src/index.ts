@@ -1,5 +1,9 @@
 export { formatThreadTimelineText } from "./format-timeline-text.js";
 export { parseAgentMessageEnvelope } from "./agent-message-envelope.js";
+export {
+  parseAgentThreadTellCommand,
+  type AgentThreadTellCommand,
+} from "./agent-thread-tell-command.js";
 export type { ThreadTimelineTextFormat } from "./format-timeline-text.js";
 export { assertNever } from "./assert-never.js";
 export {

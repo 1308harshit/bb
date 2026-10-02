@@ -31,9 +31,11 @@ import {
   buildTimelineViewRows,
   createTimelineViewRowsCache,
   findActiveLatestBundleId,
+  parseAgentThreadTellCommand,
   workRowGlyph,
   workRowPluginGlyph,
   workRowPresentation,
+  type AgentThreadTellCommand,
   type BuildTimelineRowTitleOptions,
   type BuildTimelineViewRowsOptions,
   type ThreadTimelineViewRow,
@@ -136,6 +138,7 @@ import {
 } from "@/components/plugin/plugin-composer-host";
 import { isPluginSideChatSenderThread } from "@/lib/side-chat-plugin.js";
 import { AgentReplyMessage } from "./AgentReplyMessage.js";
+import { AgentSentMessageRow } from "./AgentSentMessageRow.js";
 import { AgentExchangeGroupRow } from "./AgentExchangeGroupRow.js";
 import {
   collectAgentReplyRecipients,
@@ -1533,6 +1536,14 @@ function TimelineRowView({
     );
   }
 
+  const sentAgentMessage =
+    row.kind === "work" && row.workKind === "command" && row.status !== "error"
+      ? parseAgentThreadTellCommand(row.command)
+      : null;
+  if (sentAgentMessage !== null) {
+    return <SentAgentMessageRow row={row} tell={sentAgentMessage} />;
+  }
+
   if (titleState.kind === "compact-activity-intents") {
     return (
       <>
@@ -1598,6 +1609,40 @@ function TimelineRowView({
       title={titleState.title}
       horizontalPadding={horizontalPadding}
       compactActivityIntents={compactActivityIntents}
+    />
+  );
+}
+
+interface SentAgentMessageRowProps {
+  row: ThreadTimelineViewRow;
+  tell: AgentThreadTellCommand;
+}
+
+function SentAgentMessageRow({ row, tell }: SentAgentMessageRowProps) {
+  const {
+    onOpenLink,
+    onOpenLocalFileLink,
+    onTitleAction,
+    projectId,
+    resolveMentionLink,
+    threadId,
+    workspaceRootPath,
+  } = useTimelineRendererStaticContext();
+  const senderThreadMetadataById = useSenderThreadMetadataContext();
+  return (
+    <AgentSentMessageRow
+      onOpenLink={onOpenLink}
+      onOpenLocalFileLink={onOpenLocalFileLink}
+      onTitleAction={onTitleAction}
+      projectId={projectId}
+      recipientMetadata={
+        senderThreadMetadataById.get(tell.targetThreadId) ?? null
+      }
+      resolveMentionLink={resolveMentionLink}
+      sentAt={row.startedAt}
+      senderThreadId={threadId ?? row.threadId}
+      tell={tell}
+      workspaceRootPath={workspaceRootPath}
     />
   );
 }

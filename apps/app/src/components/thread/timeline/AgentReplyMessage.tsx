@@ -45,7 +45,7 @@ export function AgentReplyMessage({
 }: AgentReplyMessageProps) {
   return (
     <GeneratedConversationMessage
-      agentDirection="outgoing"
+      agentDirection="sent-reply"
       attachmentItems={NO_ATTACHMENTS}
       expandedBody={body}
       originKind={null}
