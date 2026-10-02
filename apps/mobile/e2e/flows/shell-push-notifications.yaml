@@ -20,9 +20,7 @@ env:
       visible: "Turn on notifications"
     commands:
       - tapOn: "Turn on notifications"
-- runFlow:
-    when:
-      visible: "Allow"
-    commands:
-      - tapOn: "Allow"
+- tapOn:
+    text: "Allow"
+    optional: true
 - pressKey: Home
