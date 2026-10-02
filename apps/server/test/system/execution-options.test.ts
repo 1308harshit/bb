@@ -188,7 +188,7 @@ describe("appendCustomModels", () => {
       models[0].supportedReasoningEfforts.map(
         (effort) => effort.reasoningEffort,
       ),
-    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    ).toEqual(["default", "low", "medium", "high", "xhigh", "max"]);
   });
 
   it("falls back to the model id when displayName is omitted", () => {

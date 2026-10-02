@@ -64,6 +64,11 @@ const CLAUDE_CODE_EXECUTABLE_ENV = "BB_CLAUDE_CODE_EXECUTABLE";
 export function toSdkEffort(
   reasoningLevel: ReasoningLevel,
 ): ClaudeSdkReasoningEffort {
+  if (reasoningLevel === "default") {
+    throw new Error(
+      "Claude Code does not support the default reasoning level.",
+    );
+  }
   if (reasoningLevel === "ultracode") return "xhigh";
   if (reasoningLevel === "none") return "low";
   if (reasoningLevel === "ultra") return "max";
