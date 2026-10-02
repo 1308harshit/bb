@@ -286,6 +286,7 @@ interface BuildTimelineRowsListItemsArgs {
 }
 
 interface AgentExchangeGrouping {
+  activeTurnId: string | null;
   isExcludedSender: IsExcludedAgentSender;
   pinnedRowIds: ReadonlySet<string>;
 }
@@ -1031,27 +1032,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
       />
     );
   }
-  const replyRecipientThreadId = agentReplyRecipients.get(row.id);
-  if (replyRecipientThreadId !== undefined) {
-    return (
-      <AgentReplyMessage
-        attachments={row.attachments}
-        onOpenLink={onOpenLink}
-        onOpenLocalFileLink={onOpenLocalFileLink}
-        onTitleAction={onTitleAction}
-        projectId={projectId}
-        recipientMetadata={
-          senderThreadMetadataById.get(replyRecipientThreadId) ?? null
-        }
-        recipientThreadId={replyRecipientThreadId}
-        resolveMentionLink={resolveMentionLink}
-        resolveUserAttachmentImageSrc={resolveUserAttachmentImageSrc}
-        text={row.text}
-        threadId={row.threadId}
-        workspaceRootPath={workspaceRootPath}
-      />
-    );
-  }
   const onFork =
     onForkMessage === undefined
       ? undefined
@@ -1071,7 +1051,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
               : { ...selection, sourceSeqEnd: row.sourceSeqEnd },
             messageReference,
           );
-  return (
+  const assistantMessage = (
     <ConversationMessageContent
       attachments={row.attachments}
       id={row.id}
@@ -1094,6 +1074,27 @@ const ConversationRowContent = memo(function ConversationRowContent({
       timestamp={row.startedAt}
       threadId={row.threadId}
       turnId={row.turnId}
+      workspaceRootPath={workspaceRootPath}
+    />
+  );
+  const replyRecipientThreadId = agentReplyRecipients.get(row.id);
+  if (replyRecipientThreadId === undefined) {
+    return assistantMessage;
+  }
+  return (
+    <AgentReplyMessage
+      body={assistantMessage}
+      onOpenLink={onOpenLink}
+      onOpenLocalFileLink={onOpenLocalFileLink}
+      onTitleAction={onTitleAction}
+      projectId={projectId}
+      recipientMetadata={
+        senderThreadMetadataById.get(replyRecipientThreadId) ?? null
+      }
+      recipientThreadId={replyRecipientThreadId}
+      resolveMentionLink={resolveMentionLink}
+      text={row.text}
+      threadId={row.threadId}
       workspaceRootPath={workspaceRootPath}
     />
   );
@@ -1726,6 +1727,18 @@ function isUnreadDividerCandidateAfterCutoff({
   return !isUserAuthoredConversationRow(row);
 }
 
+function findLastRowTurnId(
+  rows: readonly ThreadTimelineViewRow[],
+): string | null {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const turnId = rows[index]?.turnId;
+    if (turnId != null) {
+      return turnId;
+    }
+  }
+  return null;
+}
+
 function groupTimelineRowsListSegment(
   rows: readonly ThreadTimelineViewRow[],
   grouping: AgentExchangeGrouping | null,
@@ -1874,6 +1887,8 @@ function TimelineRowsList({
     [rows],
   );
   const isExcludedAgentSender = useContext(IsExcludedAgentSenderContext);
+  const activeTurnId =
+    spacing === "top-level" && scopeActive ? findLastRowTurnId(rows) : null;
   const agentExchangeGrouping = useMemo<AgentExchangeGrouping | null>(() => {
     if (spacing !== "top-level" || isExcludedAgentSender === null) {
       return null;
@@ -1885,8 +1900,13 @@ function TimelineRowsList({
     if (navigationTargetRowId != null) {
       pinnedRowIds.add(navigationTargetRowId);
     }
-    return { isExcludedSender: isExcludedAgentSender, pinnedRowIds };
+    return {
+      activeTurnId,
+      isExcludedSender: isExcludedAgentSender,
+      pinnedRowIds,
+    };
   }, [
+    activeTurnId,
     isExcludedAgentSender,
     navigationTargetRowId,
     scrollRestoreRowId,
@@ -2016,7 +2036,7 @@ function TimelineRowsList({
                           <TimelineRowsList
                             rows={groupRows}
                             scopeActive={false}
-                            showAssistantMessageActions={false}
+                            showAssistantMessageActions={true}
                             compactActivityIntents={false}
                             spacing="nested"
                             className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}

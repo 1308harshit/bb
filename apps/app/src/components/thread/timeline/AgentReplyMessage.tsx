@@ -1,19 +1,17 @@
-import { useMemo } from "react";
+import type { ReactNode } from "react";
 import type { PromptTextMention } from "@bb/domain";
-import type { TimelineConversationAttachments } from "@bb/server-contract";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import type { SenderThreadMetadata } from "@/hooks/useSenderThreadMetadataById";
-import { buildAttachmentItems } from "./ConversationAttachments.js";
+import type { ConversationAttachmentItems } from "./ConversationAttachments.js";
 import { GeneratedConversationMessage } from "./GeneratedConversationMessage.js";
 import type { TimelineTitleActionResolver } from "./TimelineTitleView.js";
 import type {
   ThreadTimelineLinkHandler,
   ThreadTimelineLocalFileLinkHandler,
-  UserAttachmentImageSrcResolver,
 } from "./types.js";
 
 interface AgentReplyMessageProps {
-  attachments: TimelineConversationAttachments | null;
+  body: ReactNode;
   onOpenLink?: ThreadTimelineLinkHandler;
   onOpenLocalFileLink?: ThreadTimelineLocalFileLinkHandler;
   onTitleAction?: TimelineTitleActionResolver;
@@ -21,16 +19,19 @@ interface AgentReplyMessageProps {
   recipientMetadata: SenderThreadMetadata | null;
   recipientThreadId: string;
   resolveMentionLink?: PromptMentionLinkResolver;
-  resolveUserAttachmentImageSrc?: UserAttachmentImageSrcResolver;
   text: string;
   threadId?: string;
   workspaceRootPath?: string;
 }
 
 const NO_MENTIONS: readonly PromptTextMention[] = [];
+const NO_ATTACHMENTS: ConversationAttachmentItems = {
+  filePaths: [],
+  imageItems: [],
+};
 
 export function AgentReplyMessage({
-  attachments,
+  body,
   onOpenLink,
   onOpenLocalFileLink,
   onTitleAction,
@@ -38,24 +39,15 @@ export function AgentReplyMessage({
   recipientMetadata,
   recipientThreadId,
   resolveMentionLink,
-  resolveUserAttachmentImageSrc,
   text,
   threadId,
   workspaceRootPath,
 }: AgentReplyMessageProps) {
-  const attachmentItems = useMemo(
-    () =>
-      buildAttachmentItems({
-        attachments,
-        projectId,
-        resolveUserAttachmentImageSrc,
-      }),
-    [attachments, projectId, resolveUserAttachmentImageSrc],
-  );
   return (
     <GeneratedConversationMessage
       agentDirection="outgoing"
-      attachmentItems={attachmentItems}
+      attachmentItems={NO_ATTACHMENTS}
+      expandedBody={body}
       originKind={null}
       mentions={NO_MENTIONS}
       onOpenLink={onOpenLink}

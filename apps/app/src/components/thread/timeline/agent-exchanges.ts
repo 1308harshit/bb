@@ -25,6 +25,7 @@ interface AgentExchange {
 }
 
 interface GroupAgentExchangesArgs {
+  activeTurnId: string | null;
   isExcludedSender: IsExcludedAgentSender;
   pinnedRowIds: ReadonlySet<string>;
   rows: readonly ThreadTimelineViewRow[];
@@ -38,6 +39,8 @@ export function isAgentMessageRow(
     row.kind === "conversation" &&
     row.role === "user" &&
     row.initiator === "agent" &&
+    row.turnRequest.kind === "message" &&
+    row.turnRequest.status === "accepted" &&
     row.senderThreadId !== null &&
     row.turnId !== null &&
     !isExcludedSender(row.senderThreadId)
@@ -54,11 +57,15 @@ export function collectAgentReplyRecipients(
   const visit = (candidateRows: readonly ThreadTimelineViewRow[]): void => {
     for (const row of candidateRows) {
       if (row.kind === "conversation") {
-        if (row.role === "user") {
-          current = isAgentMessageRow(row, isExcludedSender)
-            ? { senderThreadId: row.senderThreadId, turnId: row.turnId }
-            : null;
-        } else if (current !== null && row.turnId === current.turnId) {
+        if (isAgentMessageRow(row, isExcludedSender)) {
+          current = { senderThreadId: row.senderThreadId, turnId: row.turnId };
+        } else if (row.role === "user" && row.initiator === "user") {
+          current = null;
+        } else if (
+          row.role === "assistant" &&
+          current !== null &&
+          row.turnId === current.turnId
+        ) {
           recipients.set(row.id, current.senderThreadId);
         }
         continue;
@@ -77,30 +84,47 @@ function isRowPending(row: ThreadTimelineViewRow): boolean {
   return "status" in row && row.status === "pending";
 }
 
+function isUserAuthoredRow(row: ThreadTimelineViewRow): boolean {
+  return (
+    row.kind === "conversation" &&
+    row.role === "user" &&
+    row.initiator === "user"
+  );
+}
+
 function readAgentExchange(
   rows: readonly ThreadTimelineViewRow[],
   startIndex: number,
   isExcludedSender: IsExcludedAgentSender,
+  activeTurnId: string | null,
 ): AgentExchange | null {
   const first = rows[startIndex];
   if (first === undefined || !isAgentMessageRow(first, isExcludedSender)) {
     return null;
   }
   const exchangeRows: ThreadTimelineViewRow[] = [first];
+  let steeredByUser = false;
   for (let index = startIndex + 1; index < rows.length; index += 1) {
     const row = rows[index];
     if (
       row === undefined ||
       row.turnId !== first.turnId ||
-      (row.kind === "conversation" && row.role === "user")
+      isAgentMessageRow(row, isExcludedSender)
     ) {
+      break;
+    }
+    if (isUserAuthoredRow(row)) {
+      steeredByUser = true;
       break;
     }
     exchangeRows.push(row);
   }
   return {
     rows: exchangeRows,
-    settled: !exchangeRows.some(isRowPending),
+    settled:
+      first.turnId !== activeTurnId &&
+      !steeredByUser &&
+      !exchangeRows.some(isRowPending),
   };
 }
 
@@ -120,6 +144,7 @@ function toAgentExchangeGroup(
 }
 
 export function groupAgentExchanges({
+  activeTurnId,
   isExcludedSender,
   pinnedRowIds,
   rows,
@@ -147,7 +172,12 @@ export function groupAgentExchanges({
 
   let index = 0;
   while (index < rows.length) {
-    const exchange = readAgentExchange(rows, index, isExcludedSender);
+    const exchange = readAgentExchange(
+      rows,
+      index,
+      isExcludedSender,
+      activeTurnId,
+    );
     if (exchange !== null && exchange.settled) {
       run.push(exchange);
       index += exchange.rows.length;

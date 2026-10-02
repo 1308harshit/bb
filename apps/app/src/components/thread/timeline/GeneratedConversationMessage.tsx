@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef, type ReactNode } from "react";
 import type { TimelineUserConversationRow } from "@bb/server-contract";
 import type {
   PromptTextMention,
@@ -44,6 +44,7 @@ import {
 interface GeneratedConversationMessageProps {
   agentDirection: GeneratedAgentMessageDirection;
   attachmentItems: ConversationAttachmentItems;
+  expandedBody?: ReactNode;
   originKind: ThreadOriginKind | null;
   mentions: readonly PromptTextMention[];
   onOpenLink?: ThreadTimelineLinkHandler;
@@ -434,6 +435,7 @@ export const GeneratedConversationMessage = memo(
   function GeneratedConversationMessage({
     agentDirection,
     attachmentItems,
+    expandedBody,
     originKind,
     mentions,
     onOpenLink,
@@ -537,12 +539,16 @@ export const GeneratedConversationMessage = memo(
     });
     const expandable =
       !titleOnly &&
-      (hasExpandedOnlyContent ||
+      (expandedBody !== undefined ||
+        hasExpandedOnlyContent ||
         collapsedPreviewSource.hasAdditionalBodyLines ||
         collapsedPreviewSource.wasCapped ||
         collapsedPreviewOverflowMeasurement === "overflowing");
     const hideManualContinuation =
-      collapsedPreviewOverflowMeasurement === "overflowing";
+      collapsedPreviewOverflowMeasurement === "overflowing" ||
+      (expandedBody !== undefined &&
+        !collapsedPreviewSource.hasAdditionalBodyLines &&
+        !collapsedPreviewSource.wasCapped);
     const collapsedPreviewBody = clipMentionTextToVisibleRange({
       mentions: messageMentions,
       rangeStart: 0,
@@ -600,49 +606,55 @@ export const GeneratedConversationMessage = memo(
         </div>
       ) : null;
     const renderBody = useCallback(
-      () => (
-        <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
-          <div className="pl-2 text-sm leading-relaxed text-foreground">
-            {messageText ? (
-              <MarkdownPreview
-                allowHtml
-                content={messageText}
-                imagePolicy={
-                  suppressGeneratedAgentImages ? "alt-text" : "render"
-                }
-                linkRouting={linkRouting}
-                promptMentions={{
-                  mentions: messageMentions,
-                  resolveMentionLink,
-                }}
-                threadMentions={{
-                  mentions: messageMentions,
-                  preserveSoftBreaks: true,
-                }}
-              />
-            ) : (
-              <p className="text-muted-foreground">
-                {generatedConversationEmptyText(sourceKind)}
-              </p>
-            )}
-            <ConversationAttachments
-              align="start"
-              filePaths={attachmentItems.filePaths}
-              imageItems={attachmentItems.imageItems}
-              onOpenLocalFileLink={onOpenLocalFileLink}
-              projectId={projectId}
-            />
-            {requestLabel !== null && turnRequest !== null ? (
-              <div className="mt-1 flex items-center justify-start gap-2">
-                <TurnRequestLabel turnRequest={turnRequest} />
-              </div>
-            ) : null}
+      () =>
+        expandedBody !== undefined ? (
+          <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
+            {expandedBody}
           </div>
-        </div>
-      ),
+        ) : (
+          <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
+            <div className="pl-2 text-sm leading-relaxed text-foreground">
+              {messageText ? (
+                <MarkdownPreview
+                  allowHtml
+                  content={messageText}
+                  imagePolicy={
+                    suppressGeneratedAgentImages ? "alt-text" : "render"
+                  }
+                  linkRouting={linkRouting}
+                  promptMentions={{
+                    mentions: messageMentions,
+                    resolveMentionLink,
+                  }}
+                  threadMentions={{
+                    mentions: messageMentions,
+                    preserveSoftBreaks: true,
+                  }}
+                />
+              ) : (
+                <p className="text-muted-foreground">
+                  {generatedConversationEmptyText(sourceKind)}
+                </p>
+              )}
+              <ConversationAttachments
+                align="start"
+                filePaths={attachmentItems.filePaths}
+                imageItems={attachmentItems.imageItems}
+                onOpenLocalFileLink={onOpenLocalFileLink}
+                projectId={projectId}
+              />
+              {requestLabel !== null && turnRequest !== null ? (
+                <div className="mt-1 flex items-center justify-start gap-2">
+                  <TurnRequestLabel turnRequest={turnRequest} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ),
       [
         attachmentItems.filePaths,
         attachmentItems.imageItems,
+        expandedBody,
         linkRouting,
         messageText,
         messageMentions,
