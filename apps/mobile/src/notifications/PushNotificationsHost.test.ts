@@ -27,6 +27,7 @@ vi.mock("expo-notifications", () => ({
   clearLastNotificationResponse: mocks.clearLastNotificationResponse,
   getLastNotificationResponse: mocks.getLastNotificationResponse,
   setNotificationHandler: mocks.setNotificationHandler,
+  setNotificationCategoryAsync: vi.fn(async () => undefined),
 }));
 
 vi.mock("expo-router", () => ({

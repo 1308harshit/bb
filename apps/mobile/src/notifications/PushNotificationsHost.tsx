@@ -45,6 +45,9 @@ export function PushNotificationsHost() {
     storeSnapshot.enabledProfileIds.includes(activeProfile.id);
 
   useEffect(() => {
+    void Notifications.setNotificationCategoryAsync("bb-thread-mentions", []).catch(
+      (error) => console.warn("Could not register thread notifications", error),
+    );
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowBanner: false,

@@ -81,6 +81,7 @@ interface PushNotificationData {
   projectId: string;
   serverUrl?: string;
   threadId: string;
+  mentionPreview?: string;
 }
 
 export interface ExpoPushMessage {
@@ -91,6 +92,7 @@ export interface ExpoPushMessage {
   sound: "default";
   channelId: "threads";
   priority: "high";
+  categoryId?: string;
 }
 
 export type PushSenderFetch = (
@@ -312,7 +314,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
 
   async function resolveThreadNames(
     texts: readonly string[],
-  ): Promise<string[]> {
+  ): Promise<Array<{ text: string; mentions: Array<{ offset: number; length: number }> }>> {
     const threadIds = [
       ...new Set(
         texts.flatMap((text) =>
@@ -340,13 +342,19 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
         }
       }
     }
-    return texts.map((text) =>
-      text.replace(
-        THREAD_REFERENCE_PATTERN,
-        (_match, threadId: string) =>
-          labels.get(threadId) ?? "Unavailable thread",
-      ),
-    );
+    return texts.map((source) => {
+      let text = "";
+      let cursor = 0;
+      const mentions: Array<{ offset: number; length: number }> = [];
+      for (const match of source.matchAll(THREAD_REFERENCE_PATTERN)) {
+        text += source.slice(cursor, match.index);
+        const label = labels.get(match[1]!) ?? "Unavailable thread";
+        mentions.push({ offset: text.length, length: label.length });
+        text += label;
+        cursor = match.index + match[0].length;
+      }
+      return { text: text + source.slice(cursor), mentions };
+    });
   }
 
   async function flushThread(
@@ -376,8 +384,22 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       threadDisplayTitle(thread),
       resolved.body,
     ]);
-    const title = truncate(resolvedTitle!, PUSH_TITLE_MAX_LENGTH);
-    const body = truncate(resolvedBody!, PUSH_BODY_MAX_LENGTH);
+    const title = truncate(resolvedTitle!.text, PUSH_TITLE_MAX_LENGTH);
+    const body = truncate(resolvedBody!.text, PUSH_BODY_MAX_LENGTH);
+    const visibleMentions = (
+      resolved: { text: string; mentions: Array<{ offset: number; length: number }> },
+      preview: string,
+    ) => {
+      const end = preview.length - (resolved.text.length > preview.length ? 1 : 0);
+      return resolved.mentions.flatMap(({ offset, length }) =>
+        offset < end ? [{ offset, length: Math.min(length, end - offset) }] : [],
+      );
+    };
+    const mentionPreview = {
+      title: visibleMentions(resolvedTitle!, title),
+      body: visibleMentions(resolvedBody!, body),
+    };
+    const hasMentions = mentionPreview.title.length + mentionPreview.body.length > 0;
     const config = await args.getDeliverySettings();
     const channels: ClientNotification["channels"] = [];
     if (config.webEnabled) channels.push("web");
@@ -406,7 +428,13 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
           projectId: thread.projectId,
           ...(serverUrl === null ? {} : { serverUrl }),
           threadId: thread.id,
+          ...(hasMentions && subscription.platform === "ios"
+            ? { mentionPreview: JSON.stringify(mentionPreview) }
+            : {}),
         },
+        ...(hasMentions && subscription.platform === "ios"
+          ? { categoryId: "bb-thread-mentions" }
+          : {}),
         sound: "default",
         channelId: "threads",
         priority: "high",

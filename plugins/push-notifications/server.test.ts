@@ -369,7 +369,20 @@ describe("push sender", () => {
         title: "Follow Release / Release / Release / Release",
         body: "Done: Release and Fix login. See Unavailable thread. Keep https://bb.test/thr_abcdefghij and thr_abcdefghij.log.",
       };
-      expect(host.expo.requests[0]?.[0]).toMatchObject(expected);
+      expect(host.expo.requests[0]?.[0]).toMatchObject({
+        ...expected,
+        categoryId: "bb-thread-mentions",
+        data: {
+          mentionPreview: JSON.stringify({
+            title: [7, 17, 27, 37].map((offset) => ({ offset, length: 7 })),
+            body: [
+              { offset: 6, length: 7 },
+              { offset: 18, length: 9 },
+              { offset: 33, length: 18 },
+            ],
+          }),
+        },
+      });
       expect(host.harness.realtimeSignals[0]?.payload).toMatchObject(expected);
     } finally {
       await host.cleanup();

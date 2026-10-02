@@ -70,6 +70,7 @@
     "plugins": [
       "./plugins/with-selection-accent",
       "./plugins/with-push-consent",
+      "./plugins/with-notification-content",
       "expo-router",
       "expo-secure-store",
       "expo-image",
@@ -114,7 +115,20 @@
     },
     "extra": {
       "eas": {
-        "projectId": "3dca8cca-f48a-4c3a-ba3d-3af40e58a588"
+        "projectId": "3dca8cca-f48a-4c3a-ba3d-3af40e58a588",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "BBNotificationContent",
+                  "bundleIdentifier": "app.getbb.mobile.notification-content",
+                  "entitlements": {}
+                }
+              ]
+            }
+          }
+        }
       }
     }
   }

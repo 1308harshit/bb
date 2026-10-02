@@ -170,7 +170,7 @@ jobs:
       - name: Compute native cache key
         id: native-key
         run: |
-          echo "key=${{ runner.os }}-mobile-native-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/app.json', 'apps/mobile/package.json', 'patches/**') }}" >> "$GITHUB_OUTPUT"
+          echo "key=${{ runner.os }}-mobile-native-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/app.json', 'apps/mobile/package.json', 'apps/mobile/plugins/**', 'apps/mobile/native/**', 'patches/**') }}" >> "$GITHUB_OUTPUT"
       - name: Restore CocoaPods
         id: pods-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -333,9 +333,9 @@ jobs:
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --batteryState charged --batteryLevel 100 --wifiMode active --wifiBars 3
           for revision in before after; do
             xcrun simctl push "$SIMULATOR_UDID" app.getbb.mobile "$out/$revision.apns"
-            sleep 2
+            maestro --device "$SIMULATOR_UDID" test --test-output-dir "$out/$revision-maestro" apps/mobile/e2e/subflows/expand-notification.yaml
             xcrun simctl io "$SIMULATOR_UDID" screenshot "$out/$revision.png"
-            sleep 10
+            maestro --device "$SIMULATOR_UDID" test apps/mobile/e2e/subflows/dismiss-notification.yaml
           done
 
       - name: Collect simulator logs

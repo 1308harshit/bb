@@ -46,13 +46,14 @@ const sender = createPushSender({
   getExpoPushUrl: async () => "https://expo.test/push",
   fetch: async (_url, init) => {
     const messages = z.array(z.object({
+      categoryId: z.string().optional(),
       title: z.string(),
       body: z.string(),
       data: z.record(z.string(), z.string()),
     })).nonempty().parse(JSON.parse(init.body));
     const message = messages[0];
     await writeFile(output, JSON.stringify({
-      aps: { alert: { title: message.title, body: message.body }, sound: "default" },
+      aps: { alert: { title: message.title, body: message.body }, sound: "default", ...(message.categoryId ? { category: message.categoryId } : {}) },
       body: message.data,
     }, null, 2));
     delivered = true;
