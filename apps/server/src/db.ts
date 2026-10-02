@@ -16,7 +16,7 @@ type InitDbLogger = MigrationWarningLogger &
 
 interface InitDbOptions {
   dataDir?: string;
-  slowQueryThresholdMs?: number;
+  slowQueryThresholdMs?: number | (() => number);
   logger?: InitDbLogger;
 }
 

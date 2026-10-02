@@ -15,6 +15,7 @@ function renderSection(
       experiments={{
         changelogPreview: false,
         serverMove: false,
+        performanceDiagnostics: false,
       }}
       onExperimentChange={onExperimentChange}
     />,
@@ -22,10 +23,13 @@ function renderSection(
 }
 
 describe("ExperimentsSettingsSection", () => {
-  it("reports changelog preview changes", () => {
+  it.each([
+    ["Changelog preview", "changelogPreview"],
+    ["Server performance diagnostics", "performanceDiagnostics"],
+  ])("reports %s changes", (label, key) => {
     const onChange = vi.fn();
     renderSection(onChange);
-    fireEvent.click(screen.getByLabelText("Changelog preview"));
-    expect(onChange).toHaveBeenCalledWith("changelogPreview", true);
+    fireEvent.click(screen.getByLabelText(label));
+    expect(onChange).toHaveBeenCalledWith(key, true);
   });
 });

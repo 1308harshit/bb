@@ -30,6 +30,7 @@ const unavailableSystemConfig: SystemConfigResponse = {
   experiments: {
     changelogPreview: false,
     serverMove: false,
+    performanceDiagnostics: false,
   },
   appearance: defaultAppTheme,
   customThemes: [],

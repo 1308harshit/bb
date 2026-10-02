@@ -5,7 +5,7 @@ import { takeEventLoopWorkWindowSnapshot } from "./event-loop-work.js";
 export interface EventLoopStallMonitorOptions {
   logger: Pick<ServerLogger, "info">;
   now?: () => number;
-  thresholdMs?: number;
+  thresholdMs?: number | (() => number);
 }
 
 export interface EventLoopStallMonitor {

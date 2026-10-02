@@ -3002,7 +3002,7 @@ Usage:
   bb-app [--data-dir <path>] [--server-bind-host <host>] [--server-port <port>] [--host-daemon-port <port>] [--in-app-updates] [--bundled]
   bb-app start
 
-  --perf-diagnostics enables rolling local CPU profiles and detailed server performance logs.
+  --perf-diagnostics permits CPU profiles and detailed logs when the performanceDiagnostics experiment is also on.
   --in-app-updates lets Settings → Updates and bb updates app update and
   restart bb. bb-app then runs the newest of this package and any version
   installed by an in-app update; --bundled runs this package regardless.

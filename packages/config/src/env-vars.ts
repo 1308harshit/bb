@@ -226,7 +226,7 @@ export const BB_POSTHOG_API_KEY_ENV = defineEnvVar<string>({
 
 export const BB_PERF_DIAGNOSTICS_ENV = defineEnvVar<boolean>({
   description:
-    "Opt-in server CPU profiles and detailed performance logging. Requires restart.",
+    "Permit server performance diagnostics when the performanceDiagnostics experiment is on. Requires restart.",
   name: "BB_PERF_DIAGNOSTICS",
   parse: parseBooleanEnvValue,
 });

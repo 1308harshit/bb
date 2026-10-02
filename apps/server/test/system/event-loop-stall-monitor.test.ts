@@ -128,6 +128,22 @@ describe("event loop stall monitor", () => {
     },
   );
 
+  it("restores the normal threshold without restarting the sampler", () => {
+    installHistogram({ maxDelayMs: 150, meanDelayMs: 25, p99DelayMs: 100 });
+    const logger = { info: vi.fn() };
+    let enabled = true;
+    const monitor = startEventLoopStallMonitor({
+      logger,
+      thresholdMs: () => (enabled ? 100 : 500),
+    });
+    vi.advanceTimersByTime(EVENT_LOOP_STALL_MONITOR_INTERVAL_MS);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    enabled = false;
+    vi.advanceTimersByTime(EVENT_LOOP_STALL_MONITOR_INTERVAL_MS);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    monitor.stop();
+  });
+
   it("does not log below the threshold", () => {
     const histogram = installHistogram({
       maxDelayMs: 499,

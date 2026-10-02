@@ -1068,6 +1068,11 @@ const EXPERIMENT_DEFINITIONS: Record<
     description:
       "Show the latest release notes as a compact preview on the Updates page.",
   },
+  performanceDiagnostics: {
+    label: "Server performance diagnostics",
+    description:
+      "Collect CPU profiles and detailed performance logs while the server was launched with --perf-diagnostics. Turning this off stops collection; saved profiles remain.",
+  },
   serverMove: {
     label: "Server move",
     description:

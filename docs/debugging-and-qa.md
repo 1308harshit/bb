@@ -639,7 +639,7 @@ option. The equivalent startup setting is `BB_PERF_DIAGNOSTICS=1`; it defaults
 to false and requires a server restart. Remove the flag/setting and restart to
 turn it off. This does not enable profiling for the daemon or other servers.
 
-The mode logs database operations taking at least 25 ms, API requests taking
+When both gates are on, the mode logs database operations taking at least 25 ms, API requests taking
 at least 100 ms, and event-loop stalls of at least 100 ms. Every five seconds,
 `Server performance sample` records process and main-thread CPU time, loop
 utilization/delay, GC duration/count/max, and memory. CPU values are totals for
@@ -664,3 +664,13 @@ paths and function names; inspect before sharing. Existing logs retain their
 normal rotation policy. No request bodies or SQL bindings are added by this
 mode. A capture failure is logged and disables CPU capture for that process;
 summary logging continues. Profiles already saved remain after disabling it.
+
+Diagnostics require **both** startup permission (`--perf-diagnostics` or
+`BB_PERF_DIAGNOSTICS=1`) and the **Server performance diagnostics** toggle in
+Settings → Experiments. The experiment defaults to off. Use
+`bb settings experiment performanceDiagnostics true` to enable it, or `false`
+to stop it; SDK clients use the existing experiments update endpoint. The
+experiment takes effect live on that server. Without startup permission it
+cannot start collection. Turning it off restores normal logging thresholds,
+stops the sampler and flushes the in-flight profile; existing files remain.
+The launch flag only grants permission and still requires a restart to change.
