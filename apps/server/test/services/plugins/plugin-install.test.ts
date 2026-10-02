@@ -23,6 +23,7 @@ import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createConnection,
+  deleteInstalledPlugin,
   getInstalledPlugin,
   getInstalledPluginRegistration,
   listPluginArtifacts,
@@ -975,7 +976,7 @@ describe("plugin install flows", () => {
       await expect(stat(`${managed}@main`)).rejects.toThrowError();
     });
 
-    it("remove retains immutable git artifacts and never touches a path source", async () => {
+    it("remove deletes cached git artifacts and never touches a path source", async () => {
       const repoDir = join(workDir, "repo-rm");
       await writePluginFixture(repoDir, { name: "bb-plugin-managed" });
       await initGitRepo(repoDir);
@@ -989,7 +990,9 @@ describe("plugin install flows", () => {
       await service.install(pathDir, { kind: "root" });
 
       expect(await service.remove("managed")).toBe(true);
-      await stat(managedEntry.rootDir);
+      await expect(stat(managedEntry.rootDir)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
       await stat(join(repoDir, "package.json"));
 
       expect(await service.remove("localdir")).toBe(true);
@@ -1007,9 +1010,9 @@ describe("plugin install flows", () => {
       const source = `git:${repoDir}@main`;
 
       await service.install(source, { kind: "root" });
-      expect(await service.remove("cached-engine")).toBe(true);
-      const clonesBefore = materializationCount;
       await service.stop();
+      expect(deleteInstalledPlugin(db, "cached-engine")).toBe(true);
+      const clonesBefore = materializationCount;
 
       service = createPluginService({
         aiServices: createAiServiceRegistry(),
@@ -1592,7 +1595,7 @@ describe("plugin install flows", () => {
 
   describe.skipIf(!hasNpm)("npm sources", () => {
     it(
-      "installs a scoped package into the immutable cache and retains it on removal",
+      "installs a scoped package into the immutable cache and deletes it on removal",
       { timeout: 120_000 },
       async () => {
         const name = "@acme/bb-plugin-npmhero";
@@ -1707,8 +1710,10 @@ describe("plugin install flows", () => {
           await stat(prefix);
 
           expect(await service.remove("npmhero")).toBe(true);
-          await stat(prefix);
-          expect(listPluginArtifacts(db, "npmhero")).toHaveLength(1);
+          await expect(stat(prefix)).rejects.toMatchObject({
+            code: "ENOENT",
+          });
+          expect(listPluginArtifacts(db, "npmhero")).toEqual([]);
         } finally {
           if (previousCache === undefined) {
             delete process.env.npm_config_cache;
