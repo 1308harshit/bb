@@ -1,4 +1,5 @@
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { Session } from "node:inspector/promises";
 import { join } from "node:path";
 import {
@@ -8,7 +9,8 @@ import {
 } from "node:perf_hooks";
 
 const PROFILE_INTERVAL_MS = 30_000;
-const PROFILE_SLOTS = 10;
+const PROFILE_RETENTION_MS = 12 * 60 * 60 * 1_000;
+const MAX_RETAINED_PROFILE_BYTES = 1_000_000_000;
 const MAX_PROFILE_BYTES = 12 * 1024 * 1024;
 
 export async function startPerformanceDiagnostics(options: {
@@ -22,10 +24,40 @@ export async function startPerformanceDiagnostics(options: {
   const session = new Session();
   let profiling = false;
   let stopped = false;
-  let slot = 0;
   let profileStartedAt = new Date().toISOString();
   let rotation: Promise<void> = Promise.resolve();
   const pendingPath = join(directory, "profile.pending");
+  const pruneProfiles = async (reservedBytes: number): Promise<void> => {
+    const cutoff = Date.now() - PROFILE_RETENTION_MS;
+    const files = await readdir(directory, { withFileTypes: true });
+    const profiles = await Promise.all(
+      files
+        .filter(
+          (file) =>
+            file.isFile() &&
+            /^profile-\d+(?:-[0-9a-f-]{36})?\.cpuprofile$/.test(file.name),
+        )
+        .map(async (file) => {
+          const path = join(directory, file.name);
+          const details = await stat(path);
+          return { path, bytes: details.size, savedAt: details.mtimeMs };
+        }),
+    );
+    profiles.sort(
+      (left, right) =>
+        left.savedAt - right.savedAt || left.path.localeCompare(right.path),
+    );
+    let bytes = profiles.reduce(
+      (total, profile) => total + profile.bytes,
+      reservedBytes,
+    );
+    for (const profile of profiles) {
+      if (profile.savedAt <= cutoff || bytes > MAX_RETAINED_PROFILE_BYTES) {
+        await rm(profile.path, { force: true });
+        bytes -= profile.bytes;
+      }
+    }
+  };
   const histogram = monitorEventLoopDelay({ resolution: 10 });
   let gcDurationMs = 0;
   let gcCount = 0;
@@ -87,6 +119,8 @@ export async function startPerformanceDiagnostics(options: {
 
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 });
+    await rm(pendingPath, { force: true });
+    await pruneProfiles(0);
     session.connect();
     await session.post("Profiler.enable");
     await session.post("Profiler.setSamplingInterval", { interval: 1_000 });
@@ -96,7 +130,8 @@ export async function startPerformanceDiagnostics(options: {
       {
         directory,
         profileIntervalMs: PROFILE_INTERVAL_MS,
-        profileSlots: PROFILE_SLOTS,
+        profileRetentionMs: PROFILE_RETENTION_MS,
+        maxRetainedProfileBytes: MAX_RETAINED_PROFILE_BYTES,
         maxProfileBytes: MAX_PROFILE_BYTES,
         pid: process.pid,
       },
@@ -124,6 +159,7 @@ export async function startPerformanceDiagnostics(options: {
       }
       const contents = JSON.stringify(profile);
       const bytes = Buffer.byteLength(contents);
+      await pruneProfiles(bytes > MAX_PROFILE_BYTES ? 0 : bytes);
       if (bytes > MAX_PROFILE_BYTES) {
         options.logger.warn(
           { bytes, startedAt, endedAt },
@@ -133,11 +169,10 @@ export async function startPerformanceDiagnostics(options: {
       }
       const path = join(
         directory,
-        `profile-${String(slot).padStart(2, "0")}.cpuprofile`,
+        `profile-${Date.now()}-${randomUUID()}.cpuprofile`,
       );
       await writeFile(pendingPath, contents, { mode: 0o600 });
       await rename(pendingPath, path);
-      slot = (slot + 1) % PROFILE_SLOTS;
       options.logger.info(
         {
           path,

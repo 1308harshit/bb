@@ -648,12 +648,16 @@ delayed by a blocked loop. These measurements distinguish CPU pressure from
 elapsed-time stalls but do not prove a particular OS scheduling or I/O cause.
 
 Continuous V8 CPU sampling at 1 ms writes a `.cpuprofile` every 30 seconds to
-`$BB_DATA_DIR/logs/performance/`. Ten rotating slots retain approximately five
-minutes; each file is limited to 12 MiB (oversized captures are discarded),
-with at most one additional temporary file during replacement. Graceful
+`$BB_DATA_DIR/logs/performance/`. Profiles are retained for up to 12 hours with a total cap of 1 GB
+(1,000,000,000 bytes), deleting oldest captures first when either limit is
+reached. Each file is limited to 12 MiB (oversized captures are discarded).
+Cleanup runs when collection starts and before each save, including captures
+from previous sessions. Space for the pending file is reserved inside the
+total cap. Turning collection off leaves saved captures until collection
+starts again; their age does not reset. Graceful
 shutdown saves the partial window; a crash can lose the current window.
 `Server CPU profile saved` logs its path, PID, and UTC start/end times. Copy
-relevant files promptly before they are overwritten. Load a profile in Chrome
+relevant files before age or size retention removes them. Load a profile in Chrome
 DevTools' JavaScript profiler to inspect sampled stacks. No inspector network
 port is opened. Save records explicitly report `sampleTimeBasis: elapsed` and
 `nativeFramesMayIncludeWaiting: true`. Sampling can miss short calls and does not identify native
