@@ -252,13 +252,22 @@ function authorInitials(name: string): string {
 function AuthorAvatar({
   author,
   large = false,
+  official = false,
 }: {
   author: MarketplaceV2Entry["author"];
   large?: boolean;
+  official?: boolean;
 }) {
   const className = large
     ? "marketplace-author-avatar is-large"
     : "marketplace-author-avatar";
+  if (official) {
+    return (
+      <span className={`${className} is-official`} aria-hidden>
+        <span className="bb-mark marketplace-author-mark" />
+      </span>
+    );
+  }
   if (author.github === undefined) {
     return (
       <span className={`${className} is-fallback`} aria-hidden>
@@ -356,7 +365,10 @@ function PluginCard({
         ) : null}
         <span className="marketplace-card-meta">
           <span className="marketplace-card-author">
-            <AuthorAvatar author={entry.author} />
+            <AuthorAvatar
+              author={entry.author}
+              official={"bundled" in entry.source}
+            />
             <span>{entry.author.name}</span>
           </span>
           <InstallCount entry={entry} stats={stats} />
@@ -1005,7 +1017,10 @@ export function PublicMarketplaceDetailPage({
             <div className="marketplace-detail-attribution">
               {authorPath === undefined ? (
                 <span className="marketplace-detail-author">
-                  <AuthorAvatar author={entry.author} />
+                  <AuthorAvatar
+                    author={entry.author}
+                    official={"bundled" in entry.source}
+                  />
                   <span>{entry.author.name}</span>
                 </span>
               ) : (
@@ -1013,7 +1028,10 @@ export function PublicMarketplaceDetailPage({
                   className="marketplace-detail-author"
                   href={authorPath}
                 >
-                  <AuthorAvatar author={entry.author} />
+                  <AuthorAvatar
+                    author={entry.author}
+                    official={"bundled" in entry.source}
+                  />
                   <span>{entry.author.name}</span>
                 </MarketplaceLink>
               )}
