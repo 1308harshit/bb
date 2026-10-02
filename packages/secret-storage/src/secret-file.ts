@@ -1,5 +1,13 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  link,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 interface ReadOrCreateSecretFileArgs {
@@ -29,19 +37,24 @@ export async function readOrCreateSecretFile(
   }
 
   const generatedSecret = randomBytes(args.bytes).toString(args.encoding);
+  const tempPath = `${secretPath}.${randomBytes(12).toString("hex")}.tmp`;
+  const file = await open(tempPath, "wx", 0o600);
   try {
-    await writeFile(secretPath, `${generatedSecret}\n`, {
-      encoding: "utf8",
-      flag: "wx",
-      mode: 0o600,
-    });
-    return generatedSecret;
-  } catch (error) {
-    const errorCode =
-      error instanceof Error && "code" in error ? error.code : undefined;
-    if (errorCode !== "EEXIST") {
-      throw error;
+    await file.writeFile(`${generatedSecret}\n`, "utf8");
+    await file.close();
+    try {
+      await link(tempPath, secretPath);
+      return generatedSecret;
+    } catch (error) {
+      const errorCode =
+        error instanceof Error && "code" in error ? error.code : undefined;
+      if (errorCode !== "EEXIST") {
+        throw error;
+      }
     }
+  } finally {
+    await file.close();
+    await rm(tempPath, { force: true });
   }
 
   const racedSecret = (await readFile(secretPath, "utf8")).trim();
