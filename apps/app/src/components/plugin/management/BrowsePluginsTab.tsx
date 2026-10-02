@@ -37,7 +37,6 @@ import {
 import { PluginCategoryIcon } from "./plugin-ui";
 
 const SHELF_ENTRY_LIMIT = 6;
-const MOBILE_SHELF_ENTRY_LIMIT = 2;
 
 export function BrowsePluginsTab({
   onInstall,
@@ -151,16 +150,13 @@ export function BrowsePluginsTab({
   const shelves = useMemo(
     () =>
       shelvesMode
-        ? pluginBrowseShelves(
-            {
-              entries: (catalogQuery.data?.entries ?? []).filter(
-                (entry) => entry.compatible,
-              ),
-              collections: catalogQuery.data?.collections ?? [],
-              categories: catalogQuery.data?.categories ?? [],
-            },
-            { omitCollectionEntriesFromCategories: true },
-          )
+        ? pluginBrowseShelves({
+            entries: (catalogQuery.data?.entries ?? []).filter(
+              (entry) => entry.compatible,
+            ),
+            collections: catalogQuery.data?.collections ?? [],
+            categories: catalogQuery.data?.categories ?? [],
+          })
         : [],
     [catalogQuery.data, shelvesMode],
   );
@@ -378,13 +374,12 @@ function BrowseShelf({
         )
       }
       browseAction={
-        shelf.totalCount >
-        Math.min(shelf.entries.length, MOBILE_SHELF_ENTRY_LIMIT) ? (
+        shelf.entries.length > 2 ? (
           <ResourceShelfAction
             asChild
             className={cn(
               "underline underline-offset-4",
-              shelf.totalCount <= visible.length && "sm:hidden",
+              shelf.entries.length <= SHELF_ENTRY_LIMIT && "sm:hidden",
             )}
           >
             <Link

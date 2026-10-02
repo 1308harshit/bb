@@ -194,7 +194,7 @@ describe("BrowsePluginsTab", () => {
     );
   });
 
-  it("shows collection shelves before category shelves without repeating their plugins", async () => {
+  it("shows collection shelves before category shelves", async () => {
     renderBrowse({
       entries: [
         {
@@ -220,11 +220,13 @@ describe("BrowsePluginsTab", () => {
     const labels = [
       ...document.querySelectorAll("[data-testid='plugin-browse-shelves'] h2"),
     ].map((heading) => heading.textContent);
-    expect(labels).toEqual(["New & notable", "Security"]);
-    expect(screen.getAllByText("Memory")).toHaveLength(1);
-    expect(
-      screen.queryByRole("link", { name: "See all Security" }),
-    ).toBeNull();
+    expect(labels).toEqual([
+      "New & notable",
+      "Memory & Context",
+      "Security",
+      "Tasks & Workflows",
+    ]);
+    expect(screen.getAllByText("Memory")).toHaveLength(2);
     expect(screen.queryByText("BB Official plugins")).toBeNull();
   });
 

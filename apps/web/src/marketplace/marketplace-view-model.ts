@@ -43,7 +43,6 @@ export function resolveMarketplaceCategory(
 export function marketplaceShelves(
   manifest: MarketplaceV2Manifest,
   entries: readonly MarketplaceV2Entry[] = manifest.plugins,
-  { omitCollectionEntriesFromCategories = false } = {},
 ): MarketplaceShelf[] {
   const visibleById = new Map(entries.map((entry) => [entry.id, entry]));
   const collectionShelves = manifest.collections.flatMap((collection) => {
@@ -62,19 +61,11 @@ export function marketplaceShelves(
           },
         ];
   });
-  const collectionMembers = new Set(
-    omitCollectionEntriesFromCategories
-      ? collectionShelves.flatMap((shelf) => shelf.entries)
-      : [],
-  );
-  const categorizedEntries = entries.filter(
-    (entry) => !collectionMembers.has(entry),
-  );
   const categoryIds = new Set(
     manifest.categories.map((category) => category.id),
   );
   const categoryShelves = manifest.categories.flatMap((category) => {
-    const categoryEntries = categorizedEntries.filter(
+    const categoryEntries = entries.filter(
       (entry) => entry.category === category.id,
     );
     return categoryEntries.length === 0
@@ -89,7 +80,7 @@ export function marketplaceShelves(
           },
         ];
   });
-  const uncategorizedEntries = categorizedEntries.filter(
+  const uncategorizedEntries = entries.filter(
     (entry) => entry.category === undefined || !categoryIds.has(entry.category),
   );
   const uncategorizedShelves: MarketplaceShelf[] =

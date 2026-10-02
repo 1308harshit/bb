@@ -19,7 +19,6 @@ export interface PluginBrowseShelf {
   label: string;
   description?: string;
   entries: PluginCatalogSearchEntry[];
-  totalCount: number;
   kind: "collection" | "category" | "uncategorized";
 }
 
@@ -106,7 +105,6 @@ function collectionEntries(
 
 export function pluginBrowseShelves(
   { entries, collections, categories }: PluginCatalogSearchData,
-  { omitCollectionEntriesFromCategories = false } = {},
 ): PluginBrowseShelf[] {
   const knownCategories = orderedCategories(categories);
   const shelves: PluginBrowseShelf[] = collections.flatMap((collection) => {
@@ -118,18 +116,11 @@ export function pluginBrowseShelves(
             key: `collection:${collection.id}`,
             label: collection.displayName,
             entries: shelfEntries,
-            totalCount: shelfEntries.length,
             kind: "collection" as const,
           },
         ];
   });
-  const collectionMembers = new Set(
-    omitCollectionEntriesFromCategories
-      ? shelves.flatMap((shelf) => shelf.entries)
-      : [],
-  );
   const entriesByCategory = new Map<string, PluginCatalogSearchEntry[]>();
-  const categoryTotals = new Map<string, number>();
   const categoryLabels = new Map<string, string>();
   const unknownCategoryOrder: string[] = [];
   for (const entry of entries) {
@@ -137,8 +128,6 @@ export function pluginBrowseShelves(
     const categoryId = entry.categoryId;
     const categoryLabel = entry.category;
     if (categoryId === undefined || categoryLabel === undefined) continue;
-    categoryTotals.set(categoryId, (categoryTotals.get(categoryId) ?? 0) + 1);
-    if (collectionMembers.has(entry)) continue;
     const categoryEntries = entriesByCategory.get(categoryId);
     if (categoryEntries === undefined) {
       entriesByCategory.set(categoryId, [entry]);
@@ -166,23 +155,16 @@ export function pluginBrowseShelves(
         ? {}
         : { description: knownCategory.description }),
       entries: shelfEntries,
-      totalCount: categoryTotals.get(categoryId) ?? shelfEntries.length,
       kind: "category",
     });
   }
-  const allUncategorizedEntries = entries.filter(
-    (entry) => !isCategorized(entry),
-  );
-  const uncategorizedEntries = allUncategorizedEntries.filter(
-    (entry) => !collectionMembers.has(entry),
-  );
+  const uncategorizedEntries = entries.filter((entry) => !isCategorized(entry));
   if (uncategorizedEntries.length > 0) {
     shelves.push({
       key: "category:uncategorized",
       categoryId: UNCATEGORIZED_PLUGIN_CATEGORY_ID,
       label: "More plugins",
       entries: uncategorizedEntries,
-      totalCount: allUncategorizedEntries.length,
       kind: "uncategorized",
     });
   }

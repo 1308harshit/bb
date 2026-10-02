@@ -151,7 +151,7 @@ describe("plugin browse shelves", () => {
     expect(shelves[0]?.entries).toEqual([first]);
   });
 
-  it("follows the catalog category order and can omit collection members from category shelves", () => {
+  it("follows the catalog category order", () => {
     const featured = entry("featured", {
       categoryId: "themes-and-appearance",
       category: "Themes & Appearance",
@@ -200,20 +200,6 @@ describe("plugin browse shelves", () => {
       ["Thread Content", ["thread"]],
       ["Themes & Appearance", ["featured", "theme"]],
     ]);
-    expect(
-      summarize(
-        pluginBrowseShelves(data, { omitCollectionEntriesFromCategories: true }),
-      ),
-    ).toEqual([
-      ["New & notable", ["featured"]],
-      ["Security", ["security"]],
-      ["Thread Content", ["thread"]],
-      ["Themes & Appearance", ["theme"]],
-    ]);
-    expect(
-      pluginBrowseShelves(data, { omitCollectionEntriesFromCategories: true })
-        .find((shelf) => shelf.label === "Themes & Appearance")?.totalCount,
-    ).toBe(2);
   });
 });
 
