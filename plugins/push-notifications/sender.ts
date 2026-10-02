@@ -347,7 +347,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       text.replace(
         THREAD_REFERENCE_PATTERN,
         (_match, threadId: string) =>
-          `@${truncate(labels.get(threadId) || "Unavailable thread", THREAD_MENTION_MAX_LENGTH)}`,
+          `“${truncate(labels.get(threadId) || "Unavailable thread", THREAD_MENTION_MAX_LENGTH)}”`,
       ),
     );
   }
