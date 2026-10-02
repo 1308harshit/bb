@@ -139,7 +139,15 @@ export async function startPerformanceDiagnostics(options: {
       await rename(pendingPath, path);
       slot = (slot + 1) % PROFILE_SLOTS;
       options.logger.info(
-        { path, bytes, startedAt, endedAt, pid: process.pid },
+        {
+          path,
+          bytes,
+          startedAt,
+          endedAt,
+          pid: process.pid,
+          sampleTimeBasis: "elapsed",
+          nativeFramesMayIncludeWaiting: true,
+        },
         "Server CPU profile saved",
       );
     } catch (error) {

@@ -655,7 +655,8 @@ shutdown saves the partial window; a crash can lose the current window.
 `Server CPU profile saved` logs its path, PID, and UTC start/end times. Copy
 relevant files promptly before they are overwritten. Load a profile in Chrome
 DevTools' JavaScript profiler to inspect sampled stacks. No inspector network
-port is opened. Sampling can miss short calls and does not identify native
+port is opened. Save records explicitly report `sampleTimeBasis: elapsed` and
+`nativeFramesMayIncludeWaiting: true`. Sampling can miss short calls and does not identify native
 I/O waits precisely.
 
 Profiling, serialization, and extra logging add overhead, so leave this off
@@ -680,9 +681,10 @@ The launch flag only grants permission and still requires a restart to change.
 1. Record the affected request path and approximate UTC time. Find its
    `Slow API request` and nearby `Event loop stalled` records. For timelines,
    match the thread ID to `Thread timeline build blocked the event loop` and
-   inspect the stage timings. `currentWork` can name an unrelated asynchronous
-   long poll; it is not proof of what blocked the loop. Compare `slowestWork`
-   and the profile stacks instead.
+   inspect the stage timings. `inFlightWorkAtObservation` can name an unrelated asynchronous
+   long poll; it is not proof of what blocked the loop. Compare `longestSynchronousWork`
+   and its `longestSynchronousWorkWallMs` / `longestSynchronousWorkCpuMs`
+   measurements with the profile stacks instead.
 2. Find the `Server CPU profile saved` interval covering that time and PID.
    Copy the file before rotation overwrites it. In the JavaScript profiler,
    select the affected time window and inspect the bottom-up view and caller
