@@ -78,7 +78,13 @@ export function MicrophonePreferences({
         >
           <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="font-medium">Live preview</span>
-            <span>{stream ? "Listening" : "Connecting…"}</span>
+            <span>
+              {error || !isSupported
+                ? "Unavailable"
+                : stream
+                  ? "Listening"
+                  : "Connecting…"}
+            </span>
           </div>
           <WaveformVisualizer
             stream={stream}
