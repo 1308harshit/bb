@@ -1013,6 +1013,53 @@ describe("slow query index plans", () => {
     db.$client.close();
   });
 
+  it.each([
+    ["agentMessage", "item/agentMessage/delta"],
+    ["reasoning", "item/reasoning/textDelta"],
+  ] as const)(
+    "does not parse %s completion payloads for retention support",
+    (itemKind, deltaType) => {
+      const { db, thread } = setup();
+      try {
+        insertEvents(
+          db,
+          noopNotifier,
+          [1, 2, 3].map((sequence) => ({
+            data: "{}",
+            itemId: "item",
+            itemKind: sequence === 3 ? itemKind : null,
+            parentToolCallId: null,
+            scope: turnScope("support-turn"),
+            sequence,
+            threadId: thread.id,
+            type: sequence === 3 ? "item/completed" : deltaType,
+          })),
+        );
+        const statements = captureStatements(db, () => {
+          expect(advanceThreadPruning(db, "resolved-items").removed).toBe(1);
+        });
+        const supportQueries = statements.filter((statement) =>
+          statement.sql.includes(
+            "FROM events INDEXED BY events_thread_turn_type_item_sequence_idx",
+          ),
+        );
+        expect(supportQueries.length).toBeGreaterThan(0);
+        for (const statement of supportQueries) {
+          const instructions = db.$client
+            .prepare<SqliteParameter[], { p4: string | null }>(
+              `EXPLAIN ${statement.sql}`,
+            )
+            .all(...statement.params);
+          expect(instructions.some((row) => row.p4?.startsWith("json_"))).toBe(
+            false,
+          );
+        }
+      } finally {
+        db.$client.close();
+      }
+    },
+  );
+
   it("uses the active-thread maintenance index for emitted idle checks", () => {
     const { db, logger } = setup();
     logger.clear();
