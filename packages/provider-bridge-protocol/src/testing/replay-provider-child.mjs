@@ -65,7 +65,7 @@ const EMIT_GAP_MS = 2;
 const RESPONSE_GAP_MS = 50;
 /** A request that opens or addresses a provider session; see segment release. */
 const SESSION_DEFINING_KEY =
-  /^(thread|session)\/(start|resume|fork|new|load|archive|unarchive|name\/set)$/;
+  /^((thread|session)\/(start|resume|fork|new|load|archive|unarchive|name\/set)|prompt|compact|fork_session|get_available_models)$/;
 
 /**
  * Only the replay flags are read; anything else on argv (the Agent SDK's
@@ -369,6 +369,20 @@ function main() {
     ...readLane(args.recording, "provider→bridge"),
     ...readLane(args.recording, "bridge→provider"),
   ].sort((left, right) => left.run - right.run || left.seq - right.seq);
+  const piCatalogModels = [
+    ...new Map(
+      entries.flatMap((entry) => {
+        if (args.dialect !== "pi-rpc" || entry.dir !== "provider→bridge") return [];
+        const data = parseLine(entry.line)?.data;
+        if (data === null || typeof data !== "object") return [];
+        return [data.model, ...(Array.isArray(data.models) ? data.models : [])]
+          .filter((model) =>
+            model !== null && typeof model === "object" &&
+            typeof model.provider === "string" && typeof model.id === "string")
+          .map((model) => [`${model.provider}/${model.id}`, model]);
+      }),
+    ).values(),
+  ];
   const segments = buildSegments(entries, dialect);
   const segmentIndex = claimSegmentIndex(args.state);
   let script = segments[segmentIndex] ?? [];
@@ -557,7 +571,15 @@ function main() {
   function answerGenerically(live, reason) {
     if (live.classified.kind === "request") {
       log(`${reason}: answering ${live.classified.key} (${String(live.classified.id)}) generically`);
-      emit(dialect.genericResponse(live.classified.id, live.classified));
+      emit(args.dialect === "pi-rpc" && live.classified.key === "get_available_models"
+        ? {
+            id: live.classified.id,
+            type: "response",
+            command: "get_available_models",
+            success: true,
+            data: { models: piCatalogModels },
+          }
+        : dialect.genericResponse(live.classified.id, live.classified));
     } else {
       log(`${reason}: dropping unmatched ${live.classified.kind} ${live.classified.key}`);
     }
