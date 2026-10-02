@@ -216,7 +216,9 @@ describe("previewed command output", () => {
     };
     const view = renderExpandedRow(row);
 
-    expect(view.container.textContent).toContain(PREVIEW_OUTPUT);
+    await waitFor(() => {
+      expect(view.container.textContent).toContain(PREVIEW_OUTPUT);
+    });
     expect(
       screen.getByTestId("timeline-output-preview-note").textContent,
     ).toContain("retention period ended");
