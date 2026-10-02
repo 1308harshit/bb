@@ -768,6 +768,9 @@ describe("PromptBoxInternal composer popups", () => {
     await waitForPromptFocus();
     await openPopupFromMenu();
     const saved = await screen.findByRole("dialog", { name: "Saved prompts" });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(saved).getByRole("textbox")),
+    );
     fireEvent.click(
       within(saved).getByRole("button", { name: "Open recent files" }),
     );
@@ -779,8 +782,15 @@ describe("PromptBoxInternal composer popups", () => {
     fireEvent.click(
       within(recent).getByRole("button", { name: "Open saved prompts" }),
     );
-    await screen.findByRole("dialog", { name: "Saved prompts" });
+    const reopened = await screen.findByRole("dialog", {
+      name: "Saved prompts",
+    });
     expect(screen.queryByRole("dialog", { name: "Recent files" })).toBeNull();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(reopened).getByRole("textbox"),
+      ),
+    );
   });
 
   it("replaces suggestions and keeps their trigger dismissed through popup focus transfer", async () => {
