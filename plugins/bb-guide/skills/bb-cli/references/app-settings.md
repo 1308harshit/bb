@@ -273,7 +273,7 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 ## Thread naming prompt
 
-Settings → AI services → Thread naming prompt customizes instructions for new
+Settings → AI services → Thread titles → Prompt customizes instructions for new
 automatic thread titles, server-wide. Save before using the Thread titles Test
 action. bb adds the task text and invoked commands automatically; write naming
 instructions without template variables. Titles remain limited to 48 display
@@ -290,7 +290,7 @@ still uses the start of the task instead.
 
 ## Commit message prompt
 
-Settings → AI services → Commit message prompt customizes generated commit
+Settings → AI services → Commit messages → Prompt customizes generated commit
 subjects server-wide, including the Commit messages Test action. bb supplies the
 changed files, diff summary, and patch automatically; no template variables are
 needed. Save before testing. Output remains a single subject line of up to 72

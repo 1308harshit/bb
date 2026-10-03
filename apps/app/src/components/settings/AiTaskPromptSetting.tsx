@@ -8,7 +8,10 @@ import {
 } from "@bb/domain";
 import { Button } from "@bb/shared-ui/button";
 import { Textarea } from "@bb/shared-ui/textarea";
-import { SettingsWithControl } from "@/components/ui/settings-section";
+import {
+  ExpandablePanel,
+  getCollapsibleHeaderToneClass,
+} from "@/components/ui/disclosure";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 
@@ -21,9 +24,11 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
   const label = isTitle ? "Thread naming prompt" : "Commit message prompt";
   const settings = useSystemConfig().data?.generalSettings;
   const update = useUpdateGeneralSettings();
+  const [isExpanded, setIsExpanded] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const saved = settings?.[settingKey] ?? defaultPrompt;
   const value = draft ?? saved;
+  const dirty = value.trim() !== saved;
   const disabled = settings === undefined || update.isPending;
 
   useEffect(() => {
@@ -39,16 +44,34 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
   }
 
   return (
-    <SettingsWithControl
-      label={label}
-      description={
-        isTitle
-          ? "Instructions for naming new threads across this server. bb adds the task text automatically and limits titles to 48 columns. Save, then use Test above to try it."
-          : "Instructions for commit messages across this server. bb adds the changed files and diff automatically and keeps a single subject line up to 72 columns. Save, then use Test above to try it."
+    <ExpandablePanel
+      isExpanded={isExpanded}
+      onToggle={() => setIsExpanded((expanded) => !expanded)}
+      headerToneClass={getCollapsibleHeaderToneClass(isExpanded)}
+      forceHeaderChevronVisible
+      headerClassName="px-0 text-xs"
+      contentClassName="px-0 pb-0 pt-2"
+      summaryContentClassName="flex min-w-0 items-center gap-2"
+      summaryContent={
+        <>
+          <span>
+            <span className="sr-only">
+              {isTitle ? "Thread naming " : "Commit message "}
+            </span>
+            Prompt
+          </span>
+          <span className="text-subtle-foreground/75">
+            {dirty ? "Unsaved" : settings?.[settingKey] ? "Custom" : "Default"}
+          </span>
+        </>
       }
-      controlPlacement="below"
     >
-      <div role="group" aria-label={label} className="space-y-2">
+      <div role="group" aria-label={label} className="space-y-3">
+        <p className="text-xs leading-snug text-subtle-foreground/75">
+          {isTitle
+            ? "Set the language and style for new titles. Task context is added automatically."
+            : "Set the language and style for commit subjects. The diff is added automatically."}
+        </p>
         <Textarea
           aria-label={label}
           value={value}
@@ -61,14 +84,7 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
           }
           disabled={disabled}
         />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            disabled={disabled || !value.trim() || value.trim() === saved}
-            onClick={() => save(value.trim())}
-          >
-            {update.isPending ? "Saving…" : "Save"}
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             size="sm"
             variant="ghost"
@@ -79,8 +95,28 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
           >
             Reset to default
           </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={update.isPending}
+              onClick={() => {
+                setDraft(null);
+                setIsExpanded(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={disabled || !value.trim() || !dirty}
+              onClick={() => save(value.trim())}
+            >
+              {update.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
         </div>
       </div>
-    </SettingsWithControl>
+    </ExpandablePanel>
   );
 }

@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AiServiceSelection, AiTask, AiTextTask } from "@bb/domain";
 import type {
@@ -205,13 +205,16 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose which plugin writes thread titles, commit messages, and voice transcripts. Automatic tries bb cloud first, then other services by plugin ID; a service you pick is never swapped for another."
+      description="Choose a service for each task. Customize prompts to match your language and style."
     >
-      <div className="space-y-5">
+      <div className="divide-y divide-border">
         {AI_TASK_ROWS.map((row) => {
           if (view === undefined) {
             return (
-              <Fragment key={row.task}>
+              <div
+                key={row.task}
+                className="space-y-2 py-4 first:pt-0 last:pb-0"
+              >
                 <ChoiceDropdownSetting
                   label={row.label}
                   description={row.hint}
@@ -221,7 +224,7 @@ export function AiServicesSettingsSection() {
                   onSelect={() => undefined}
                   disabled
                 />
-              </Fragment>
+              </div>
             );
           }
           const options = aiTaskOptions(view, row);
@@ -232,7 +235,7 @@ export function AiServicesSettingsSection() {
           };
           const testTask = row.testTask;
           return (
-            <Fragment key={row.task}>
+            <div key={row.task} className="space-y-2 py-4 first:pt-0 last:pb-0">
               <ChoiceDropdownSetting
                 label={row.label}
                 description={rowDescription(
@@ -270,7 +273,7 @@ export function AiServicesSettingsSection() {
                 )}
               </ChoiceDropdownSetting>
               {testTask !== null && <AiTaskPromptSetting task={testTask} />}
-            </Fragment>
+            </div>
           );
         })}
       </div>

@@ -194,17 +194,44 @@ describe("AiServicesSettingsSection", () => {
       const requests = stubFetch();
       const { wrapper } = createQueryClientTestHarness();
       render(<AiServicesSettingsSection />, { wrapper });
-      const editor = await screen.findByRole("textbox", {
-        name: label,
+      const disclosure = await screen.findByRole("button", {
+        name: new RegExp(label, "i"),
       });
-      const controls = within(screen.getByRole("group", { name: label }));
+      fireEvent.click(disclosure);
+      const draftEditor = await screen.findByRole("textbox", { name: label });
+      if (!(draftEditor instanceof HTMLTextAreaElement))
+        throw new Error("Expected prompt textarea");
+      await vi.waitFor(() => expect(draftEditor.disabled).toBe(false));
+      fireEvent.change(draftEditor, {
+        target: { value: "Unsaved instructions" },
+      });
+      fireEvent.click(disclosure);
+      await vi.waitFor(() =>
+        expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
+      );
+      fireEvent.click(disclosure);
+      const resumed = await screen.findByRole("textbox", { name: label });
+      if (!(resumed instanceof HTMLTextAreaElement))
+        throw new Error("Expected prompt textarea");
+      expect(resumed.value).toBe("Unsaved instructions");
+      fireEvent.click(
+        within(screen.getByRole("group", { name: label })).getByRole("button", {
+          name: "Cancel",
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
+      );
+      fireEvent.click(disclosure);
+      const editor = await screen.findByRole("textbox", { name: label });
       if (!(editor instanceof HTMLTextAreaElement))
-        throw new Error("Expected the naming prompt textarea");
-      await vi.waitFor(() => expect(editor.disabled).toBe(false));
+        throw new Error("Expected prompt textarea");
+      const controls = within(screen.getByRole("group", { name: label }));
+      expect(editor.value).toBe(defaultPrompt);
       fireEvent.change(editor, {
         target: { value: "Write titles in French." },
       });
-      fireEvent.click(controls.getByRole("button", { name: "Save" }));
+      fireEvent.click(controls.getByRole("button", { name: "Save changes" }));
       await vi.waitFor(() => {
         const put = requests.find(
           (request) => request.url === "/api/v1/settings/general",
@@ -214,7 +241,7 @@ describe("AiServicesSettingsSection", () => {
         );
         expect(
           controls
-            .getByRole("button", { name: "Save" })
+            .getByRole("button", { name: "Save changes" })
             .hasAttribute("disabled"),
         ).toBe(true);
       });
