@@ -703,7 +703,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginSettingsSectionRegistration",
         ],
         firstParty: [
-          "Account Pooler [Experimental]",
+          "Account Pooler",
           "Keep Awake",
           "Memory",
           "bb connect",
