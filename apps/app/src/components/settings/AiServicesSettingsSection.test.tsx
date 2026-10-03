@@ -174,7 +174,7 @@ describe("AiServicesSettingsSection", () => {
     const editor = await screen.findByRole("textbox", {
       name: "Thread naming prompt",
     });
-    await vi.waitFor(() => expect(editor).not.toBeDisabled());
+    await vi.waitFor(() => expect(editor.hasAttribute("disabled")).toBe(false));
     fireEvent.change(editor, { target: { value: "Write titles in French." } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await vi.waitFor(() => {
@@ -184,11 +184,15 @@ describe("AiServicesSettingsSection", () => {
       expect(JSON.parse(put?.body ?? "null").threadNamingPrompt).toBe(
         "Write titles in French.",
       );
-      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Save" }).hasAttribute("disabled"),
+      ).toBe(true);
     });
     fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
     await vi.waitFor(() =>
-      expect(editor).toHaveValue(DEFAULT_THREAD_NAMING_PROMPT),
+      expect(screen.getByDisplayValue(DEFAULT_THREAD_NAMING_PROMPT)).toBe(
+        editor,
+      ),
     );
     const writes = requests.filter(
       (request) => request.url === "/api/v1/settings/general",
