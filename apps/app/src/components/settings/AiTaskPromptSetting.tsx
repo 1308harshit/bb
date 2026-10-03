@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DEFAULT_THREAD_NAMING_PROMPT,
   DEFAULT_COMMIT_MESSAGE_PROMPT,
@@ -26,11 +26,15 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
   const value = draft ?? saved;
   const disabled = settings === undefined || update.isPending;
 
+  useEffect(() => {
+    if (draft === saved) setDraft(null);
+  }, [draft, saved]);
+
   function save(prompt: string | null) {
     if (settings === undefined) return;
     update.mutate(
       { ...settings, [settingKey]: prompt },
-      { onSuccess: () => setDraft(null) },
+      { onSuccess: () => setDraft(prompt ?? defaultPrompt) },
     );
   }
 
