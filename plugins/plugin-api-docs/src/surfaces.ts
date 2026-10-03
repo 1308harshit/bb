@@ -764,8 +764,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "thread-plugin-metadata",
           "desktop-browsers",
           "ai-services",
-          "host-components",
           "plugin-experimental-status",
+          "host-components",
         ],
       },
       {
