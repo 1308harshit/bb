@@ -205,10 +205,6 @@ describe("groupAgentExchanges", () => {
       "group(u1,t1,a1,u2,t2,a2)",
       "end",
     ]);
-    const group = entries[1];
-    expect(group?.kind === "agent-exchanges" && group.group.exchangeCount).toBe(
-      2,
-    );
   });
 
   it("leaves a single exchange ungrouped", () => {

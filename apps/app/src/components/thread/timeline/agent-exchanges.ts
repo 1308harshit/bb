@@ -1,6 +1,6 @@
 import type { ThreadTimelineViewRow } from "@bb/thread-view";
 
-export const MIN_COLLAPSED_AGENT_EXCHANGES = 2;
+const MIN_COLLAPSED_AGENT_EXCHANGES = 2;
 
 export type IsExcludedAgentSender = (senderThreadId: string) => boolean;
 
@@ -11,7 +11,6 @@ type AgentMessageRow = Extract<
 
 export interface AgentExchangeGroup {
   id: string;
-  exchangeCount: number;
   rows: readonly ThreadTimelineViewRow[];
 }
 
@@ -31,7 +30,7 @@ interface GroupAgentExchangesArgs {
   rows: readonly ThreadTimelineViewRow[];
 }
 
-export function isAgentMessageRow(
+function isAgentMessageRow(
   row: ThreadTimelineViewRow,
   isExcludedSender: IsExcludedAgentSender,
 ): row is AgentMessageRow {
@@ -138,7 +137,6 @@ function toAgentExchangeGroup(
   }
   return {
     id: `agent-exchanges:${firstRow.id}`,
-    exchangeCount: exchanges.length,
     rows,
   };
 }

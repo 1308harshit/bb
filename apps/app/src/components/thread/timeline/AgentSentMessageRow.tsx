@@ -90,11 +90,11 @@ export function AgentSentMessageRow({
         agentDirection="sent-message"
         text={tell.message ?? ""}
       />
-      {reply?.reply ? (
+      {reply !== null ? (
         <GeneratedConversationMessage
           {...sharedProps}
           agentDirection="received-reply"
-          text={reply.reply.text}
+          text={reply.text}
         />
       ) : null}
     </div>

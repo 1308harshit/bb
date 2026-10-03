@@ -71,8 +71,7 @@ describe("findAgentSentMessageReply", () => {
       sentAt: 9_000,
     });
 
-    expect(result?.receivedMessageRowId).toBe("m3");
-    expect(result?.reply?.id).toBe("r3");
+    expect(result?.id).toBe("r3");
   });
 
   it("falls back to the next message from this sender when text is unknown", () => {
@@ -83,7 +82,7 @@ describe("findAgentSentMessageReply", () => {
       sentAt: 900,
     });
 
-    expect(result?.reply?.id).toBe("r1b");
+    expect(result?.id).toBe("r1b");
   });
 
   it("returns no reply while the recipient has not answered", () => {
@@ -94,7 +93,7 @@ describe("findAgentSentMessageReply", () => {
       sentAt: 19_000,
     });
 
-    expect(result).toEqual({ reply: null, receivedMessageRowId: "m9" });
+    expect(result).toBeNull();
   });
 
   it("ignores messages from other senders", () => {

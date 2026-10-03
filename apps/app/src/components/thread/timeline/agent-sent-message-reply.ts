@@ -20,11 +20,6 @@ interface FindAgentSentMessageReplyArgs {
   sentAt: number;
 }
 
-export interface AgentSentMessageReply {
-  reply: AssistantConversationRow | null;
-  receivedMessageRowId: string;
-}
-
 function normalizeMessageText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
@@ -74,22 +69,20 @@ function findReceivedMessage({
 
 export function findAgentSentMessageReply(
   args: FindAgentSentMessageReplyArgs,
-): AgentSentMessageReply | null {
+): AssistantConversationRow | null {
   const received = findReceivedMessage(args);
-  if (received === null) {
+  if (received === null || received.turnId === null) {
     return null;
   }
   let reply: AssistantConversationRow | null = null;
-  if (received.turnId !== null) {
-    for (const row of args.recipientRows) {
-      if (
-        row.kind === "conversation" &&
-        row.role === "assistant" &&
-        row.turnId === received.turnId
-      ) {
-        reply = row;
-      }
+  for (const row of args.recipientRows) {
+    if (
+      row.kind === "conversation" &&
+      row.role === "assistant" &&
+      row.turnId === received.turnId
+    ) {
+      reply = row;
     }
   }
-  return { reply, receivedMessageRowId: received.id };
+  return reply;
 }
