@@ -117,6 +117,7 @@ function threadEventsOfType(type: string): Record<string, unknown>[] {
 }
 
 const bbThreadIdByProviderThreadId = new Map<string, string>();
+const permissionsByProviderThreadId = new Map<string, Record<string, unknown>>();
 
 function bbThreadIdFor(providerThreadId: string): string {
   const recorded = bbThreadIdByProviderThreadId.get(providerThreadId);
@@ -291,6 +292,11 @@ async function startThread(args?: StartThreadArgs): Promise<{
   }
   startedProviderThreadIds.push(result.providerThreadId);
   bbThreadIdByProviderThreadId.set(result.providerThreadId, bbThreadId);
+  permissionsByProviderThreadId.set(result.providerThreadId, executionOptions({
+    permissionMode: args?.permissionMode,
+    permissionEscalation: args?.permissionEscalation,
+    providerOptions: { additionalWorkspaceWriteRoots: args?.additionalWorkspaceWriteRoots ?? [] },
+  }));
   return { bbThreadId, providerThreadId: result.providerThreadId };
 }
 
@@ -414,7 +420,7 @@ function sendTurnRequest(
     threadId: bbThreadIdFor(providerThreadId),
     providerThreadId,
     clientRequestId: CLIENT_REQUEST_ID,
-    options: executionOptions({}),
+    options: permissionsByProviderThreadId.get(providerThreadId) ?? executionOptions({}),
     ...params,
   });
 }
@@ -585,6 +591,7 @@ async function waitForAgentExit(readyFile: string): Promise<void> {
 
 beforeEach(() => {
   bbThreadIdByProviderThreadId.clear();
+  permissionsByProviderThreadId.clear();
   workspaceDir = mkdtempSync(join(tmpdir(), "bb-acp-bridge-test-"));
   output = captureBridgeJsonRpcOutput();
 });
@@ -2160,7 +2167,7 @@ describe("acp bridge", () => {
       const { providerThreadId } = await startThread({
         permissionMode: "full",
         envVars: { FAKE_ACP_LOAD_SESSION: "1" },
-        permissionCli: { full: ["--always-approve"] },
+        permissionCli: { full: ["--always-approve"], insertAfterArgs: 1 },
       });
       if (method === "turn/steer") {
         await waitForResponse(sendTurnRequest("turn/start", providerThreadId, {
