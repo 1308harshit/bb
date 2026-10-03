@@ -47,7 +47,7 @@ export const BUILTIN_PLUGINS = [
   {
     name: "agent-messages",
     pluginId: "bb--agent-messages",
-    defaultEnabled: true,
+    defaultEnabled: false,
   },
   {
     name: "ask-user-question",
