@@ -66,6 +66,24 @@ describe("buildBridgeMcpServer", () => {
     await client.close();
   });
 
+  it("asks Claude Code to load every bb tool instead of deferring it", async () => {
+    const server = buildBridgeMcpServer(
+      [
+        {
+          name: "bb_thread_message",
+          description: "Message another thread.",
+          inputSchema: { type: "object" },
+        },
+      ],
+      async () => ({ content: "unused" }),
+    );
+    const client = await connect(server);
+
+    const listed = await client.listTools();
+    expect(listed.tools[0]?._meta).toEqual({ "anthropic/alwaysLoad": true });
+    await client.close();
+  });
+
   it("forwards tool calls with raw arguments and reports errors", async () => {
     const calls: Array<{ toolName: string; args: Record<string, unknown> }> =
       [];
