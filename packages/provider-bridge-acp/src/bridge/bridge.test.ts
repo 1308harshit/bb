@@ -2439,6 +2439,7 @@ describe("acp bridge", () => {
           permissionScope: "workspace",
           approvalReviewer: "user",
           permissionEscalation: "ask",
+          providerOptions: { additionalWorkspaceWriteRoots: [outsideDir] },
         },
       });
       await waitForResponse(turnId);
