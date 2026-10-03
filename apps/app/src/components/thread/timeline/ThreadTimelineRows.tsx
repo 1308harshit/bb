@@ -31,6 +31,7 @@ import {
   buildTimelineViewRows,
   createTimelineViewRowsCache,
   findActiveLatestBundleId,
+  parseAgentMessageToolCall,
   workRowGlyph,
   workRowPluginGlyph,
   workRowPresentation,
@@ -117,6 +118,7 @@ import {
   useArmTopLevelTimelineRowContainment,
 } from "./timeline-row-containment.js";
 import { NESTED_TIMELINE_GROUP_LINE_CLASS_NAME } from "./timeline-nested-group-line.js";
+import { SentAgentMessage } from "./SentAgentMessage.js";
 import { useThreadTimelineTurnSummaryDetails } from "@/hooks/queries/thread-queries";
 import { type ThreadTimelineTurnSummaryDetailsQueryIdentity } from "@/hooks/queries/query-keys";
 import {
@@ -1441,7 +1443,9 @@ function TimelineRowView({
   spacing,
 }: TimelineRowViewProps) {
   const horizontalPadding = timelineRowHorizontalPadding(spacing);
-  const { onTitleAction } = useTimelineRendererStaticContext();
+  const staticContext = useTimelineRendererStaticContext();
+  const { onTitleAction } = staticContext;
+  const senderThreadMetadataById = useSenderThreadMetadataContext();
   const titleState = useTimelineRowTitleRenderState({
     activeLatestBundleId,
     compactActivityIntents,
@@ -1479,6 +1483,23 @@ function TimelineRowView({
       <ConversationRow
         row={row}
         showAssistantMessageActions={showAssistantMessageActions}
+      />
+    );
+  }
+
+  const sentAgentMessage =
+    row.kind === "work" && row.workKind === "tool" && row.status === "completed"
+      ? parseAgentMessageToolCall(row)
+      : null;
+  if (sentAgentMessage !== null) {
+    return (
+      <SentAgentMessage
+        links={staticContext}
+        message={sentAgentMessage}
+        recipient={
+          senderThreadMetadataById.get(sentAgentMessage.threadId) ?? null
+        }
+        sentAt={row.startedAt}
       />
     );
   }
