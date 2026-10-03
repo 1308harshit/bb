@@ -2203,6 +2203,8 @@ describe("acp bridge", () => {
         expect(notifications("session/replaced")).toHaveLength(0);
       }
       await waitFor(() => threadEventsOfType("turn/completed").some((event) => event.status === "completed") ? true : undefined, "completed workspace turn");
+      expect(threadEventsOfType("turn/started")).toHaveLength(1);
+      expect(threadEventsOfType("turn/completed")).toHaveLength(1);
       await waitForResponse(sendTurnRequest("turn/start", providerThreadId, {
         input: [{ type: "text", text: "echo-argv", mentions: [] }],
         options: executionOptions({ permissionMode: "accept-edits" }),
