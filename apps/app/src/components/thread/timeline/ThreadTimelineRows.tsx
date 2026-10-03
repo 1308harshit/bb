@@ -29,17 +29,13 @@ import {
   buildTimelineActivityIntentTitles,
   buildTimelineRowTitle,
   buildTimelineViewRows,
-  collectAgentReplyRecipients,
   createTimelineViewRowsCache,
   findActiveLatestBundleId,
-  groupAgentConversations,
-  parseAgentThreadTellCommand,
   workRowGlyph,
   workRowPluginGlyph,
   workRowPresentation,
   type BuildTimelineRowTitleOptions,
   type BuildTimelineViewRowsOptions,
-  type IsExcludedAgentSender,
   type ThreadTimelineViewRow,
   type TimelineActivityIntentTitle,
   type TimelineTitle,
@@ -139,7 +135,6 @@ import {
   type PluginComposerHost,
 } from "@/components/plugin/plugin-composer-host";
 import { isPluginSideChatSenderThread } from "@/lib/side-chat-plugin.js";
-import { AgentMessageChip, SentAgentMessage } from "./AgentConversationRows.js";
 import {
   buildMessageDirectiveRegistry,
   MessageDirectiveRegistryProvider,
@@ -184,7 +179,6 @@ export interface ThreadTimelineRowsProps {
 }
 
 interface TimelineRendererStaticContextValue {
-  agentReplyRecipients: ReadonlyMap<string, string>;
   canSpawnChild: boolean;
   getViewRows: GetTimelineViewRows;
   onForkMessage: ThreadTimelineForkMessageHandler | undefined;
@@ -211,7 +205,6 @@ interface TimelineRendererStaticContextValue {
   resolveImageViewSrc: ThreadTimelineImageViewSrcResolver | undefined;
   resolveMentionLink: PromptMentionLinkResolver | undefined;
   resolveUserAttachmentImageSrc: UserAttachmentImageSrcResolver | undefined;
-  isExcludedAgentSender: IsExcludedAgentSender;
   threadId: string | undefined;
   workspaceRootPath: string | undefined;
 }
@@ -509,22 +502,6 @@ function useStableReadonlySet(
   const valuesRef = useRef(values);
   if (!areReadonlySetsEqual(valuesRef.current, values)) {
     valuesRef.current = values;
-  }
-  return valuesRef.current;
-}
-
-function useStableReadonlyStringMap(
-  values: ReadonlyMap<string, string>,
-): ReadonlyMap<string, string> {
-  const valuesRef = useRef(values);
-  if (valuesRef.current.size !== values.size) {
-    valuesRef.current = values;
-  }
-  for (const [key, value] of values) {
-    if (valuesRef.current.get(key) !== value) {
-      valuesRef.current = values;
-      break;
-    }
   }
   return valuesRef.current;
 }
@@ -881,7 +858,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
   streaming,
 }: ConversationRowContentProps) {
   const composerHost = usePluginComposerHost();
-  const staticContext = useTimelineRendererStaticContext();
   const {
     canSpawnChild,
     inlineMessageEditor,
@@ -903,7 +879,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
     resolveUserAttachmentImageSrc,
     threadId,
     workspaceRootPath,
-  } = staticContext;
+  } = useTimelineRendererStaticContext();
   const senderThreadMetadataById = useSenderThreadMetadataContext();
   if (
     row.role === "user" &&
@@ -1025,7 +1001,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
               : { ...selection, sourceSeqEnd: row.sourceSeqEnd },
             messageReference,
           );
-  const assistantMessage = (
+  return (
     <ConversationMessageContent
       attachments={row.attachments}
       id={row.id}
@@ -1049,22 +1025,6 @@ const ConversationRowContent = memo(function ConversationRowContent({
       threadId={row.threadId}
       turnId={row.turnId}
       workspaceRootPath={workspaceRootPath}
-    />
-  );
-  const replyRecipientThreadId = staticContext.agentReplyRecipients.get(row.id);
-  if (replyRecipientThreadId === undefined) {
-    return assistantMessage;
-  }
-  return (
-    <AgentMessageChip
-      sourceKind="agent-reply-to"
-      counterpart={senderThreadMetadataById.get(replyRecipientThreadId) ?? null}
-      counterpartThreadId={replyRecipientThreadId}
-      expandedBody={assistantMessage}
-      links={staticContext}
-      text={row.text}
-      threadId={row.threadId}
-      timestamp={row.startedAt}
     />
   );
 });
@@ -1172,19 +1132,6 @@ function TimelineExpandableBody({
         </TimelineDetailScroll>
       );
     }
-    case "agent-conversation":
-      return (
-        <TimelineRowsList
-          rows={row.children}
-          scopeActive={false}
-          showAssistantMessageActions={showAssistantMessageActions}
-          compactActivityIntents={false}
-          spacing="nested"
-          className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}
-          unreadDividerAutoScroll={false}
-          unreadDividerPlacement={null}
-        />
-      );
     case "turn":
       return (
         <TurnRowBody
@@ -1412,7 +1359,6 @@ export function pastRowDimClassName({
     case "step-summary":
       return row.status === "completed" ? PAST_ROW_DIM_CLASS_NAME : undefined;
     case "conversation":
-    case "agent-conversation":
       return undefined;
   }
 }
@@ -1466,9 +1412,6 @@ function leadingIconForSystemRow(
 }
 
 function leadingIconForRow(row: ThreadTimelineViewRow): IconName | undefined {
-  if (row.kind === "agent-conversation") {
-    return "MessageMultiple";
-  }
   return leadingIconForWorkRow(row) ?? leadingIconForSystemRow(row);
 }
 
@@ -1498,9 +1441,7 @@ function TimelineRowView({
   spacing,
 }: TimelineRowViewProps) {
   const horizontalPadding = timelineRowHorizontalPadding(spacing);
-  const staticContext = useTimelineRendererStaticContext();
-  const { onTitleAction } = staticContext;
-  const senderThreadMetadataById = useSenderThreadMetadataContext();
+  const { onTitleAction } = useTimelineRendererStaticContext();
   const titleState = useTimelineRowTitleRenderState({
     activeLatestBundleId,
     compactActivityIntents,
@@ -1517,24 +1458,6 @@ function TimelineRowView({
       <ConversationRow
         row={row}
         showAssistantMessageActions={showAssistantMessageActions}
-      />
-    );
-  }
-
-  const sentAgentMessage =
-    row.kind === "work" && row.workKind === "command" && row.status !== "error"
-      ? parseAgentThreadTellCommand(row.command)
-      : null;
-  if (sentAgentMessage !== null) {
-    return (
-      <SentAgentMessage
-        counterpart={
-          senderThreadMetadataById.get(sentAgentMessage.targetThreadId) ?? null
-        }
-        links={staticContext}
-        sentAt={row.startedAt}
-        senderThreadId={staticContext.threadId ?? row.threadId}
-        tell={sentAgentMessage}
       />
     );
   }
@@ -1733,18 +1656,6 @@ function isUnreadDividerCandidateAfterCutoff({
   return !isUserAuthoredConversationRow(row);
 }
 
-function findLastRowTurnId(
-  rows: readonly ThreadTimelineViewRow[],
-): string | null {
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const turnId = rows[index]?.turnId;
-    if (turnId != null) {
-      return turnId;
-    }
-  }
-  return null;
-}
-
 function buildTimelineRowsListItems({
   rows,
   unreadDividerPlacement,
@@ -1862,51 +1773,9 @@ function TimelineRowsList({
     () => findActiveLatestBundleId(rows),
     [rows],
   );
-  const { isExcludedAgentSender } = useTimelineRendererStaticContext();
-  const activeTurnId =
-    spacing === "top-level" && scopeActive ? findLastRowTurnId(rows) : null;
-  const listRows = useMemo(() => {
-    if (spacing !== "top-level") {
-      return rows;
-    }
-    const pinnedRowIds = new Set(stableSearchExpandedRowIds);
-    if (scrollRestoreRowId !== null) {
-      pinnedRowIds.add(scrollRestoreRowId);
-    }
-    if (navigationTargetRowId != null) {
-      pinnedRowIds.add(navigationTargetRowId);
-    }
-    const group = (segment: readonly ThreadTimelineViewRow[]) =>
-      groupAgentConversations({
-        activeTurnId,
-        isExcludedSender: isExcludedAgentSender,
-        pinnedRowIds,
-        rows: segment,
-      });
-    const dividerIndex = findUnreadDividerIndex({
-      rows,
-      unreadDividerPlacement,
-    });
-    return dividerIndex < 0
-      ? group(rows)
-      : [
-          ...group(rows.slice(0, dividerIndex)),
-          ...group(rows.slice(dividerIndex)),
-        ];
-  }, [
-    activeTurnId,
-    isExcludedAgentSender,
-    navigationTargetRowId,
-    rows,
-    scrollRestoreRowId,
-    spacing,
-    stableSearchExpandedRowIds,
-    unreadDividerPlacement,
-  ]);
   const items = useMemo(
-    () =>
-      buildTimelineRowsListItems({ rows: listRows, unreadDividerPlacement }),
-    [listRows, unreadDividerPlacement],
+    () => buildTimelineRowsListItems({ rows, unreadDividerPlacement }),
+    [rows, unreadDividerPlacement],
   );
   const itemKeys = useMemo(
     () =>
@@ -1917,7 +1786,7 @@ function TimelineRowsList({
   );
   const alwaysMountedKeys = useMemo(() => {
     const keys = new Set<string>();
-    const lastRow = listRows.at(-1);
+    const lastRow = rows.at(-1);
     if (lastRow !== undefined) {
       keys.add(lastRow.id);
     }
@@ -1938,7 +1807,7 @@ function TimelineRowsList({
     return keys;
   }, [
     items,
-    listRows,
+    rows,
     scrollRestoreRowId,
     spacing,
     stableSearchExpandedRowIds,
@@ -2103,19 +1972,6 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
   );
   const projectId = props.projectId;
   const senderThreadMetadataById = useSenderThreadMetadataById();
-  const isExcludedAgentSender = useCallback<IsExcludedAgentSender>(
-    (senderThreadId) =>
-      isPluginSideChatSenderThread(
-        senderThreadMetadataById.get(senderThreadId) ?? null,
-      ),
-    [senderThreadMetadataById],
-  );
-  const agentReplyRecipients = useStableReadonlyStringMap(
-    useMemo(
-      () => collectAgentReplyRecipients(rows, isExcludedAgentSender),
-      [isExcludedAgentSender, rows],
-    ),
-  );
   const messageDirectiveSlots = useSyncExternalStore(
     subscribePluginSlots,
     () => getPluginSlotSnapshot().messageDirectives,
@@ -2208,7 +2064,6 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
   ]);
   const staticContextValue = useMemo<TimelineRendererStaticContextValue>(
     () => ({
-      agentReplyRecipients,
       canSpawnChild: props.canSpawnChild ?? false,
       getViewRows,
       onForkMessage: props.onForkMessage,
@@ -2234,13 +2089,10 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       resolveImageViewSrc: props.resolveImageViewSrc,
       resolveMentionLink: props.resolveMentionLink,
       resolveUserAttachmentImageSrc: props.resolveUserAttachmentImageSrc,
-      isExcludedAgentSender,
       threadId: props.threadId,
       workspaceRootPath: props.workspaceRootPath,
     }),
     [
-      agentReplyRecipients,
-      isExcludedAgentSender,
       props.canSpawnChild,
       getViewRows,
       props.onForkMessage,

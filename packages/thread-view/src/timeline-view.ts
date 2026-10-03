@@ -11,7 +11,6 @@ import type {
   TimelineTurnRow,
   TimelineWorkRow,
 } from "@bb/server-contract";
-import { parseAgentThreadTellCommand } from "./agent-thread-tell-command.js";
 import { assertNever } from "./assert-never.js";
 import {
   getFileChangeAction,
@@ -90,16 +89,10 @@ export interface TimelineViewTurnRow extends Omit<TimelineTurnRow, "children"> {
   children: ThreadTimelineViewRow[] | null;
 }
 
-export interface TimelineAgentConversationRow extends TimelineRowBase {
-  kind: "agent-conversation";
-  children: ThreadTimelineViewRow[];
-}
-
 export type ThreadTimelineViewRow =
   | TimelineViewSourceRow
   | TimelineWorkSummaryRow
-  | TimelineViewTurnRow
-  | TimelineAgentConversationRow;
+  | TimelineViewTurnRow;
 
 type TimelineExplorationKind = "files" | "searches" | "lists";
 
@@ -747,13 +740,8 @@ function isSummarizableActivityRow(
   ) {
     return true;
   }
-  if (row.kind !== "work") {
-    return false;
-  }
-  if (row.workKind === "command") {
-    return parseAgentThreadTellCommand(row.command) === null;
-  }
   return (
+    row.kind === "work" &&
     row.workKind !== "approval" &&
     row.workKind !== "question" &&
     row.workKind !== "workflow"

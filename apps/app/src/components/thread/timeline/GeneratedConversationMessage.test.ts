@@ -159,23 +159,4 @@ describe("generatedConversationTitle — agent source", () => {
     expect(title.segments[1]?.text).toBe("Worker 2");
     expect(title.segments[1]?.link).toEqual(threadLink("thr_sender"));
   });
-
-  it.each([
-    ["agent-reply-to", "Reply to Worker"],
-    ["agent-message-to", "Message to Worker"],
-    ["agent-reply-from", "Reply from Worker"],
-  ] as const)("labels %s chips with the linked thread", (sourceKind, plain) => {
-    const title = generatedConversationTitle({
-      originKind: null,
-      sourceKind,
-      sourceName: "Worker",
-      sourceThreadId: "thr_worker",
-      sourceIsPluginSideChat: false,
-      systemMessageKind: "unlabeled",
-      systemMessageSubject: null,
-    });
-
-    expect(title.plain).toBe(plain);
-    expect(title.segments[1]?.link).toEqual(threadLink("thr_worker"));
-  });
 });

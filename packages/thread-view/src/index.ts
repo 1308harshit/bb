@@ -1,9 +1,5 @@
 export { formatThreadTimelineText } from "./format-timeline-text.js";
 export { parseAgentMessageEnvelope } from "./agent-message-envelope.js";
-export {
-  parseAgentThreadTellCommand,
-  type AgentThreadTellCommand,
-} from "./agent-thread-tell-command.js";
 export type { ThreadTimelineTextFormat } from "./format-timeline-text.js";
 export { assertNever } from "./assert-never.js";
 export {
@@ -58,16 +54,9 @@ export {
   buildTimelineViewRows,
   createTimelineViewRowsCache,
 } from "./timeline-view.js";
-export {
-  collectAgentReplyRecipients,
-  findAgentSentMessageReply,
-  groupAgentConversations,
-  type IsExcludedAgentSender,
-} from "./agent-conversation.js";
 export type {
   BuildTimelineViewRowsOptions,
   ThreadTimelineViewRow,
-  TimelineAgentConversationRow,
   TimelineQuestionViewWorkRow,
   TimelineViewTurnRow,
   TimelineViewWorkflowWorkRow,

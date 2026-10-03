@@ -5,7 +5,6 @@ import {
   useRef,
   type KeyboardEvent,
   type MouseEvent,
-  type ReactNode,
 } from "react";
 import { generatePath } from "react-router-dom";
 import type { TimelineUserConversationRow } from "@bb/server-contract";
@@ -61,7 +60,6 @@ interface AutomationLink {
 interface GeneratedConversationMessageProps {
   attachmentItems: ConversationAttachmentItems;
   automationLink: AutomationLink | null;
-  expandedBody?: ReactNode;
   originKind: ThreadOriginKind | null;
   mentions: readonly PromptTextMention[];
   onOpenLink?: ThreadTimelineLinkHandler;
@@ -83,13 +81,7 @@ interface GeneratedConversationMessageProps {
   workspaceRootPath?: string;
 }
 
-type GeneratedConversationSourceKind =
-  | "agent"
-  | "agent-reply-to"
-  | "agent-message-to"
-  | "agent-reply-from"
-  | "automation"
-  | "system";
+type GeneratedConversationSourceKind = "agent" | "automation" | "system";
 
 interface GeneratedConversationBodyTextArgs {
   initiator: TimelineUserConversationRow["initiator"];
@@ -271,29 +263,6 @@ function systemMessageTitleSegments(
   }
 }
 
-function agentMessageLeadIn(
-  sourceKind: GeneratedConversationSourceKind,
-  originKind: ThreadOriginKind | null,
-  sourceIsPluginSideChat: boolean,
-): string | null {
-  switch (sourceKind) {
-    case "agent-reply-to":
-      return "Reply to";
-    case "agent-message-to":
-      return "Message to";
-    case "agent-reply-from":
-      return "Reply from";
-    case "automation":
-    case "system":
-      return null;
-    case "agent":
-      if (sourceIsPluginSideChat) {
-        return "Replying to";
-      }
-      return originKind === "fork" ? "Forked from" : "Message from";
-  }
-}
-
 export function generatedConversationTitle({
   originKind,
   sourceKind,
@@ -303,11 +272,11 @@ export function generatedConversationTitle({
   systemMessageKind,
   systemMessageSubject,
 }: GeneratedConversationTitleArgs): TimelineTitle {
-  const agentLeadIn = agentMessageLeadIn(
-    sourceKind,
-    originKind,
-    sourceIsPluginSideChat,
-  );
+  const agentLeadIn = sourceIsPluginSideChat
+    ? "Replying to"
+    : originKind === "fork"
+      ? "Forked from"
+      : "Message from";
   const sideChatAction =
     sourceIsPluginSideChat && sourceThreadId !== null
       ? ({ kind: "open-plugin-side-chat", threadId: sourceThreadId } as const)
@@ -317,7 +286,7 @@ export function generatedConversationTitle({
       ? null
       : ({ kind: "thread", threadId: sourceThreadId } as const);
   const segments: TimelineTitleSegment[] =
-    agentLeadIn !== null
+    sourceKind === "agent"
       ? [
           timelineTitleSegment({
             em: false,
@@ -354,9 +323,6 @@ function generatedConversationEmptyText(
 ): string {
   switch (sourceKind) {
     case "agent":
-    case "agent-reply-to":
-    case "agent-message-to":
-    case "agent-reply-from":
       return "Sent an agent message";
     case "automation":
       return "Ran an automation";
@@ -398,11 +364,7 @@ function generatedConversationIconName(
   }
   switch (sourceKind) {
     case "agent":
-    case "agent-reply-from":
       return "MessageSquare";
-    case "agent-reply-to":
-    case "agent-message-to":
-      return "Sent";
     case "automation":
       return "Repeat";
     case "system":
@@ -544,7 +506,6 @@ export const GeneratedConversationMessage = memo(
   function GeneratedConversationMessage({
     attachmentItems,
     automationLink,
-    expandedBody,
     originKind,
     mentions,
     onOpenLink,
@@ -614,7 +575,7 @@ export const GeneratedConversationMessage = memo(
       ],
     );
     const sourceTitleContent =
-      sourceKind !== "automation" && sourceKind !== "system" ? (
+      sourceKind === "agent" ? (
         <GeneratedAgentSourceTitle
           onTitleAction={onTitleAction}
           sourceIsPluginSideChat={sourceIsPluginSideChat}
@@ -656,16 +617,12 @@ export const GeneratedConversationMessage = memo(
     });
     const expandable =
       !titleOnly &&
-      (expandedBody !== undefined ||
-        hasExpandedOnlyContent ||
+      (hasExpandedOnlyContent ||
         collapsedPreviewSource.hasAdditionalBodyLines ||
         collapsedPreviewSource.wasCapped ||
         collapsedPreviewOverflowMeasurement === "overflowing");
     const hideManualContinuation =
-      collapsedPreviewOverflowMeasurement === "overflowing" ||
-      (expandedBody !== undefined &&
-        !collapsedPreviewSource.hasAdditionalBodyLines &&
-        !collapsedPreviewSource.wasCapped);
+      collapsedPreviewOverflowMeasurement === "overflowing";
     const collapsedPreviewBody = clipMentionTextToVisibleRange({
       mentions: messageMentions,
       rangeStart: 0,
@@ -677,8 +634,7 @@ export const GeneratedConversationMessage = memo(
         ? closeUnterminatedMarkdownCodeSpan(collapsedPreviewBody.text)
         : collapsedPreviewBody.text;
     const suppressGeneratedAgentImages =
-      (sourceKind === "agent" || sourceKind === "agent-reply-from") &&
-      !sourceIsPluginSideChat;
+      sourceKind === "agent" && !sourceIsPluginSideChat;
     const collapsedPreview =
       !titleOnly && collapsedPreviewBody.text ? (
         <div
@@ -777,14 +733,6 @@ export const GeneratedConversationMessage = memo(
         turnRequest,
       ],
     );
-    const renderExpandedBody = useCallback(
-      () => (
-        <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
-          {expandedBody}
-        </div>
-      ),
-      [expandedBody],
-    );
 
     return (
       <ExpandableTimelineRow
@@ -794,9 +742,7 @@ export const GeneratedConversationMessage = memo(
         expandable={expandable}
         leadingIcon={leadingIcon}
         onTitleAction={onTitleAction}
-        renderBody={
-          expandedBody === undefined ? renderBody : renderExpandedBody
-        }
+        renderBody={renderBody}
       />
     );
   },

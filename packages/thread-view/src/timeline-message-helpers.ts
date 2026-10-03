@@ -1,4 +1,3 @@
-import { parseAgentThreadTellCommand } from "./agent-thread-tell-command.js";
 import type { EventProjectionMessage } from "./event-projection-types.js";
 
 export function isTimelineTerminalMessage(
@@ -25,9 +24,6 @@ export function isTimelineUngroupableMessage(
   }
   if (message.kind === "assistant-text") {
     return message.isLegacyUserMessage === true;
-  }
-  if (message.kind === "command") {
-    return parseAgentThreadTellCommand(message.command) !== null;
   }
   return false;
 }
