@@ -36,9 +36,9 @@ describe("public marketplace route rendering", () => {
         />,
       ];
       for (const page of pages) {
-        expect(renderToStaticMarkup(page).includes(">Experimental</span>")).toBe(
-          experimental === true,
-        );
+        expect(
+          renderToStaticMarkup(page).includes(">Experimental</span>"),
+        ).toBe(experimental === true);
       }
     },
   );
