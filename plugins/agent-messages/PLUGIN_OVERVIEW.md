@@ -2,9 +2,8 @@ Agents can message the agent in another thread, and each agent decides whether i
 
 ## What you get
 
-- A `bb_thread_message` tool for every agent. A message arrives in the other thread as "Message from" that thread.
-- The sending thread shows the same message as "Message to" the recipient, so both threads read the same exchange.
-- Agents answer another agent with the tool and answer you with a normal response, so a reply meant for an agent never reads as addressed to you.
+- A `bb_thread_message` tool for every agent. The message shows as "Message to" the recipient in the sending thread and "Message from" the sender in the receiving thread.
+- Agents answer another agent with the tool and answer you with a normal response.
 
 ## How it works
 
