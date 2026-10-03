@@ -20,11 +20,13 @@ export const TOOL_INSTRUCTIONS = `Messages from other agents begin with \`[bb me
 - The agent that messaged you: send the answer with \`${TOOL_NAME}\`, using the thread ID from the prefix.
 - The user: write a normal response.
 - Both: do both.
-Only message threads that messaged you or that the user asked you to contact, and do not answer messages that need no reply. Use \`${TOOL_NAME}\` instead of \`bb thread tell\` unless you need one of its options, such as \`--plan\` or \`--mode queue\`.
-The user's timeline shows messages you send as "Message to <thread>" and messages you receive as "Message from <thread>". Do not tell the user that you sent or received one, and do not repeat its content; add only your own conclusions or next steps.`;
+Only message threads that messaged you or that the user asked you to contact, and do not answer messages that need no reply.
 
-export const SENT_NOTE =
-  'The user\'s timeline now shows this as "Message to <thread>". Do not say you sent it or repeat it. If you have nothing else for the user, end your turn without writing anything.';
+\`${TOOL_NAME}\` and \`bb thread tell\` both deliver a message from this thread. It steers the recipient's active turn or starts a new one, and the recipient's timeline shows it as "Message from <this thread>".
+- \`${TOOL_NAME}\`: this thread's timeline shows the message as "Message to <thread>". Use it by default.
+- \`bb thread tell\`: this thread's timeline shows only the shell command. It adds \`--mode queue\`, \`--send-at\`, \`--plan\`, \`--file\` and \`--image\` attachments, and per-message \`--model\`, \`--reasoning-level\`, \`--permission-mode\`, and \`--service-tier\`. Use it only when you need one of those.
+
+The user's timeline already shows every message you send and receive, so do not announce or restate them; add only your own conclusions or next steps.`;
 
 export const TOOL_PRESENTATION: PluginRowPresentation = {
   label: { pending: "Messaging a thread", completed: "Messaged a thread" },
