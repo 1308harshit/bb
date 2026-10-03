@@ -66,7 +66,7 @@ function agentMessageToolCall(
     kind: "tool-call",
     callId: args.id,
     toolName: "bb:bb_thread_message",
-    toolArgs: { threadId: "thr_worker", message: "Is it ready?" },
+    toolArgs: { threadId: "thr_wrkr234567", message: "Is it ready?" },
     output: "Delivered.",
     completedAt: args.seq,
     approvalStatus: null,
