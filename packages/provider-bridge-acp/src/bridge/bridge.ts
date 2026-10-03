@@ -2207,7 +2207,8 @@ function runTurn(
             const construction = turnConstruction(session, next.options);
             if (requiresTurnSessionRefresh(session, construction)) {
               const queued = session.queuedInputs.splice(0);
-              finishTurn(session, "cancelled");
+              for (const controller of session.pendingToolCalls) controller.abort();
+              session.activePromptKind = null;
               session.turnSettled = undefined;
               try {
                 const replacement = await refreshTurnSession(session, construction);
