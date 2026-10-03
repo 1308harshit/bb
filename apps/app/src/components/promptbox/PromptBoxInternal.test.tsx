@@ -6,6 +6,7 @@ import { resolveThreadMentionDropTarget } from "@/lib/thread-mention-drop";
 import type { PromptTextMention } from "@bb/domain";
 import type { TiptapEditorHTMLElement } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
+import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
 import { EditorView } from "@tiptap/pm/view";
 import {
   createRef,
@@ -13,6 +14,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentType,
   type ComponentProps,
   type RefObject,
 } from "react";
@@ -28,6 +30,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
+import { ThreadContextWindowIndicator } from "@/components/thread/timeline/ThreadContextWindowIndicator";
 import {
   EMPTY_ORDERED_MENTION_SUGGESTIONS,
   emptyPromptDraftState,
@@ -276,6 +279,8 @@ function renderPromptBox(
     mentionSuggestions?: readonly PromptMentionSuggestion[];
     commandSuggestions?: TypeaheadConfig["command"]["suggestions"];
     onAttachFiles?: (files: File[]) => Promise<void> | void;
+    compact?: boolean;
+    props?: Partial<PromptBoxProps>;
   } = {},
 ) {
   registerComposerMenuPlugins();
@@ -331,17 +336,28 @@ function renderPromptBox(
           attachments={{ onAttachFiles: options.onAttachFiles }}
           promptActions={promptActions}
           promptBoxRef={promptBoxRef}
+          {...options.props}
         />
       </PluginComposerHostProvider>
     );
   }
 
-  render(
+  const ui = (
     <MemoryRouter>
       <PromptBoxHarness />
-    </MemoryRouter>,
+    </MemoryRouter>
+  );
+  const view = render(
+    options.compact === undefined ? (
+      ui
+    ) : (
+      <CompactViewportOverrideProvider isCompactViewport={options.compact}>
+        {ui}
+      </CompactViewportOverrideProvider>
+    ),
   );
   return {
+    view,
     changes,
     onMentionQueryChange,
     onCommandQueryChange,
@@ -535,6 +551,7 @@ function mockIPadOSWebKit(): () => void {
 
 afterEach(async () => {
   cleanup();
+  fireEvent.pointerDown(document);
   await new Promise<void>((resolve) => setTimeout(resolve, 2));
   resetPluginLogoStoreForTest();
   resetPluginSlotStoreForTest();
@@ -612,6 +629,287 @@ describe("suppressPromptEditorAnchorActivation", () => {
     expect(result.suppressed).toBe(false);
     expect(result.event.defaultPrevented).toBe(false);
     expect(result.defaultAllowed).toBe(true);
+  });
+});
+
+describe("PromptBoxInternal composer popups", () => {
+  function SavedPrompts() {
+    const composer = useComposer();
+    return (
+      <div>
+        <input aria-label="Search saved prompts" />
+        <button
+          type="button"
+          onClick={() => {
+            composer.insert("saved ");
+            composer.experimental_closePopup();
+          }}
+        >
+          Insert saved prompt
+        </button>
+        <button
+          type="button"
+          onClick={() => composer.experimental_openPopup("recent-files")}
+        >
+          Open recent files
+        </button>
+      </div>
+    );
+  }
+
+  function RecentFiles() {
+    const composer = useComposer();
+    return (
+      <div>
+        <input aria-label="Search recent files" />
+        <button
+          type="button"
+          onClick={() => composer.experimental_openPopup("saved-prompts")}
+        >
+          Open saved prompts
+        </button>
+      </div>
+    );
+  }
+
+  function registerPopup(
+    scopes?: readonly ("thread" | "new-thread")[],
+    opener?: ComponentType,
+  ) {
+    setPluginSlotRegistrations(
+      "saved-prompts",
+      pluginRegistrationSet([
+        {
+          id: "library",
+          scopes,
+          experimental_popups: [
+            {
+              id: "saved-prompts",
+              label: "Saved prompts",
+              component: SavedPrompts,
+            },
+            {
+              id: "recent-files",
+              label: "Recent files",
+              component: RecentFiles,
+            },
+          ],
+          plusMenu: [
+            {
+              id: "open",
+              label: "Saved prompts",
+              run: ({ composer }) => {
+                composer.experimental_openPopup("saved-prompts");
+              },
+            },
+          ],
+        },
+        ...(opener
+          ? [
+              {
+                id: "opener",
+                actions: [{ id: "open-popup", component: opener }],
+              },
+            ]
+          : []),
+      ]),
+    );
+  }
+
+  async function openPopupFromMenu() {
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Prompt actions" }),
+      { button: 0 },
+    );
+    const menu = await screen.findByRole("menu", { name: "Prompt actions" });
+    fireEvent.click(
+      within(menu).getByRole("menuitem", { name: "Saved prompts" }),
+    );
+  }
+
+  it.each(["top", "bottom"] as const)(
+    "opens from a composer menu %s and inserts at the preserved cursor",
+    async (placement) => {
+      registerPopup();
+      renderPromptBox("hello world", {
+        props: { mentionMenuPlacement: placement },
+      });
+      await waitForPromptFocus();
+      const editor = (getPromptEditorElement() as TiptapEditorHTMLElement)
+        .editor;
+      if (!editor) throw new Error("Composer editor is missing");
+      act(() => editor.commands.setTextSelection(7));
+      await openPopupFromMenu();
+      const popup = await screen.findByRole("dialog", {
+        name: "Saved prompts",
+      });
+      expect(
+        popup.classList.contains(
+          placement === "top" ? "bottom-full" : "top-full",
+        ),
+      ).toBe(true);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(within(popup).getByRole("textbox")),
+      );
+      fireEvent.click(
+        within(popup).getByRole("button", { name: "Insert saved prompt" }),
+      );
+      await waitFor(() => expect(editor.getText()).toBe("hello saved world"));
+      expect(
+        screen.queryByRole("dialog", { name: "Saved prompts" }),
+      ).toBeNull();
+      await waitForPromptFocus();
+    },
+  );
+
+  it("switches between popups in one customization by popup id", async () => {
+    registerPopup();
+    renderPromptBox("draft");
+    await waitForPromptFocus();
+    await openPopupFromMenu();
+    const saved = await screen.findByRole("dialog", { name: "Saved prompts" });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(saved).getByRole("textbox")),
+    );
+    fireEvent.click(
+      within(saved).getByRole("button", { name: "Open recent files" }),
+    );
+    const recent = await screen.findByRole("dialog", { name: "Recent files" });
+    expect(screen.queryByRole("dialog", { name: "Saved prompts" })).toBeNull();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(recent).getByRole("textbox")),
+    );
+    fireEvent.click(
+      within(recent).getByRole("button", { name: "Open saved prompts" }),
+    );
+    await screen.findByRole("dialog", { name: "Saved prompts" });
+    expect(screen.queryByRole("dialog", { name: "Recent files" })).toBeNull();
+  });
+
+  it("replaces suggestions and keeps their trigger dismissed through popup focus transfer", async () => {
+    registerPopup();
+    renderPromptBox("@");
+    await waitForPromptFocus();
+    await screen.findByText("Type to search mentions");
+    await openPopupFromMenu();
+    const search = await screen.findByRole("textbox", {
+      name: "Search saved prompts",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(search));
+    expect(screen.queryByText("Type to search mentions")).toBeNull();
+    fireEvent.keyDown(search, { key: "Escape" });
+    await waitForPromptFocus();
+    expect(screen.queryByRole("dialog", { name: "Saved prompts" })).toBeNull();
+    expect(screen.queryByText("Type to search mentions")).toBeNull();
+    const editor = (getPromptEditorElement() as TiptapEditorHTMLElement).editor;
+    if (!editor) throw new Error("Composer editor is missing");
+    act(() => {
+      editor.commands.setContent("next @");
+      editor.commands.setTextSelection(7);
+    });
+    await screen.findByText("Type to search mentions");
+    fireEvent.keyDown(editor.view.dom, { key: "Escape" });
+    expect(screen.queryByText("Type to search mentions")).toBeNull();
+  });
+
+  it("honors scope, rejects another plugin's close, and closes on plugin removal", async () => {
+    const openResult = vi.fn();
+    function OpenScopedPopup() {
+      const composer = useComposer();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            openResult(composer.experimental_openPopup("saved-prompts"))
+          }
+        >
+          Open scoped popup
+        </button>
+      );
+    }
+    registerPopup(["thread"], OpenScopedPopup);
+    renderPromptBox("draft");
+    await waitForPromptFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Open scoped popup" }));
+    expect(openResult).toHaveBeenLastCalledWith(false);
+    act(() => registerPopup(undefined, OpenScopedPopup));
+    const foreignClose = vi.fn();
+    function OtherPlugin() {
+      const composer = useComposer();
+      return (
+        <button
+          type="button"
+          onClick={() => foreignClose(composer.experimental_closePopup())}
+        >
+          Other plugin close
+        </button>
+      );
+    }
+    act(() =>
+      setPluginSlotRegistrations(
+        "other-plugin",
+        pluginRegistrationSet([
+          {
+            id: "tools",
+            actions: [{ id: "close", component: OtherPlugin }],
+          },
+        ]),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open scoped popup" }));
+    expect(openResult).toHaveBeenLastCalledWith(true);
+    await screen.findByRole("dialog", { name: "Saved prompts" });
+    fireEvent.click(screen.getByRole("button", { name: "Other plugin close" }));
+    expect(foreignClose).toHaveBeenCalledWith(false);
+    expect(screen.getByRole("dialog", { name: "Saved prompts" })).toBeTruthy();
+    act(() => resetPluginSlotStoreForTest());
+    expect(screen.queryByRole("dialog", { name: "Saved prompts" })).toBeNull();
+  });
+
+  it("defers compact content and retains it without making the app root inert", async () => {
+    function OpenPopup() {
+      const composer = useComposer();
+      return (
+        <button
+          type="button"
+          onClick={() => composer.experimental_openPopup("saved-prompts")}
+        >
+          Open popup
+        </button>
+      );
+    }
+    registerPopup(undefined, OpenPopup);
+    const { view } = renderPromptBox("draft", { compact: true });
+    await waitForPromptFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Open popup" }));
+    expect(
+      screen.queryByRole("textbox", { name: "Search saved prompts" }),
+    ).toBeNull();
+    expect(
+      document.querySelector("[data-responsive-drawer-placeholder]"),
+    ).not.toBeNull();
+    const search = await screen.findByRole("textbox", {
+      name: "Search saved prompts",
+    });
+    expect(view.container.hasAttribute("inert")).toBe(false);
+    expect(view.container.hasAttribute("aria-hidden")).toBe(false);
+    fireEvent.change(search, { target: { value: "keep this" } });
+    fireEvent.keyDown(search, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          "[data-persistent-drawer-content][data-state='closed']",
+        ),
+      ).not.toBeNull(),
+    );
+    expect(document.contains(search)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Open popup" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("textbox", { name: "Search saved prompts" }),
+      ).toBe(search),
+    );
+    expect(search).toHaveProperty("value", "keep this");
   });
 });
 
@@ -3101,6 +3399,71 @@ describe("PromptBoxInternal compact layout", () => {
     fireEvent.pointerDown(submit, touch);
     fireEvent.pointerUp(submit, touch);
     expect(onSubmit).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not open context usage when a submit touch's click lands on the donut", () => {
+    const restoreMatchMedia = mockPointerCoarse(true);
+    const onSubmit = vi.fn();
+    function Harness() {
+      const [value, setValue] = useState("Send this follow-up");
+      return (
+        <CompactViewportOverrideProvider isCompactViewport>
+          <PromptBoxInternal
+            {...createPromptBoxProps({
+              value,
+              blurOnPointerSubmit: true,
+              onSubmit: () => {
+                onSubmit();
+                setValue("");
+              },
+            })}
+          />
+          <ThreadContextWindowIndicator
+            usage={{
+              usedTokens: 1000,
+              modelContextWindow: 10000,
+              estimated: false,
+            }}
+          />
+        </CompactViewportOverrideProvider>
+      );
+    }
+    try {
+      render(<Harness />);
+      act(() => getPromptEditorElement().focus());
+      const submit = screen.getByRole("button", { name: "Submit (Enter)" });
+      vi.spyOn(submit, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 40, 40),
+      );
+      const touch = {
+        button: 0,
+        pointerType: "touch",
+        pointerId: 1,
+        isPrimary: true,
+        clientX: 20,
+        clientY: 20,
+      };
+      fireEvent.pointerDown(submit, touch);
+      fireEvent.pointerUp(submit, touch);
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(document.activeElement).not.toBe(getPromptEditorElement());
+
+      const donut = screen.getByRole("button", {
+        name: "Context window 10% used",
+      });
+      fireEvent.click(donut, { detail: 1 });
+      expect(
+        screen.queryByRole("dialog", { name: "Context window" }),
+      ).toBeNull();
+      expect(donut.getAttribute("aria-expanded")).toBe("false");
+
+      fireEvent.pointerDown(donut, touch);
+      fireEvent.pointerUp(donut, touch);
+      fireEvent.click(donut, { detail: 1 });
+      expect(donut.getAttribute("aria-expanded")).toBe("true");
+    } finally {
+      restoreMatchMedia();
+    }
   });
 
   it.each(["cancel", "drag", "outside"])(

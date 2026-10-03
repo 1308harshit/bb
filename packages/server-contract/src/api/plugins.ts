@@ -409,6 +409,8 @@ export const pluginCatalogSearchResultSchema = z.object({
   official: z.boolean(),
   author: pluginCatalogAuthorSchema.nullable(),
   installed: z.boolean(),
+  installedByDefault: z.boolean().default(false),
+  conflictingInstallSource: z.string().nullable(),
   installs: z.number().int().nonnegative().nullable().default(null),
   compatible: z.boolean(),
   incompatibleReason: z.string().nullable(),

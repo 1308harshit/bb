@@ -308,6 +308,8 @@ export function registerSystemRoutes(
       allowFastServiceTier:
         settings.allowFastServiceTier ?? current.allowFastServiceTier,
       telemetryEnabled: settings.telemetryEnabled ?? current.telemetryEnabled,
+      confirmThreadArchive:
+        settings.confirmThreadArchive ?? current.confirmThreadArchive,
       showDiagnosticEvents:
         diagnosticValue === undefined ||
         (showUnhandledProviderEvents !== undefined &&
@@ -331,7 +333,7 @@ export function registerSystemRoutes(
   });
 
   put(routes.experiments, (context, payload) => {
-    setExperiments(deps.db, { ...getExperiments(deps.db), ...payload });
+    setExperiments(deps.db, payload);
     deps.hub.notifySystem(["config-changed"]);
     return context.json(getExperiments(deps.db));
   });
