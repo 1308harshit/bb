@@ -19,7 +19,7 @@ import { initAnalytics, trackLandingEvent } from "../landing/analytics.js";
 import { CommandButton } from "../landing/command-button.js";
 import { SiteFooter, SiteNav } from "../landing/site-chrome.js";
 import {
-  marketplaceEntryInstalls,
+  marketplaceInstallBadge,
   type MarketplaceStats,
 } from "./marketplace-model.js";
 import { marketplacePluginIcon } from "./marketplace-icons.js";
@@ -55,6 +55,24 @@ const SORT_LABELS: Record<MarketplaceSort, string> = {
   "recently-added": "New",
   "most-installed": "Popular",
 };
+
+const MarketplaceRenderTimeContext = createContext<number | undefined>(
+  undefined,
+);
+
+export function MarketplaceRenderTimeProvider({
+  renderedAt,
+  children,
+}: {
+  renderedAt: number;
+  children: ReactNode;
+}) {
+  return (
+    <MarketplaceRenderTimeContext.Provider value={renderedAt}>
+      {children}
+    </MarketplaceRenderTimeContext.Provider>
+  );
+}
 
 const MarketplaceNavigationContext = createContext<
   ((href: string) => void) | undefined
@@ -190,11 +208,14 @@ function InstallCount({
   stats: MarketplaceStats | null;
   variant?: "card" | "detail";
 }) {
-  const total = marketplaceEntryInstalls(entry, stats);
+  const renderedAt = useContext(MarketplaceRenderTimeContext) ?? Date.now();
+  const badge = marketplaceInstallBadge(entry, stats, renderedAt);
   const className = `marketplace-${variant}-installs`;
-  if (total === undefined) {
+  if (badge?.kind === "new" && variant === "card") {
     return <span className={`${className} is-new`}>New</span>;
   }
+  if (badge?.kind !== "count") return null;
+  const total = badge.installs;
   const formatted =
     variant === "detail" ? total.toLocaleString("en-US") : formatInstalls(total);
   return (
@@ -222,13 +243,11 @@ function PluginCard({
   entry,
   stats,
   showCategory = false,
-  notable = false,
 }: {
   manifest: MarketplaceV2Manifest;
   entry: MarketplaceV2Entry;
   stats: MarketplaceStats | null;
   showCategory?: boolean;
-  notable?: boolean;
 }) {
   return (
     <article className="marketplace-card">
@@ -239,7 +258,6 @@ function PluginCard({
         <span className="marketplace-card-topline">
           <PluginArtwork entry={entry} />
           <strong>{entry.displayName}</strong>
-          {notable ? <span className="marketplace-new-chip">New</span> : null}
         </span>
         <span className="marketplace-card-description">
           {entry.description}
@@ -266,13 +284,11 @@ function PluginGrid({
   entries,
   stats,
   showCategory = false,
-  notable = false,
 }: {
   manifest: MarketplaceV2Manifest;
   entries: readonly MarketplaceV2Entry[];
   stats: MarketplaceStats | null;
   showCategory?: boolean;
-  notable?: boolean;
 }) {
   return (
     <div className="marketplace-grid">
@@ -283,7 +299,6 @@ function PluginGrid({
           entry={entry}
           stats={stats}
           showCategory={showCategory}
-          notable={notable}
         />
       ))}
     </div>
@@ -338,7 +353,6 @@ function Shelf({
         manifest={manifest}
         entries={shelf.entries.slice(0, 3)}
         stats={stats}
-        notable={notable}
       />
     </section>
   );
