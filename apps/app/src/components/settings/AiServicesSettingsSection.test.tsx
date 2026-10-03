@@ -13,6 +13,7 @@ import {
   DEFAULT_THREAD_NAMING_PROMPT,
   defaultAppSettings,
 } from "@bb/domain";
+import { TooltipProvider } from "@bb/shared-ui/tooltip";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
 import type { SystemAiServicesResponse } from "@bb/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -135,7 +136,12 @@ describe("AiServicesSettingsSection", () => {
   it("shows each task's choice, including a selection whose plugin is gone", async () => {
     stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(<AiServicesSettingsSection />, { wrapper });
+    render(
+      <TooltipProvider>
+        <AiServicesSettingsSection />
+      </TooltipProvider>,
+      { wrapper },
+    );
 
     const titles = await screen.findByRole("button", { name: "Thread titles" });
     await vi.waitFor(() => expect(titles.textContent).toContain("Automatic"));
@@ -151,7 +157,12 @@ describe("AiServicesSettingsSection", () => {
   it("offers only services that handle the task and saves the choice", async () => {
     const requests = stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(<AiServicesSettingsSection />, { wrapper });
+    render(
+      <TooltipProvider>
+        <AiServicesSettingsSection />
+      </TooltipProvider>,
+      { wrapper },
+    );
 
     const trigger = await screen.findByRole("button", { name: "Voice input" });
     await vi.waitFor(() =>
@@ -193,7 +204,12 @@ describe("AiServicesSettingsSection", () => {
     async ({ label, key, defaultPrompt }) => {
       const requests = stubFetch();
       const { wrapper } = createQueryClientTestHarness();
-      render(<AiServicesSettingsSection />, { wrapper });
+      render(
+        <TooltipProvider>
+          <AiServicesSettingsSection />
+        </TooltipProvider>,
+        { wrapper },
+      );
       const disclosure = await screen.findByRole("button", {
         name: new RegExp(label.replace(" prompt", "\\s*prompt"), "i"),
       });
@@ -231,7 +247,7 @@ describe("AiServicesSettingsSection", () => {
       fireEvent.change(editor, {
         target: { value: "Write titles in French." },
       });
-      fireEvent.click(controls.getByRole("button", { name: "Save changes" }));
+      fireEvent.click(controls.getByRole("button", { name: "Save" }));
       await vi.waitFor(() => {
         const put = requests.find(
           (request) => request.url === "/api/v1/settings/general",
@@ -241,7 +257,7 @@ describe("AiServicesSettingsSection", () => {
         );
         expect(
           controls
-            .getByRole("button", { name: "Save changes" })
+            .getByRole("button", { name: "Save" })
             .hasAttribute("disabled"),
         ).toBe(true);
       });
@@ -262,7 +278,12 @@ describe("AiServicesSettingsSection", () => {
   it("runs a test and shows the reply", async () => {
     stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(<AiServicesSettingsSection />, { wrapper });
+    render(
+      <TooltipProvider>
+        <AiServicesSettingsSection />
+      </TooltipProvider>,
+      { wrapper },
+    );
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Test thread titles" }),
@@ -283,7 +304,12 @@ describe("AiServicesSettingsSection", () => {
       }),
     );
     const { wrapper } = createQueryClientTestHarness();
-    render(<AiServicesSettingsSection />, { wrapper });
+    render(
+      <TooltipProvider>
+        <AiServicesSettingsSection />
+      </TooltipProvider>,
+      { wrapper },
+    );
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Test commit messages" }),
@@ -303,7 +329,12 @@ describe("AiServicesSettingsSection", () => {
       ),
     );
     const { wrapper } = createQueryClientTestHarness();
-    render(<AiServicesSettingsSection />, { wrapper });
+    render(
+      <TooltipProvider>
+        <AiServicesSettingsSection />
+      </TooltipProvider>,
+      { wrapper },
+    );
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Test thread titles" }),

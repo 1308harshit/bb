@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   DEFAULT_THREAD_NAMING_PROMPT,
   DEFAULT_COMMIT_MESSAGE_PROMPT,
@@ -7,15 +7,20 @@ import {
   THREAD_NAMING_PROMPT_MAX_LENGTH,
 } from "@bb/domain";
 import { Button } from "@bb/shared-ui/button";
+import { Icon } from "@bb/shared-ui/icon";
+import { cn } from "@bb/shared-ui/lib/utils";
 import { Textarea } from "@bb/shared-ui/textarea";
-import {
-  ExpandablePanel,
-  getCollapsibleHeaderToneClass,
-} from "@/components/ui/disclosure";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 
-export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
+export function AiTaskPromptSetting({
+  task,
+  children,
+}: {
+  task: AiTextTask;
+  children: (prompt: { editButton: ReactNode; status: string }) => ReactNode;
+}) {
   const isTitle = task === "thread-title";
   const settingKey = isTitle ? "threadNamingPrompt" : "commitMessagePrompt";
   const defaultPrompt = isTitle
@@ -29,6 +34,7 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
   const saved = settings?.[settingKey] ?? defaultPrompt;
   const value = draft ?? saved;
   const dirty = value.trim() !== saved;
+  const customized = Boolean(settings?.[settingKey]);
   const disabled = settings === undefined || update.isPending;
 
   useEffect(() => {
@@ -43,59 +49,67 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
     );
   }
 
+  const editButton = (
+    <Tooltip delayDuration={300} disableHoverableContent>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "size-8 text-muted-foreground hover:text-foreground",
+            isExpanded && "bg-accent text-foreground",
+          )}
+          aria-label={`Edit ${label.toLowerCase()}`}
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+        >
+          <Icon name="Edit" className="size-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Edit prompt</TooltipContent>
+    </Tooltip>
+  );
+
   return (
-    <ExpandablePanel
-      isExpanded={isExpanded}
-      onToggle={() => setIsExpanded((expanded) => !expanded)}
-      headerToneClass={getCollapsibleHeaderToneClass(isExpanded)}
-      forceHeaderChevronVisible
-      headerClassName="px-0 text-xs"
-      contentClassName="px-0 pb-0 pt-2"
-      summaryContentClassName="flex min-w-0 items-center gap-2"
-      summaryContent={
-        <>
-          <span>
-            <span className="sr-only">
-              {isTitle ? "Thread naming " : "Commit message "}
-            </span>
-            Prompt
-          </span>
-          <span className="text-subtle-foreground/75">
-            {dirty ? "Unsaved" : settings?.[settingKey] ? "Custom" : "Default"}
-          </span>
-        </>
-      }
-    >
-      <div role="group" aria-label={label} className="space-y-3">
-        <p className="text-xs leading-snug text-subtle-foreground/75">
-          {isTitle
-            ? "Set the language and style for new titles. Task context is added automatically."
-            : "Set the language and style for commit subjects. The diff is added automatically."}
-        </p>
-        <Textarea
-          aria-label={label}
-          value={value}
-          onChange={(event) => setDraft(event.target.value)}
-          rows={7}
-          maxLength={
-            isTitle
-              ? THREAD_NAMING_PROMPT_MAX_LENGTH
-              : COMMIT_MESSAGE_PROMPT_MAX_LENGTH
-          }
-          disabled={disabled}
-        />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={
-              disabled || (settings[settingKey] === null && draft === null)
+    <>
+      {children({
+        editButton,
+        status: dirty
+          ? " Unsaved prompt."
+          : customized
+            ? " Custom prompt."
+            : "",
+      })}
+      {isExpanded ? (
+        <div role="group" aria-label={label} className="space-y-2 pt-1">
+          <Textarea
+            aria-label={label}
+            value={value}
+            onChange={(event) => setDraft(event.target.value)}
+            className="max-h-80 min-h-32 resize-y overflow-y-auto text-xs leading-relaxed field-sizing-content"
+            maxLength={
+              isTitle
+                ? THREAD_NAMING_PROMPT_MAX_LENGTH
+                : COMMIT_MESSAGE_PROMPT_MAX_LENGTH
             }
-            onClick={() => save(null)}
-          >
-            Reset to default
-          </Button>
-          <div className="flex items-center gap-2">
+            disabled={disabled}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="mr-auto text-xs text-muted-foreground">
+              {isTitle
+                ? "Task context is added automatically."
+                : "The diff is added automatically."}
+            </p>
+            {customized ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={disabled}
+                onClick={() => save(null)}
+              >
+                Reset to default
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="ghost"
@@ -112,11 +126,11 @@ export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
               disabled={disabled || !value.trim() || !dirty}
               onClick={() => save(value.trim())}
             >
-              {update.isPending ? "Saving…" : "Save changes"}
+              {update.isPending ? "Saving…" : "Save"}
             </Button>
           </div>
         </div>
-      </div>
-    </ExpandablePanel>
+      ) : null}
+    </>
   );
 }

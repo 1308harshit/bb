@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AiServiceSelection, AiTask, AiTextTask } from "@bb/domain";
 import type {
@@ -205,7 +205,7 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose a service for each task. Customize prompts to match your language and style."
+      description="Choose a service for each task, and edit the prompts that shape titles and commit messages."
     >
       <div className="divide-y divide-border">
         {AI_TASK_ROWS.map((row) => {
@@ -234,45 +234,54 @@ export function AiServicesSettingsSection() {
             title: "Unavailable plugin",
           };
           const testTask = row.testTask;
+          const renderRow = (editButton: ReactNode, promptStatus: string) => (
+            <ChoiceDropdownSetting
+              label={row.label}
+              description={`${rowDescription(
+                view,
+                row,
+                testTask === null ? undefined : testResults[testTask],
+              )}${promptStatus}`}
+              triggerAriaLabel={row.label}
+              options={options}
+              selected={selected}
+              disabled={select.isPending}
+              onSelect={(nextKey) => {
+                const selection = selectionFromKey(view, nextKey);
+                if (selection === null) return;
+                setTestResults((current) => {
+                  if (testTask === null) return current;
+                  const { [testTask]: _cleared, ...rest } = current;
+                  return rest;
+                });
+                select.mutate({ task: row.task, selection });
+              }}
+            >
+              {testTask === null ? null : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Test ${row.label.toLowerCase()}`}
+                  disabled={test.isPending}
+                  onClick={() => test.mutate(testTask)}
+                >
+                  {test.isPending && test.variables === testTask
+                    ? "Testing…"
+                    : "Test"}
+                </Button>
+              )}
+              {editButton}
+            </ChoiceDropdownSetting>
+          );
           return (
             <div key={row.task} className="space-y-2 py-4 first:pt-0 last:pb-0">
-              <ChoiceDropdownSetting
-                label={row.label}
-                description={rowDescription(
-                  view,
-                  row,
-                  testTask === null ? undefined : testResults[testTask],
-                )}
-                triggerAriaLabel={row.label}
-                options={options}
-                selected={selected}
-                disabled={select.isPending}
-                onSelect={(nextKey) => {
-                  const selection = selectionFromKey(view, nextKey);
-                  if (selection === null) return;
-                  setTestResults((current) => {
-                    if (testTask === null) return current;
-                    const { [testTask]: _cleared, ...rest } = current;
-                    return rest;
-                  });
-                  select.mutate({ task: row.task, selection });
-                }}
-              >
-                {testTask === null ? null : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Test ${row.label.toLowerCase()}`}
-                    disabled={test.isPending}
-                    onClick={() => test.mutate(testTask)}
-                  >
-                    {test.isPending && test.variables === testTask
-                      ? "Testing…"
-                      : "Test"}
-                  </Button>
-                )}
-              </ChoiceDropdownSetting>
-              {testTask !== null && <AiTaskPromptSetting task={testTask} />}
+              {testTask === null ? (
+                renderRow(null, "")
+              ) : (
+                <AiTaskPromptSetting task={testTask}>
+                  {({ editButton, status }) => renderRow(editButton, status)}
+                </AiTaskPromptSetting>
+              )}
             </div>
           );
         })}
