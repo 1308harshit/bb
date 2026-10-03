@@ -41,7 +41,7 @@ export const CHIP_PLACEMENT_CLASS: Record<AnnotationChipPlacement, string> = {
 export function ExperimentalBadge() {
   return (
     <span
-      className="inline-flex items-center rounded border border-warning/20 bg-warning/5 px-1.5 py-px font-mono text-xs text-muted-foreground"
+      className="inline-flex items-center rounded border border-[color:color-mix(in_oklch,var(--canvas)_35%,oklch(0.85_0.12_95))] bg-[color:color-mix(in_oklch,var(--canvas)_25%,oklch(0.95_0.1_100))] px-1.5 py-px font-mono text-xs text-[color:oklch(0.38_0.05_95)]"
       title="Experimental: audited before stabilizing — see docs/api_to_audit.md in the bb repository."
     >
       experimental
