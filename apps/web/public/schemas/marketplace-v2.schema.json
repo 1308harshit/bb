@@ -5,12 +5,7 @@
   "description": "This document lists plugins and discovery data.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "name",
-    "displayName",
-    "plugins"
-  ],
+  "required": ["schemaVersion", "name", "displayName", "plugins"],
   "properties": {
     "$schema": {
       "const": "https://getbb.app/schemas/marketplace-v2.schema.json"
@@ -55,11 +50,7 @@
     "category": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "displayName",
-        "description"
-      ],
+      "required": ["id", "displayName", "description"],
       "properties": {
         "id": {
           "type": "string",
@@ -78,11 +69,7 @@
     "collection": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "displayName",
-        "pluginIds"
-      ],
+      "required": ["id", "displayName", "pluginIds"],
       "properties": {
         "id": {
           "type": "string",
@@ -114,6 +101,10 @@
         "source"
       ],
       "properties": {
+        "experimental": {
+          "type": "boolean",
+          "description": "Show an Experimental badge for this plugin."
+        },
         "id": {
           "type": "string",
           "$comment": "The file name must match this id.",
@@ -136,9 +127,7 @@
             {
               "type": "object",
               "additionalProperties": false,
-              "required": [
-                "url"
-              ],
+              "required": ["url"],
               "properties": {
                 "url": {
                   "type": "string",
@@ -161,9 +150,7 @@
         "author": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "name"
-          ],
+          "required": ["name"],
           "$comment": "Do not put an email address here.",
           "properties": {
             "name": {
@@ -220,32 +207,21 @@
         "updatedAt": {
           "type": "string",
           "format": "date-time"
-        },
-        "experimental": {
-          "type": "boolean",
-          "description": "Show an Experimental badge for this plugin."
         }
       }
     },
     "npmSource": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "npm"
-      ],
+      "required": ["npm"],
       "properties": {
         "npm": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "package"
-          ],
+          "required": ["package"],
           "$comment": "Do not use range and tag together.",
           "not": {
-            "required": [
-              "range",
-              "tag"
-            ]
+            "required": ["range", "tag"]
           },
           "properties": {
             "package": {
@@ -276,17 +252,12 @@
     "gitRefSource": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "git"
-      ],
+      "required": ["git"],
       "properties": {
         "git": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "url",
-            "ref"
-          ],
+          "required": ["url", "ref"],
           "properties": {
             "url": {
               "type": "string",
@@ -306,17 +277,12 @@
     "gitRangeSource": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "git"
-      ],
+      "required": ["git"],
       "properties": {
         "git": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "url",
-            "range"
-          ],
+          "required": ["url", "range"],
           "properties": {
             "url": {
               "type": "string",
