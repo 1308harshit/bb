@@ -87,12 +87,6 @@ type GeneratedConversationSourceKind =
   | "automation"
   | "system";
 
-function isAgentSourceKind(
-  sourceKind: GeneratedConversationSourceKind,
-): boolean {
-  return sourceKind === "agent" || sourceKind === "agent-recipient";
-}
-
 interface GeneratedConversationBodyTextArgs {
   initiator: TimelineUserConversationRow["initiator"];
   text: string;
@@ -298,26 +292,27 @@ export function generatedConversationTitle({
     sourceThreadId === null || sideChatAction !== null
       ? null
       : ({ kind: "thread", threadId: sourceThreadId } as const);
-  const segments: TimelineTitleSegment[] = isAgentSourceKind(sourceKind)
-    ? [
-        timelineTitleSegment({
-          em: false,
-          link: null,
-          shimmer: false,
-          text: agentLeadIn,
-          truncate: false,
-        }),
-        timelineTitleSegment({
-          em: true,
-          link: sourceLink,
-          shimmer: false,
-          text: sourceName,
-          truncate: true,
-        }),
-      ]
-    : sourceKind === "automation"
-      ? [verbSegment("Automation")]
-      : systemMessageTitleSegments(systemMessageKind, systemMessageSubject);
+  const segments: TimelineTitleSegment[] =
+    sourceKind === "agent" || sourceKind === "agent-recipient"
+      ? [
+          timelineTitleSegment({
+            em: false,
+            link: null,
+            shimmer: false,
+            text: agentLeadIn,
+            truncate: false,
+          }),
+          timelineTitleSegment({
+            em: true,
+            link: sourceLink,
+            shimmer: false,
+            text: sourceName,
+            truncate: true,
+          }),
+        ]
+      : sourceKind === "automation"
+        ? [verbSegment("Automation")]
+        : systemMessageTitleSegments(systemMessageKind, systemMessageSubject);
 
   return {
     action: sideChatAction,
@@ -589,22 +584,23 @@ export const GeneratedConversationMessage = memo(
         systemMessageSubject,
       ],
     );
-    const sourceTitleContent = isAgentSourceKind(sourceKind) ? (
-      <GeneratedAgentSourceTitle
-        onTitleAction={onTitleAction}
-        sourceIsPluginSideChat={sourceIsPluginSideChat}
-        sourceName={sourceName}
-        sourceProjectId={sourceProjectId}
-        sourceThreadId={sourceThreadId}
-        title={title}
-      />
-    ) : sourceKind === "automation" ? (
-      <GeneratedAutomationTitle
-        automationLink={automationLink}
-        requestLabel={titleRequestLabel}
-        timestamp={timestamp}
-      />
-    ) : undefined;
+    const sourceTitleContent =
+      sourceKind === "agent" || sourceKind === "agent-recipient" ? (
+        <GeneratedAgentSourceTitle
+          onTitleAction={onTitleAction}
+          sourceIsPluginSideChat={sourceIsPluginSideChat}
+          sourceName={sourceName}
+          sourceProjectId={sourceProjectId}
+          sourceThreadId={sourceThreadId}
+          title={title}
+        />
+      ) : sourceKind === "automation" ? (
+        <GeneratedAutomationTitle
+          automationLink={automationLink}
+          requestLabel={titleRequestLabel}
+          timestamp={timestamp}
+        />
+      ) : undefined;
     const leadingIcon = generatedConversationIconName(
       sourceKind,
       originKind,
@@ -648,7 +644,8 @@ export const GeneratedConversationMessage = memo(
         ? closeUnterminatedMarkdownCodeSpan(collapsedPreviewBody.text)
         : collapsedPreviewBody.text;
     const suppressGeneratedAgentImages =
-      isAgentSourceKind(sourceKind) && !sourceIsPluginSideChat;
+      (sourceKind === "agent" || sourceKind === "agent-recipient") &&
+      !sourceIsPluginSideChat;
     const collapsedPreview =
       !titleOnly && collapsedPreviewBody.text ? (
         <div

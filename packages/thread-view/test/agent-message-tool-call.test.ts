@@ -1,42 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { parseAgentMessageToolCall } from "../src/agent-message-tool-call.js";
 
+const ARGS = { threadId: "thr_wrkr234567", message: "Is it ready?" };
+
 describe("parseAgentMessageToolCall", () => {
   it("reads the recipient and message of a bb thread message call", () => {
     expect(
       parseAgentMessageToolCall({
         status: "completed",
         toolName: "bb:bb_thread_message",
-        toolArgs: { threadId: "thr_wrkr234567", message: "Is it ready?" },
+        toolArgs: ARGS,
       }),
-    ).toEqual({ threadId: "thr_wrkr234567", message: "Is it ready?" });
+    ).toEqual(ARGS);
   });
 
   it.each([
     [
       "a same-named tool on another server",
+      "completed",
       "mcp:bb_thread_message",
-      { threadId: "thr_wrkr234567", message: "hi" },
+      ARGS,
     ],
+    ["a failed call", "error", "bb:bb_thread_message", ARGS],
     [
-      "a call with a path-like recipient",
+      "a path-like recipient",
+      "completed",
       "bb:bb_thread_message",
-      { threadId: "../hosts/host_x/suspend#", message: "hi" },
+      { threadId: "../hosts/h/suspend#", message: "hi" },
     ],
-    ["a call without arguments", "bb:bb_thread_message", null],
-  ])("ignores %s", (_case, toolName, toolArgs) => {
+    ["a call without arguments", "completed", "bb:bb_thread_message", null],
+  ])("ignores %s", (_case, status, toolName, toolArgs) => {
     expect(
-      parseAgentMessageToolCall({ status: "completed", toolName, toolArgs }),
-    ).toBeNull();
-  });
-
-  it("ignores a failed call so it stays in the work summary", () => {
-    expect(
-      parseAgentMessageToolCall({
-        status: "error",
-        toolName: "bb:bb_thread_message",
-        toolArgs: { threadId: "thr_wrkr234567", message: "Is it ready?" },
-      }),
+      parseAgentMessageToolCall({ status, toolName, toolArgs }),
     ).toBeNull();
   });
 });
