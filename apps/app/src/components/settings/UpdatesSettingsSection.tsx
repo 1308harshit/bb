@@ -970,6 +970,14 @@ function InAppUpdateRow({
   const name = (
     <RowName
       name={rowName}
+      detail={
+        status.support.kind === "supported" &&
+        status.support.mode === "source" ? (
+          <span className="shrink-0 text-2xs text-muted-foreground">
+            Source checkout
+          </span>
+        ) : undefined
+      }
       current={formatAppUpdateRevision(status.current)}
       latest={available === null ? null : formatAppUpdateTarget(available)}
     />
