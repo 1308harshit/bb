@@ -209,30 +209,18 @@ export function AiServicesSettingsSection() {
     >
       <div className="divide-y divide-border">
         {AI_TASK_ROWS.map((row) => {
-          if (view === undefined) {
-            return (
-              <div
-                key={row.task}
-                className="space-y-2 py-4 first:pt-0 last:pb-0"
-              >
-                <ChoiceDropdownSetting
-                  label={row.label}
-                  description={row.hint}
-                  triggerAriaLabel={row.label}
-                  options={[]}
-                  selected={{ key: AUTOMATIC_KEY, title: "Loading" }}
-                  onSelect={() => undefined}
-                  disabled
-                />
-              </div>
-            );
-          }
-          const options = aiTaskOptions(view, row);
-          const key = selectionKey(view.selections[row.task]);
-          const selected = options.find((option) => option.key === key) ?? {
-            key,
-            title: "Unavailable plugin",
-          };
+          const options = view === undefined ? [] : aiTaskOptions(view, row);
+          const key =
+            view === undefined
+              ? AUTOMATIC_KEY
+              : selectionKey(view.selections[row.task]);
+          const selected =
+            view === undefined
+              ? { key, title: "Loading" }
+              : (options.find((option) => option.key === key) ?? {
+                  key,
+                  title: "Unavailable plugin",
+                });
           const testTask = row.testTask;
           const renderRow = (
             editButton: ReactNode,
@@ -240,16 +228,21 @@ export function AiServicesSettingsSection() {
           ) => (
             <ChoiceDropdownSetting
               label={row.label}
-              description={`${rowDescription(
-                view,
-                row,
-                testTask === null ? undefined : testResults[testTask],
-              )}${instructionsStatus}`}
+              description={
+                view === undefined
+                  ? row.hint
+                  : `${rowDescription(
+                      view,
+                      row,
+                      testTask === null ? undefined : testResults[testTask],
+                    )}${instructionsStatus}`
+              }
               triggerAriaLabel={row.label}
               options={options}
               selected={selected}
-              disabled={select.isPending}
+              disabled={view === undefined || select.isPending}
               onSelect={(nextKey) => {
+                if (view === undefined) return;
                 const selection = selectionFromKey(view, nextKey);
                 if (selection === null) return;
                 setTestResults((current) => {
@@ -265,7 +258,7 @@ export function AiServicesSettingsSection() {
                   variant="ghost"
                   size="sm"
                   aria-label={`Test ${row.label.toLowerCase()}`}
-                  disabled={test.isPending}
+                  disabled={view === undefined || test.isPending}
                   onClick={() => test.mutate(testTask)}
                 >
                   {test.isPending && test.variables === testTask
