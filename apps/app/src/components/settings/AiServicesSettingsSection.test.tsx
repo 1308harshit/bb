@@ -174,7 +174,9 @@ describe("AiServicesSettingsSection", () => {
     const editor = await screen.findByRole("textbox", {
       name: "Thread naming prompt",
     });
-    await vi.waitFor(() => expect(editor.hasAttribute("disabled")).toBe(false));
+    if (!(editor instanceof HTMLTextAreaElement))
+      throw new Error("Expected the naming prompt textarea");
+    await vi.waitFor(() => expect(editor.disabled).toBe(false));
     fireEvent.change(editor, { target: { value: "Write titles in French." } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await vi.waitFor(() => {
@@ -188,11 +190,14 @@ describe("AiServicesSettingsSection", () => {
         screen.getByRole("button", { name: "Save" }).hasAttribute("disabled"),
       ).toBe(true);
     });
-    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+    const reset = screen.getByRole("button", { name: "Reset to default" });
+    await vi.waitFor(() => {
+      expect(editor.value).toBe("Write titles in French.");
+      expect(reset.hasAttribute("disabled")).toBe(false);
+    });
+    fireEvent.click(reset);
     await vi.waitFor(() =>
-      expect(screen.getByDisplayValue(DEFAULT_THREAD_NAMING_PROMPT)).toBe(
-        editor,
-      ),
+      expect(editor.value).toBe(DEFAULT_THREAD_NAMING_PROMPT),
     );
     const writes = requests.filter(
       (request) => request.url === "/api/v1/settings/general",
