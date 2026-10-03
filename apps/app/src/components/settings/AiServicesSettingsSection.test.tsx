@@ -9,7 +9,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultAppSettings } from "@bb/domain";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
 import type { SystemAiServicesResponse } from "@bb/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -132,12 +131,7 @@ describe("AiServicesSettingsSection", () => {
   it("shows each task's choice, including a selection whose plugin is gone", async () => {
     stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(
-      <TooltipProvider>
-        <AiServicesSettingsSection />
-      </TooltipProvider>,
-      { wrapper },
-    );
+    render(<AiServicesSettingsSection />, { wrapper });
 
     const titles = await screen.findByRole("button", { name: "Thread titles" });
     await vi.waitFor(() => expect(titles.textContent).toContain("Automatic"));
@@ -153,12 +147,7 @@ describe("AiServicesSettingsSection", () => {
   it("offers only services that handle the task and saves the choice", async () => {
     const requests = stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(
-      <TooltipProvider>
-        <AiServicesSettingsSection />
-      </TooltipProvider>,
-      { wrapper },
-    );
+    render(<AiServicesSettingsSection />, { wrapper });
 
     const trigger = await screen.findByRole("button", { name: "Voice input" });
     await vi.waitFor(() =>
@@ -187,81 +176,40 @@ describe("AiServicesSettingsSection", () => {
   it.each([
     { label: "Thread title instructions", key: "threadTitleInstructions" },
     { label: "Commit message instructions", key: "commitMessageInstructions" },
-  ])("saves $label independently and clears them", async ({ label, key }) => {
+  ])("autosaves $label on blur and clears them", async ({ label, key }) => {
     const requests = stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(
-      <TooltipProvider>
-        <AiServicesSettingsSection />
-      </TooltipProvider>,
-      { wrapper },
-    );
-    const toggle = await screen.findByRole("button", {
-      name: `Edit ${label.toLowerCase()}`,
-    });
-    fireEvent.click(toggle);
-    const draftEditor = await screen.findByRole("textbox", { name: label });
-    if (!(draftEditor instanceof HTMLTextAreaElement))
-      throw new Error("Expected instructions textarea");
-    await vi.waitFor(() => expect(draftEditor.disabled).toBe(false));
-    expect(draftEditor.value).toBe("");
-    fireEvent.change(draftEditor, {
-      target: { value: "Unsaved instructions" },
-    });
-    fireEvent.click(toggle);
-    await vi.waitFor(() =>
-      expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
-    );
-    fireEvent.click(toggle);
-    const resumed = await screen.findByRole("textbox", { name: label });
-    if (!(resumed instanceof HTMLTextAreaElement))
-      throw new Error("Expected instructions textarea");
-    expect(resumed.value).toBe("Unsaved instructions");
-    fireEvent.click(
-      within(screen.getByRole("group", { name: label })).getByRole("button", {
-        name: "Cancel",
-      }),
-    );
-    await vi.waitFor(() =>
-      expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
-    );
-    fireEvent.click(toggle);
+    render(<AiServicesSettingsSection />, { wrapper });
     const editor = await screen.findByRole("textbox", { name: label });
     if (!(editor instanceof HTMLTextAreaElement))
       throw new Error("Expected instructions textarea");
-    const controls = within(screen.getByRole("group", { name: label }));
+    await vi.waitFor(() => expect(editor.disabled).toBe(false));
     expect(editor.value).toBe("");
+    const writes = () =>
+      requests.filter((request) => request.url === "/api/v1/settings/general");
+    fireEvent.blur(editor);
+    expect(writes()).toHaveLength(0);
     fireEvent.change(editor, { target: { value: "  Write in French.  " } });
-    fireEvent.click(controls.getByRole("button", { name: "Save" }));
+    fireEvent.blur(editor);
     await vi.waitFor(() => {
-      const put = requests.find(
-        (request) => request.url === "/api/v1/settings/general",
+      expect(writes()).toHaveLength(1);
+      expect(JSON.parse(writes()[0]?.body ?? "null")[key]).toBe(
+        "Write in French.",
       );
-      expect(JSON.parse(put?.body ?? "null")[key]).toBe("Write in French.");
-      expect(
-        controls.getByRole("button", { name: "Save" }).hasAttribute("disabled"),
-      ).toBe(true);
     });
+    await vi.waitFor(() => expect(editor.value).toBe("Write in French."));
     fireEvent.change(editor, { target: { value: " " } });
-    fireEvent.click(controls.getByRole("button", { name: "Save" }));
+    fireEvent.blur(editor);
     await vi.waitFor(() => {
-      const writes = requests.filter(
-        (request) => request.url === "/api/v1/settings/general",
-      );
-      expect(writes).toHaveLength(2);
-      expect(JSON.parse(writes.at(-1)?.body ?? "null")[key]).toBeNull();
+      expect(writes()).toHaveLength(2);
+      expect(JSON.parse(writes().at(-1)?.body ?? "null")[key]).toBeNull();
     });
   });
 
   it("runs a test and shows the reply", async () => {
     stubFetch();
     const { wrapper } = createQueryClientTestHarness();
-    render(
-      <TooltipProvider>
-        <AiServicesSettingsSection />
-      </TooltipProvider>,
-      { wrapper },
-    );
+    render(<AiServicesSettingsSection />, { wrapper });
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Test thread titles" }),
@@ -282,12 +230,7 @@ describe("AiServicesSettingsSection", () => {
       }),
     );
     const { wrapper } = createQueryClientTestHarness();
-    render(
-      <TooltipProvider>
-        <AiServicesSettingsSection />
-      </TooltipProvider>,
-      { wrapper },
-    );
+    render(<AiServicesSettingsSection />, { wrapper });
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Test commit messages" }),
@@ -307,12 +250,7 @@ describe("AiServicesSettingsSection", () => {
       ),
     );
     const { wrapper } = createQueryClientTestHarness();
-    render(
-      <TooltipProvider>
-        <AiServicesSettingsSection />
-      </TooltipProvider>,
-      { wrapper },
-    );
+    render(<AiServicesSettingsSection />, { wrapper });
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Test thread titles" }),

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AiServiceSelection, AiTask, AiTextTask } from "@bb/domain";
 import type {
@@ -222,61 +222,51 @@ export function AiServicesSettingsSection() {
                   title: "Unavailable plugin",
                 });
           const testTask = row.testTask;
-          const renderRow = (
-            editButton: ReactNode,
-            instructionsStatus: string,
-          ) => (
-            <ChoiceDropdownSetting
-              label={row.label}
-              description={
-                view === undefined
-                  ? row.hint
-                  : `${rowDescription(
-                      view,
-                      row,
-                      testTask === null ? undefined : testResults[testTask],
-                    )}${instructionsStatus}`
-              }
-              triggerAriaLabel={row.label}
-              options={options}
-              selected={selected}
-              disabled={view === undefined || select.isPending}
-              onSelect={(nextKey) => {
-                if (view === undefined) return;
-                const selection = selectionFromKey(view, nextKey);
-                if (selection === null) return;
-                setTestResults((current) => {
-                  if (testTask === null) return current;
-                  const { [testTask]: _cleared, ...rest } = current;
-                  return rest;
-                });
-                select.mutate({ task: row.task, selection });
-              }}
-            >
-              {testTask === null || view === undefined ? null : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Test ${row.label.toLowerCase()}`}
-                  disabled={test.isPending}
-                  onClick={() => test.mutate(testTask)}
-                >
-                  {test.isPending && test.variables === testTask
-                    ? "Testing…"
-                    : "Test"}
-                </Button>
-              )}
-              {editButton}
-            </ChoiceDropdownSetting>
-          );
           return (
             <div key={row.task} className="space-y-2 py-4 first:pt-0 last:pb-0">
-              {testTask === null ? (
-                renderRow(null, "")
-              ) : (
-                <AiTaskInstructionsSetting task={testTask}>
-                  {({ editButton, status }) => renderRow(editButton, status)}
-                </AiTaskInstructionsSetting>
+              <ChoiceDropdownSetting
+                label={row.label}
+                description={
+                  view === undefined
+                    ? row.hint
+                    : rowDescription(
+                        view,
+                        row,
+                        testTask === null ? undefined : testResults[testTask],
+                      )
+                }
+                triggerAriaLabel={row.label}
+                options={options}
+                selected={selected}
+                disabled={view === undefined || select.isPending}
+                onSelect={(nextKey) => {
+                  if (view === undefined) return;
+                  const selection = selectionFromKey(view, nextKey);
+                  if (selection === null) return;
+                  setTestResults((current) => {
+                    if (testTask === null) return current;
+                    const { [testTask]: _cleared, ...rest } = current;
+                    return rest;
+                  });
+                  select.mutate({ task: row.task, selection });
+                }}
+              >
+                {testTask === null || view === undefined ? null : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Test ${row.label.toLowerCase()}`}
+                    disabled={test.isPending}
+                    onClick={() => test.mutate(testTask)}
+                  >
+                    {test.isPending && test.variables === testTask
+                      ? "Testing…"
+                      : "Test"}
+                  </Button>
+                )}
+              </ChoiceDropdownSetting>
+              {testTask === null ? null : (
+                <AiTaskInstructionsSetting task={testTask} />
               )}
             </div>
           );
