@@ -41,7 +41,7 @@ export const CHIP_PLACEMENT_CLASS: Record<AnnotationChipPlacement, string> = {
 export function ExperimentalBadge() {
   return (
     <span
-      className="inline-flex items-center rounded border border-warning/40 bg-warning/10 px-1.5 py-px font-mono text-xs text-warning-text"
+      className="inline-flex items-center rounded border border-warning/20 bg-warning/5 px-1.5 py-px font-mono text-xs text-muted-foreground"
       title="Experimental: audited before stabilizing — see docs/api_to_audit.md in the bb repository."
     >
       experimental
