@@ -3,7 +3,11 @@ import {
   getAiServiceSelections,
   setAiServiceSelection,
 } from "@bb/db";
-import { promptInputSchema, type AiTextTask } from "@bb/domain";
+import {
+  promptInputSchema,
+  type AppSettings,
+  type AiTextTask,
+} from "@bb/domain";
 import type {
   SetAiServiceSelectionRequest,
   SystemAiServicesResponse,
@@ -101,18 +105,24 @@ export async function updateAiServiceSelection(
 
 function sampleFor(
   task: AiTextTask,
-  namingPrompt: string | null,
+  settings: AppSettings,
 ): {
   prompt: string;
   sanitize: (value: string) => string | null;
 } {
   if (task === "commit-message") {
     return {
-      prompt: buildCommitMessagePrompt(SAMPLE_COMMIT),
+      prompt: buildCommitMessagePrompt(
+        SAMPLE_COMMIT,
+        settings.commitMessagePrompt,
+      ),
       sanitize: sanitizeGeneratedCommitMessage,
     };
   }
-  const prompt = buildThreadTitlePrompt(SAMPLE_TITLE_INPUT, namingPrompt);
+  const prompt = buildThreadTitlePrompt(
+    SAMPLE_TITLE_INPUT,
+    settings.threadNamingPrompt,
+  );
   if (prompt === null) {
     throw new Error("The sample title prompt is empty");
   }
@@ -123,10 +133,7 @@ export async function testAiService(
   deps: AiServicesViewDeps,
   args: { task: AiTextTask; signal: AbortSignal },
 ): Promise<TestAiServiceResponse> {
-  const sample = sampleFor(
-    args.task,
-    getAppSettings(deps.db).threadNamingPrompt,
-  );
+  const sample = sampleFor(args.task, getAppSettings(deps.db));
   const outcome = await runTextAiTask(deps, {
     task: args.task,
     label: "AI service test",

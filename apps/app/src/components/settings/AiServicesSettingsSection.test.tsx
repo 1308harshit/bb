@@ -1,8 +1,18 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_THREAD_NAMING_PROMPT, defaultAppSettings } from "@bb/domain";
+import {
+  DEFAULT_COMMIT_MESSAGE_PROMPT,
+  DEFAULT_THREAD_NAMING_PROMPT,
+  defaultAppSettings,
+} from "@bb/domain";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
 import type { SystemAiServicesResponse } from "@bb/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -167,45 +177,60 @@ describe("AiServicesSettingsSection", () => {
     await vi.waitFor(() => expect(trigger.textContent).toContain("Off"));
   });
 
-  it("saves a naming prompt and resets the editor to the default", async () => {
-    const requests = stubFetch();
-    const { wrapper } = createQueryClientTestHarness();
-    render(<AiServicesSettingsSection />, { wrapper });
-    const editor = await screen.findByRole("textbox", {
-      name: "Thread naming prompt",
-    });
-    if (!(editor instanceof HTMLTextAreaElement))
-      throw new Error("Expected the naming prompt textarea");
-    await vi.waitFor(() => expect(editor.disabled).toBe(false));
-    fireEvent.change(editor, { target: { value: "Write titles in French." } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await vi.waitFor(() => {
-      const put = requests.find(
+  it.each([
+    {
+      label: "Thread naming prompt",
+      key: "threadNamingPrompt",
+      defaultPrompt: DEFAULT_THREAD_NAMING_PROMPT,
+    },
+    {
+      label: "Commit message prompt",
+      key: "commitMessagePrompt",
+      defaultPrompt: DEFAULT_COMMIT_MESSAGE_PROMPT,
+    },
+  ])(
+    "saves $label independently and resets it to the default",
+    async ({ label, key, defaultPrompt }) => {
+      const requests = stubFetch();
+      const { wrapper } = createQueryClientTestHarness();
+      render(<AiServicesSettingsSection />, { wrapper });
+      const editor = await screen.findByRole("textbox", {
+        name: label,
+      });
+      const controls = within(screen.getByRole("group", { name: label }));
+      if (!(editor instanceof HTMLTextAreaElement))
+        throw new Error("Expected the naming prompt textarea");
+      await vi.waitFor(() => expect(editor.disabled).toBe(false));
+      fireEvent.change(editor, {
+        target: { value: "Write titles in French." },
+      });
+      fireEvent.click(controls.getByRole("button", { name: "Save" }));
+      await vi.waitFor(() => {
+        const put = requests.find(
+          (request) => request.url === "/api/v1/settings/general",
+        );
+        expect(JSON.parse(put?.body ?? "null")[key]).toBe(
+          "Write titles in French.",
+        );
+        expect(
+          controls
+            .getByRole("button", { name: "Save" })
+            .hasAttribute("disabled"),
+        ).toBe(true);
+      });
+      const reset = controls.getByRole("button", { name: "Reset to default" });
+      await vi.waitFor(() => {
+        expect(editor.value).toBe("Write titles in French.");
+        expect(reset.hasAttribute("disabled")).toBe(false);
+      });
+      fireEvent.click(reset);
+      await vi.waitFor(() => expect(editor.value).toBe(defaultPrompt));
+      const writes = requests.filter(
         (request) => request.url === "/api/v1/settings/general",
       );
-      expect(JSON.parse(put?.body ?? "null").threadNamingPrompt).toBe(
-        "Write titles in French.",
-      );
-      expect(
-        screen.getByRole("button", { name: "Save" }).hasAttribute("disabled"),
-      ).toBe(true);
-    });
-    const reset = screen.getByRole("button", { name: "Reset to default" });
-    await vi.waitFor(() => {
-      expect(editor.value).toBe("Write titles in French.");
-      expect(reset.hasAttribute("disabled")).toBe(false);
-    });
-    fireEvent.click(reset);
-    await vi.waitFor(() =>
-      expect(editor.value).toBe(DEFAULT_THREAD_NAMING_PROMPT),
-    );
-    const writes = requests.filter(
-      (request) => request.url === "/api/v1/settings/general",
-    );
-    expect(
-      JSON.parse(writes.at(-1)?.body ?? "null").threadNamingPrompt,
-    ).toBeNull();
-  });
+      expect(JSON.parse(writes.at(-1)?.body ?? "null")[key]).toBeNull();
+    },
+  );
 
   it("runs a test and shows the reply", async () => {
     stubFetch();

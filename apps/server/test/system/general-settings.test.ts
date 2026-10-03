@@ -215,33 +215,35 @@ it("persists archive confirmation opt-out and preserves it for older clients", a
   });
 });
 
-it("preserves a custom naming prompt for older clients and supports resetting it", async () => {
-  await withTestHarness(async (harness) => {
-    const put = (settings: object) =>
-      harness.app.request("/api/v1/settings/general", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-    const threadNamingPrompt = "Write a short title in French.";
-    expect(
-      (await put({ ...defaultAppSettings, threadNamingPrompt })).status,
-    ).toBe(200);
-    const { threadNamingPrompt: _omitted, ...legacy } = defaultAppSettings;
-    expect((await put(legacy)).status).toBe(200);
-    const config = systemConfigResponseSchema.parse(
-      await readJson(await harness.app.request("/api/v1/system/config")),
-    );
-    expect(config.generalSettings.threadNamingPrompt).toBe(threadNamingPrompt);
-    expect(
-      (await put({ ...defaultAppSettings, threadNamingPrompt: " " })).status,
-    ).toBe(400);
-    expect(getAppSettings(harness.db).threadNamingPrompt).toBe(
-      threadNamingPrompt,
-    );
-    expect(
-      (await put({ ...defaultAppSettings, threadNamingPrompt: null })).status,
-    ).toBe(200);
-    expect(getAppSettings(harness.db).threadNamingPrompt).toBeNull();
-  });
-});
+it.each(["threadNamingPrompt", "commitMessagePrompt"] as const)(
+  "preserves %s for older clients and supports resetting it",
+  async (key) => {
+    await withTestHarness(async (harness) => {
+      const put = (settings: object) =>
+        harness.app.request("/api/v1/settings/general", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(settings),
+        });
+      const threadNamingPrompt = "Write a short title in French.";
+      expect(
+        (await put({ ...defaultAppSettings, [key]: threadNamingPrompt }))
+          .status,
+      ).toBe(200);
+      const { [key]: _omitted, ...legacy } = defaultAppSettings;
+      expect((await put(legacy)).status).toBe(200);
+      const config = systemConfigResponseSchema.parse(
+        await readJson(await harness.app.request("/api/v1/system/config")),
+      );
+      expect(config.generalSettings[key]).toBe(threadNamingPrompt);
+      expect((await put({ ...defaultAppSettings, [key]: " " })).status).toBe(
+        400,
+      );
+      expect(getAppSettings(harness.db)[key]).toBe(threadNamingPrompt);
+      expect((await put({ ...defaultAppSettings, [key]: null })).status).toBe(
+        200,
+      );
+      expect(getAppSettings(harness.db)[key]).toBeNull();
+    });
+  },
+);

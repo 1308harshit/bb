@@ -286,3 +286,18 @@ The override accepts 1–8,000 characters after trimming. Reset to default in
 settings, or `bb settings general threadNamingPrompt null`, restores the built-in
 prompt. The default remains unchanged; disabling the thread-title AI service
 still uses the start of the task instead.
+
+
+## Commit message prompt
+
+Settings → AI services → Commit message prompt customizes generated commit
+subjects server-wide, including the Commit messages Test action. bb supplies the
+changed files, diff summary, and patch automatically; no template variables are
+needed. Save before testing. Output remains a single subject line of up to 72
+display columns.
+
+Use `bb settings general commitMessagePrompt "Write short commit subjects in French."`
+or pass `commitMessagePrompt` with the current settings to SDK
+`system.updateGeneralSettings`. The override accepts 1–8,000 characters after
+trimming. Set `null` or use Reset to default to restore conventional commit
+instructions. Thread naming and commit prompts are independent.

@@ -305,6 +305,10 @@ export function registerSystemRoutes(
         : undefined;
     const updatedSettings = appSettingsSchema.parse({
       ...settings,
+      commitMessagePrompt:
+        settings.commitMessagePrompt === undefined
+          ? current.commitMessagePrompt
+          : settings.commitMessagePrompt,
       threadNamingPrompt:
         settings.threadNamingPrompt === undefined
           ? current.threadNamingPrompt

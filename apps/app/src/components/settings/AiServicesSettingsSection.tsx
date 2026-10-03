@@ -18,7 +18,7 @@ import {
   type ChoiceDropdownOption,
 } from "./ChoiceDropdownSetting";
 
-import { ThreadNamingPromptSetting } from "./ThreadNamingPromptSetting";
+import { AiTaskPromptSetting } from "./AiTaskPromptSetting";
 
 type AiTaskTestResult = TestAiServiceResponse | { ok: false; message: string };
 
@@ -269,7 +269,7 @@ export function AiServicesSettingsSection() {
                   </Button>
                 )}
               </ChoiceDropdownSetting>
-              {row.task === "thread-title" && <ThreadNamingPromptSetting />}
+              {testTask !== null && <AiTaskPromptSetting task={testTask} />}
             </Fragment>
           );
         })}

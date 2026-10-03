@@ -1,3 +1,4 @@
+import { getAppSettings, setAppSettings } from "@bb/db";
 import { describe, expect, it } from "vitest";
 import { registerFakeAiService } from "../helpers/ai-services.js";
 import { generateCommitMessage } from "../../src/services/ai/commit-message.js";
@@ -132,6 +133,47 @@ describe("commit message generation", () => {
       expect(prompt).toContain("uncommitted changes");
       expect(prompt).toContain("+export const changed = true;");
       expect(prompt).toContain("M\tfile.ts");
+    });
+  });
+
+  it("uses the custom prompt for generated commits and service tests, then resets", async () => {
+    await withTestHarness({}, async (harness) => {
+      const custom =
+        "Write a short French commit subject without a type prefix. Keep {{literal}} as text.";
+      setAppSettings(harness.db, {
+        ...getAppSettings(harness.db),
+        commitMessagePrompt: custom,
+      });
+      const service = registerCodex(
+        harness,
+        async () => "Exporter le nouveau champ",
+      );
+      expect(await commitThroughRoute(harness)).toBe(
+        "Exporter le nouveau champ",
+      );
+      const prompt = service.completeCalls[0]?.prompt ?? "";
+      expect(prompt).toContain(custom);
+      expect(prompt).toContain(commitMessageArgs.patch.trim());
+      expect(prompt).not.toContain("Use conventional commit style");
+      const response = await harness.app.request(
+        "/api/v1/system/ai-services/test",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ task: "commit-message" }),
+        },
+      );
+      expect(response.status).toBe(200);
+      expect(service.completeCalls[1]?.prompt).toContain(custom);
+      setAppSettings(harness.db, {
+        ...getAppSettings(harness.db),
+        commitMessagePrompt: null,
+      });
+      await generateCommitMessage(harness.deps, commitMessageArgs);
+      expect(service.completeCalls[2]?.prompt).toContain(
+        "Use conventional commit style",
+      );
+      expect(service.completeCalls[2]?.prompt).not.toContain(custom);
     });
   });
 

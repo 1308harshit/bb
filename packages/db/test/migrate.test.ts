@@ -1773,6 +1773,7 @@ describe("migrate", () => {
         telemetryEnabled: true,
         managedBranchPrefix: "bb/",
         threadNamingPrompt: null,
+        commitMessagePrompt: null,
       });
       expect(
         db.$client

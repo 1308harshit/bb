@@ -5,6 +5,11 @@ import { isValidGitBranchName } from "./git-checkout.js";
 export const DEFAULT_THREAD_NAMING_PROMPT =
   "You create concise titles for coding tasks.\nReply with only the title: short, clear, sentence case, in the same language as the task. Keep it under about 40 characters; for scripts that do not separate words with spaces, that is roughly 20 characters. Summarize the task in your own words instead of copying its text. No quotes, no trailing punctuation, no explanation.\n\nConsider the user's intent when titling to make it useful. For instance, if they detail specific tools to use to solve a problem, it is the problem that should be the title, not the tools that should be used.";
 
+export const DEFAULT_COMMIT_MESSAGE_PROMPT =
+  "Reply with only the commit message line, without quotes or explanation.\nRules:\n- Use conventional commit style (feat|fix|refactor|test|docs|chore|perf|build|ci|style).\n- Prefer specific types like feat/fix/refactor/test/docs/perf over chore.\n- Use chore only for housekeeping (deps, tooling, CI, formatting, repo maintenance).\n- Use imperative mood, max 72 characters.\n- Single line only, no body.";
+
+export const COMMIT_MESSAGE_PROMPT_MAX_LENGTH = 8000;
+
 export const THREAD_NAMING_PROMPT_MAX_LENGTH = 8000;
 
 export const MANAGED_BRANCH_PREFIX_MAX_LENGTH = 64;
@@ -41,6 +46,13 @@ export const appSettingsSchema = z
       .max(THREAD_NAMING_PROMPT_MAX_LENGTH)
       .nullable()
       .default(null),
+    commitMessagePrompt: z
+      .string()
+      .trim()
+      .min(1)
+      .max(COMMIT_MESSAGE_PROMPT_MAX_LENGTH)
+      .nullable()
+      .default(null),
     machineServerUrl: z
       .string()
       .url()
@@ -72,6 +84,7 @@ export const defaultAppSettings: AppSettings = {
   telemetryEnabled: true,
   managedBranchPrefix: DEFAULT_MANAGED_BRANCH_PREFIX,
   threadNamingPrompt: null,
+  commitMessagePrompt: null,
   machineServerUrl: null,
   defaultMachineAccess: null,
   machineGitCredentialsEnabled: true,
@@ -84,6 +97,9 @@ export const appSettingsUpdateSchema = z.union([
     threadNamingPrompt: appSettingsSchema.shape.threadNamingPrompt
       .removeDefault()
       .optional(),
+    commitMessagePrompt: appSettingsSchema.shape.commitMessagePrompt
+      .removeDefault()
+      .optional(),
     allowFastServiceTier: z.boolean().optional(),
     telemetryEnabled: z.boolean().optional(),
     confirmThreadArchive: z.boolean().optional(),
@@ -91,6 +107,9 @@ export const appSettingsUpdateSchema = z.union([
   }),
   appSettingsSchema.omit({ showDiagnosticEvents: true }).extend({
     threadNamingPrompt: appSettingsSchema.shape.threadNamingPrompt
+      .removeDefault()
+      .optional(),
+    commitMessagePrompt: appSettingsSchema.shape.commitMessagePrompt
       .removeDefault()
       .optional(),
     allowFastServiceTier: z.boolean().optional(),

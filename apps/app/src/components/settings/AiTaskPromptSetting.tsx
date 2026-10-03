@@ -1,6 +1,9 @@
 import { useState } from "react";
 import {
   DEFAULT_THREAD_NAMING_PROMPT,
+  DEFAULT_COMMIT_MESSAGE_PROMPT,
+  COMMIT_MESSAGE_PROMPT_MAX_LENGTH,
+  type AiTextTask,
   THREAD_NAMING_PROMPT_MAX_LENGTH,
 } from "@bb/domain";
 import { Button } from "@bb/shared-ui/button";
@@ -9,35 +12,49 @@ import { SettingsWithControl } from "@/components/ui/settings-section";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 
-export function ThreadNamingPromptSetting() {
+export function AiTaskPromptSetting({ task }: { task: AiTextTask }) {
+  const isTitle = task === "thread-title";
+  const settingKey = isTitle ? "threadNamingPrompt" : "commitMessagePrompt";
+  const defaultPrompt = isTitle
+    ? DEFAULT_THREAD_NAMING_PROMPT
+    : DEFAULT_COMMIT_MESSAGE_PROMPT;
+  const label = isTitle ? "Thread naming prompt" : "Commit message prompt";
   const settings = useSystemConfig().data?.generalSettings;
   const update = useUpdateGeneralSettings();
   const [draft, setDraft] = useState<string | null>(null);
-  const saved = settings?.threadNamingPrompt ?? DEFAULT_THREAD_NAMING_PROMPT;
+  const saved = settings?.[settingKey] ?? defaultPrompt;
   const value = draft ?? saved;
   const disabled = settings === undefined || update.isPending;
 
   function save(prompt: string | null) {
     if (settings === undefined) return;
     update.mutate(
-      { ...settings, threadNamingPrompt: prompt },
+      { ...settings, [settingKey]: prompt },
       { onSuccess: () => setDraft(null) },
     );
   }
 
   return (
     <SettingsWithControl
-      label="Thread naming prompt"
-      description="Instructions for naming new threads across this server. bb adds the task text automatically and limits titles to 48 columns. Save, then use Test above to try it."
+      label={label}
+      description={
+        isTitle
+          ? "Instructions for naming new threads across this server. bb adds the task text automatically and limits titles to 48 columns. Save, then use Test above to try it."
+          : "Instructions for commit messages across this server. bb adds the changed files and diff automatically and keeps a single subject line up to 72 columns. Save, then use Test above to try it."
+      }
       controlPlacement="below"
     >
-      <div className="space-y-2">
+      <div role="group" aria-label={label} className="space-y-2">
         <Textarea
-          aria-label="Thread naming prompt"
+          aria-label={label}
           value={value}
           onChange={(event) => setDraft(event.target.value)}
           rows={7}
-          maxLength={THREAD_NAMING_PROMPT_MAX_LENGTH}
+          maxLength={
+            isTitle
+              ? THREAD_NAMING_PROMPT_MAX_LENGTH
+              : COMMIT_MESSAGE_PROMPT_MAX_LENGTH
+          }
           disabled={disabled}
         />
         <div className="flex flex-wrap gap-2">
@@ -52,8 +69,7 @@ export function ThreadNamingPromptSetting() {
             size="sm"
             variant="ghost"
             disabled={
-              disabled ||
-              (settings.threadNamingPrompt === null && draft === null)
+              disabled || (settings[settingKey] === null && draft === null)
             }
             onClick={() => save(null)}
           >
