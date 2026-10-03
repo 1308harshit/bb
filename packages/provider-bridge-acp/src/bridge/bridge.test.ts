@@ -2161,13 +2161,18 @@ describe("acp bridge", () => {
     );
   });
 
-  it.each(["turn/start", "turn/steer"] as const)(
-    "refreshes permission policy and native flags before %s",
-    async (method) => {
+  it.each([
+    { method: "turn/start", nativeFlags: true },
+    { method: "turn/steer", nativeFlags: true },
+    { method: "turn/start", nativeFlags: false },
+    { method: "turn/steer", nativeFlags: false },
+  ] as const)(
+    "refreshes permissions before $method (native flags: $nativeFlags)",
+    async ({ method, nativeFlags }) => {
       const { providerThreadId } = await startThread({
         permissionMode: "full",
         envVars: { FAKE_ACP_LOAD_SESSION: "1" },
-        permissionCli: { full: ["--always-approve"], insertAfterArgs: 1 },
+        ...(nativeFlags ? { permissionCli: { full: ["--always-approve"], insertAfterArgs: 1 } } : {}),
       });
       if (method === "turn/steer") {
         await waitForResponse(sendTurnRequest("turn/start", providerThreadId, {
@@ -2189,10 +2194,14 @@ describe("acp bridge", () => {
       expect(forwarded).toBeDefined();
       handleLine(JSON.stringify({ jsonrpc: "2.0", id: forwarded?.id, result: { decision: "deny" } }));
       await waitFor(() => agentMessageTexts().includes("permission:no") ? true : undefined, "denied permission");
-      expect(notifications("session/replaced").at(-1)?.params).toMatchObject({
-        providerThreadId,
-        contextLost: false,
-      });
+      if (nativeFlags) {
+        expect(notifications("session/replaced").at(-1)?.params).toMatchObject({
+          providerThreadId,
+          contextLost: false,
+        });
+      } else {
+        expect(notifications("session/replaced")).toHaveLength(0);
+      }
       await waitFor(() => threadEventsOfType("turn/completed").some((event) => event.status === "completed") ? true : undefined, "completed workspace turn");
       await waitForResponse(sendTurnRequest("turn/start", providerThreadId, {
         input: [{ type: "text", text: "echo-argv", mentions: [] }],
