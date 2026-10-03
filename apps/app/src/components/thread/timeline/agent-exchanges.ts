@@ -1,13 +1,19 @@
-import type { ThreadTimelineViewRow } from "@bb/thread-view";
+import type { TimelineRow } from "@bb/server-contract";
+import {
+  parseAgentMessageEnvelope,
+  type ThreadTimelineViewRow,
+} from "@bb/thread-view";
 
 const MIN_COLLAPSED_AGENT_EXCHANGES = 2;
+const SENT_AT_CLOCK_SKEW_MS = 5_000;
+const TEXT_MATCH_LOOKBACK_MS = 60_000;
 
 export type IsExcludedAgentSender = (senderThreadId: string) => boolean;
 
-type AgentMessageRow = Extract<
-  ThreadTimelineViewRow,
-  { kind: "conversation"; role: "user" }
-> & { senderThreadId: string; turnId: string };
+type ConversationRow = Extract<TimelineRow, { kind: "conversation" }>;
+type UserRow = Extract<ConversationRow, { role: "user" }>;
+type AssistantRow = Extract<ConversationRow, { role: "assistant" }>;
+type AgentMessageRow = UserRow & { senderThreadId: string; turnId: string };
 
 export interface AgentExchangeGroup {
   id: string;
@@ -18,16 +24,18 @@ export type AgentExchangeListEntry =
   | { kind: "row"; row: ThreadTimelineViewRow }
   | { kind: "agent-exchanges"; group: AgentExchangeGroup };
 
-interface AgentExchange {
-  rows: ThreadTimelineViewRow[];
-  settled: boolean;
-}
-
 interface GroupAgentExchangesArgs {
   activeTurnId: string | null;
   isExcludedSender: IsExcludedAgentSender;
   pinnedRowIds: ReadonlySet<string>;
   rows: readonly ThreadTimelineViewRow[];
+}
+
+interface FindAgentSentMessageReplyArgs {
+  message: string | null;
+  recipientRows: readonly TimelineRow[];
+  senderThreadId: string;
+  sentAt: number;
 }
 
 function isAgentMessageRow(
@@ -46,43 +54,6 @@ function isAgentMessageRow(
   );
 }
 
-export function collectAgentReplyRecipients(
-  rows: readonly ThreadTimelineViewRow[],
-  isExcludedSender: IsExcludedAgentSender,
-): ReadonlyMap<string, string> {
-  const recipients = new Map<string, string>();
-  let current: { senderThreadId: string; turnId: string } | null = null;
-
-  const visit = (candidateRows: readonly ThreadTimelineViewRow[]): void => {
-    for (const row of candidateRows) {
-      if (row.kind === "conversation") {
-        if (isAgentMessageRow(row, isExcludedSender)) {
-          current = { senderThreadId: row.senderThreadId, turnId: row.turnId };
-        } else if (row.role === "user" && row.initiator === "user") {
-          current = null;
-        } else if (
-          row.role === "assistant" &&
-          current !== null &&
-          row.turnId === current.turnId
-        ) {
-          recipients.set(row.id, current.senderThreadId);
-        }
-        continue;
-      }
-      if (row.kind === "turn" && row.children !== null) {
-        visit(row.children);
-      }
-    }
-  };
-
-  visit(rows);
-  return recipients;
-}
-
-function isRowPending(row: ThreadTimelineViewRow): boolean {
-  return "status" in row && row.status === "pending";
-}
-
 function isUserAuthoredRow(row: ThreadTimelineViewRow): boolean {
   return (
     row.kind === "conversation" &&
@@ -91,54 +62,53 @@ function isUserAuthoredRow(row: ThreadTimelineViewRow): boolean {
   );
 }
 
-function readAgentExchange(
+export function collectAgentReplyRecipients(
   rows: readonly ThreadTimelineViewRow[],
+  isExcludedSender: IsExcludedAgentSender,
+): ReadonlyMap<string, string> {
+  const recipients = new Map<string, string>();
+  let current: AgentMessageRow | null = null;
+  const visit = (candidateRows: readonly ThreadTimelineViewRow[]): void => {
+    for (const row of candidateRows) {
+      if (isAgentMessageRow(row, isExcludedSender)) {
+        current = row;
+      } else if (isUserAuthoredRow(row)) {
+        current = null;
+      } else if (
+        row.kind === "conversation" &&
+        row.role === "assistant" &&
+        row.turnId === current?.turnId
+      ) {
+        recipients.set(row.id, current.senderThreadId);
+      } else if (row.kind === "turn" && row.children !== null) {
+        visit(row.children);
+      }
+    }
+  };
+  visit(rows);
+  return recipients;
+}
+
+function readExchangeRows(
+  rows: readonly ThreadTimelineViewRow[],
+  first: AgentMessageRow,
   startIndex: number,
   isExcludedSender: IsExcludedAgentSender,
-  activeTurnId: string | null,
-): AgentExchange | null {
-  const first = rows[startIndex];
-  if (first === undefined || !isAgentMessageRow(first, isExcludedSender)) {
-    return null;
-  }
+): { rows: ThreadTimelineViewRow[]; steeredByUser: boolean } {
   const exchangeRows: ThreadTimelineViewRow[] = [first];
-  let steeredByUser = false;
-  for (let index = startIndex + 1; index < rows.length; index += 1) {
-    const row = rows[index];
+  for (const row of rows.slice(startIndex + 1)) {
     if (
-      row === undefined ||
       row.turnId !== first.turnId ||
       isAgentMessageRow(row, isExcludedSender)
     ) {
       break;
     }
     if (isUserAuthoredRow(row)) {
-      steeredByUser = true;
-      break;
+      return { rows: exchangeRows, steeredByUser: true };
     }
     exchangeRows.push(row);
   }
-  return {
-    rows: exchangeRows,
-    settled:
-      first.turnId !== activeTurnId &&
-      !steeredByUser &&
-      !exchangeRows.some(isRowPending),
-  };
-}
-
-function toAgentExchangeGroup(
-  exchanges: readonly AgentExchange[],
-): AgentExchangeGroup {
-  const rows = exchanges.flatMap((exchange) => exchange.rows);
-  const firstRow = rows[0];
-  if (firstRow === undefined) {
-    throw new Error("Cannot group agent exchanges without rows");
-  }
-  return {
-    id: `agent-exchanges:${firstRow.id}`,
-    rows,
-  };
+  return { rows: exchangeRows, steeredByUser: false };
 }
 
 export function groupAgentExchanges({
@@ -148,46 +118,98 @@ export function groupAgentExchanges({
   rows,
 }: GroupAgentExchangesArgs): AgentExchangeListEntry[] {
   const entries: AgentExchangeListEntry[] = [];
-  let run: AgentExchange[] = [];
-
+  let run: ThreadTimelineViewRow[] = [];
+  let runExchangeCount = 0;
+  const pushRows = (rowsToPush: readonly ThreadTimelineViewRow[]): void => {
+    for (const row of rowsToPush) entries.push({ kind: "row", row });
+  };
   const flushRun = (): void => {
-    const runRows = run.flatMap((exchange) => exchange.rows);
-    const collapsible =
-      run.length >= MIN_COLLAPSED_AGENT_EXCHANGES &&
-      !runRows.some((row) => pinnedRowIds.has(row.id));
-    if (collapsible) {
+    const first = run[0];
+    if (
+      first !== undefined &&
+      runExchangeCount >= MIN_COLLAPSED_AGENT_EXCHANGES &&
+      !run.some((row) => pinnedRowIds.has(row.id))
+    ) {
       entries.push({
         kind: "agent-exchanges",
-        group: toAgentExchangeGroup(run),
+        group: { id: `agent-exchanges:${first.id}`, rows: run },
       });
     } else {
-      for (const row of runRows) {
-        entries.push({ kind: "row", row });
-      }
+      pushRows(run);
     }
     run = [];
+    runExchangeCount = 0;
   };
 
   let index = 0;
   while (index < rows.length) {
-    const exchange = readAgentExchange(
-      rows,
-      index,
-      isExcludedSender,
-      activeTurnId,
-    );
-    if (exchange !== null && exchange.settled) {
-      run.push(exchange);
-      index += exchange.rows.length;
+    const first = rows[index];
+    if (first === undefined) break;
+    if (!isAgentMessageRow(first, isExcludedSender)) {
+      flushRun();
+      pushRows([first]);
+      index += 1;
       continue;
     }
-    flushRun();
-    const exchangeRows = exchange?.rows ?? rows.slice(index, index + 1);
-    for (const row of exchangeRows) {
-      entries.push({ kind: "row", row });
+    const exchange = readExchangeRows(rows, first, index, isExcludedSender);
+    index += exchange.rows.length;
+    const settled =
+      first.turnId !== activeTurnId &&
+      !exchange.steeredByUser &&
+      !exchange.rows.some((row) => "status" in row && row.status === "pending");
+    if (settled) {
+      run.push(...exchange.rows);
+      runExchangeCount += 1;
+    } else {
+      flushRun();
+      pushRows(exchange.rows);
     }
-    index += exchangeRows.length;
   }
   flushRun();
   return entries;
+}
+
+function normalizeMessageText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function receivedMessageBody(row: UserRow): string {
+  const envelope = parseAgentMessageEnvelope(row.text);
+  return envelope === null ? row.text : row.text.slice(envelope.bodyStart);
+}
+
+export function findAgentSentMessageReply({
+  message,
+  recipientRows,
+  senderThreadId,
+  sentAt,
+}: FindAgentSentMessageReplyArgs): AssistantRow | null {
+  const candidates = recipientRows.filter(
+    (row): row is UserRow =>
+      row.kind === "conversation" &&
+      row.role === "user" &&
+      row.initiator === "agent" &&
+      row.senderThreadId === senderThreadId &&
+      row.createdAt >= sentAt - TEXT_MATCH_LOOKBACK_MS,
+  );
+  const expected = message === null ? null : normalizeMessageText(message);
+  const received =
+    candidates.find(
+      (row) => normalizeMessageText(receivedMessageBody(row)) === expected,
+    ) ??
+    candidates.find((row) => row.createdAt >= sentAt - SENT_AT_CLOCK_SKEW_MS);
+  if (received?.turnId == null) {
+    return null;
+  }
+  for (let index = recipientRows.length - 1; index >= 0; index -= 1) {
+    const row = recipientRows[index];
+    if (
+      row?.kind === "conversation" &&
+      row.role === "assistant" &&
+      row.turnId === received.turnId
+    ) {
+      return row;
+    }
+  }
+  return null;
 }

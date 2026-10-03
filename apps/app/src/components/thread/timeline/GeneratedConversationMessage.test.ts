@@ -162,37 +162,26 @@ describe("generatedConversationTitle — agent source", () => {
     expect(title.segments[1]?.link).toEqual(threadLink("thr_sender"));
   });
 
-  it("labels an outgoing reply with its recipient thread", () => {
-    const title = generatedConversationTitle({
-      agentDirection: "sent-reply",
-      originKind: null,
-      sourceKind: "agent",
-      sourceName: "Manager",
-      sourceThreadId: "thr_manager",
-      sourceIsPluginSideChat: false,
-      systemMessageKind: "unlabeled",
-      systemMessageSubject: null,
-    });
-
-    expect(title.plain).toBe("Reply to Manager");
-    expect(title.segments[1]?.link).toEqual(threadLink("thr_manager"));
-  });
-
   it.each([
+    ["sent-reply", "Reply to Worker"],
     ["sent-message", "Message to Worker"],
     ["received-reply", "Reply from Worker"],
-  ] as const)("labels %s chips", (agentDirection, plain) => {
-    const title = generatedConversationTitle({
-      agentDirection,
-      originKind: null,
-      sourceKind: "agent",
-      sourceName: "Worker",
-      sourceThreadId: "thr_worker",
-      sourceIsPluginSideChat: false,
-      systemMessageKind: "unlabeled",
-      systemMessageSubject: null,
-    });
+  ] as const)(
+    "labels %s chips with the linked thread",
+    (agentDirection, plain) => {
+      const title = generatedConversationTitle({
+        agentDirection,
+        originKind: null,
+        sourceKind: "agent",
+        sourceName: "Worker",
+        sourceThreadId: "thr_worker",
+        sourceIsPluginSideChat: false,
+        systemMessageKind: "unlabeled",
+        systemMessageSubject: null,
+      });
 
-    expect(title.plain).toBe(plain);
-  });
+      expect(title.plain).toBe(plain);
+      expect(title.segments[1]?.link).toEqual(threadLink("thr_worker"));
+    },
+  );
 });

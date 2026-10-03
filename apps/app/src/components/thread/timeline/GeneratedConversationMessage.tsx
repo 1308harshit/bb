@@ -80,7 +80,7 @@ interface GeneratedConversationMessageProps {
   text: string;
   threadId?: string;
   timestamp: number;
-  turnRequest: TimelineUserConversationRow["turnRequest"] | null;
+  turnRequest: TimelineUserConversationRow["turnRequest"];
   workspaceRootPath?: string;
 }
 
@@ -582,10 +582,9 @@ export const GeneratedConversationMessage = memo(
         }),
       [mentions, messageText.length, trimStartLength],
     );
-    const requestLabel =
-      turnRequest === null ? null : turnRequestLabel(turnRequest);
+    const requestLabel = turnRequestLabel(turnRequest);
     const titleRequestLabel =
-      sourceKind === "automation" && turnRequest?.status !== "accepted"
+      sourceKind === "automation" && turnRequest.status !== "accepted"
         ? requestLabel
         : null;
     const bodyRequestLabel = titleRequestLabel === null ? requestLabel : null;
@@ -733,55 +732,49 @@ export const GeneratedConversationMessage = memo(
         </div>
       ) : null;
     const renderBody = useCallback(
-      () =>
-        expandedBody !== undefined ? (
-          <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
-            {expandedBody}
-          </div>
-        ) : (
-          <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
-            <div className="pl-2 text-sm leading-relaxed text-foreground">
-              {messageText ? (
-                <MarkdownPreview
-                  allowHtml
-                  content={messageText}
-                  imagePolicy={
-                    suppressGeneratedAgentImages ? "alt-text" : "render"
-                  }
-                  linkRouting={linkRouting}
-                  promptMentions={{
-                    mentions: messageMentions,
-                    resolveMentionLink,
-                  }}
-                  threadMentions={{
-                    mentions: messageMentions,
-                    preserveSoftBreaks: true,
-                  }}
-                />
-              ) : (
-                <p className="text-muted-foreground">
-                  {generatedConversationEmptyText(sourceKind)}
-                </p>
-              )}
-              <ConversationAttachments
-                align="start"
-                filePaths={attachmentItems.filePaths}
-                imageItems={attachmentItems.imageItems}
-                onOpenLocalFileLink={onOpenLocalFileLink}
-                projectId={projectId}
+      () => (
+        <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
+          <div className="pl-2 text-sm leading-relaxed text-foreground">
+            {messageText ? (
+              <MarkdownPreview
+                allowHtml
+                content={messageText}
+                imagePolicy={
+                  suppressGeneratedAgentImages ? "alt-text" : "render"
+                }
+                linkRouting={linkRouting}
+                promptMentions={{
+                  mentions: messageMentions,
+                  resolveMentionLink,
+                }}
+                threadMentions={{
+                  mentions: messageMentions,
+                  preserveSoftBreaks: true,
+                }}
               />
-              {bodyRequestLabel !== null && turnRequest !== null ? (
-                <div className="mt-1 flex items-center justify-start gap-2">
-                  <TurnRequestLabel turnRequest={turnRequest} />
-                </div>
-              ) : null}
-            </div>
+            ) : (
+              <p className="text-muted-foreground">
+                {generatedConversationEmptyText(sourceKind)}
+              </p>
+            )}
+            <ConversationAttachments
+              align="start"
+              filePaths={attachmentItems.filePaths}
+              imageItems={attachmentItems.imageItems}
+              onOpenLocalFileLink={onOpenLocalFileLink}
+              projectId={projectId}
+            />
+            {bodyRequestLabel ? (
+              <div className="mt-1 flex items-center justify-start gap-2">
+                <TurnRequestLabel turnRequest={turnRequest} />
+              </div>
+            ) : null}
           </div>
-        ),
+        </div>
+      ),
       [
         attachmentItems.filePaths,
         attachmentItems.imageItems,
-        expandedBody,
         linkRouting,
         messageText,
         messageMentions,
@@ -794,6 +787,14 @@ export const GeneratedConversationMessage = memo(
         turnRequest,
       ],
     );
+    const renderExpandedBody = useCallback(
+      () => (
+        <div className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}>
+          {expandedBody}
+        </div>
+      ),
+      [expandedBody],
+    );
 
     return (
       <ExpandableTimelineRow
@@ -803,7 +804,9 @@ export const GeneratedConversationMessage = memo(
         expandable={expandable}
         leadingIcon={leadingIcon}
         onTitleAction={onTitleAction}
-        renderBody={renderBody}
+        renderBody={
+          expandedBody === undefined ? renderBody : renderExpandedBody
+        }
       />
     );
   },

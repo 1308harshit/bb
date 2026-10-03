@@ -35,7 +35,6 @@ import {
   workRowGlyph,
   workRowPluginGlyph,
   workRowPresentation,
-  type AgentThreadTellCommand,
   type BuildTimelineRowTitleOptions,
   type BuildTimelineViewRowsOptions,
   type ThreadTimelineViewRow,
@@ -137,13 +136,15 @@ import {
   type PluginComposerHost,
 } from "@/components/plugin/plugin-composer-host";
 import { isPluginSideChatSenderThread } from "@/lib/side-chat-plugin.js";
-import { AgentReplyMessage } from "./AgentReplyMessage.js";
-import { AgentSentMessageRow } from "./AgentSentMessageRow.js";
-import { AgentExchangeGroupRow } from "./AgentExchangeGroupRow.js";
+import {
+  AgentExchangeGroupRow,
+  AgentMessageChip,
+  SentAgentMessage,
+} from "./AgentConversationRows.js";
 import {
   collectAgentReplyRecipients,
   groupAgentExchanges,
-  type AgentExchangeGroup,
+  type AgentExchangeListEntry,
   type IsExcludedAgentSender,
 } from "./agent-exchanges.js";
 import {
@@ -190,6 +191,7 @@ export interface ThreadTimelineRowsProps {
 }
 
 interface TimelineRendererStaticContextValue {
+  agentReplyRecipients: ReadonlyMap<string, string>;
   canSpawnChild: boolean;
   getViewRows: GetTimelineViewRows;
   onForkMessage: ThreadTimelineForkMessageHandler | undefined;
@@ -216,6 +218,7 @@ interface TimelineRendererStaticContextValue {
   resolveImageViewSrc: ThreadTimelineImageViewSrcResolver | undefined;
   resolveMentionLink: PromptMentionLinkResolver | undefined;
   resolveUserAttachmentImageSrc: UserAttachmentImageSrcResolver | undefined;
+  isExcludedAgentSender: IsExcludedAgentSender;
   threadId: string | undefined;
   workspaceRootPath: string | undefined;
 }
@@ -341,17 +344,10 @@ type GetTimelineViewRows = (
   options?: BuildTimelineViewRowsOptions,
 ) => ThreadTimelineViewRow[];
 type TimelineRowsListItem =
-  | {
-      kind: "row";
-      row: ThreadTimelineViewRow;
-    }
+  | AgentExchangeListEntry
   | {
       kind: "unread-divider";
       id: "thread-unread-divider";
-    }
-  | {
-      kind: "agent-exchanges";
-      group: AgentExchangeGroup;
     };
 
 interface ConversationRowProps {
@@ -372,12 +368,6 @@ const SenderThreadMetadataContext = createContext<ReadonlyMap<
 > | null>(null);
 const TimelineTurnStateContext =
   createContext<TimelineTurnStateContextValue | null>(null);
-const EMPTY_AGENT_REPLY_RECIPIENTS: ReadonlyMap<string, string> = new Map();
-const AgentReplyRecipientsContext = createContext<ReadonlyMap<string, string>>(
-  EMPTY_AGENT_REPLY_RECIPIENTS,
-);
-const IsExcludedAgentSenderContext =
-  createContext<IsExcludedAgentSender | null>(null);
 const LatestActionableAssistantMessageIdContext = createContext<string | null>(
   null,
 );
@@ -910,6 +900,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
   streaming,
 }: ConversationRowContentProps) {
   const composerHost = usePluginComposerHost();
+  const staticContext = useTimelineRendererStaticContext();
   const {
     canSpawnChild,
     inlineMessageEditor,
@@ -931,9 +922,8 @@ const ConversationRowContent = memo(function ConversationRowContent({
     resolveUserAttachmentImageSrc,
     threadId,
     workspaceRootPath,
-  } = useTimelineRendererStaticContext();
+  } = staticContext;
   const senderThreadMetadataById = useSenderThreadMetadataContext();
-  const agentReplyRecipients = useContext(AgentReplyRecipientsContext);
   if (
     row.role === "user" &&
     inlineMessageEditor !== undefined &&
@@ -1080,26 +1070,20 @@ const ConversationRowContent = memo(function ConversationRowContent({
       workspaceRootPath={workspaceRootPath}
     />
   );
-  const replyRecipientThreadId = agentReplyRecipients.get(row.id);
+  const replyRecipientThreadId = staticContext.agentReplyRecipients.get(row.id);
   if (replyRecipientThreadId === undefined) {
     return assistantMessage;
   }
   return (
-    <AgentReplyMessage
-      body={assistantMessage}
-      onOpenLink={onOpenLink}
-      onOpenLocalFileLink={onOpenLocalFileLink}
-      onTitleAction={onTitleAction}
-      projectId={projectId}
-      recipientMetadata={
-        senderThreadMetadataById.get(replyRecipientThreadId) ?? null
-      }
-      recipientThreadId={replyRecipientThreadId}
-      resolveMentionLink={resolveMentionLink}
+    <AgentMessageChip
+      agentDirection="sent-reply"
+      counterpart={senderThreadMetadataById.get(replyRecipientThreadId) ?? null}
+      counterpartThreadId={replyRecipientThreadId}
+      expandedBody={assistantMessage}
+      links={staticContext}
       text={row.text}
       threadId={row.threadId}
       timestamp={row.startedAt}
-      workspaceRootPath={workspaceRootPath}
     />
   );
 });
@@ -1516,7 +1500,9 @@ function TimelineRowView({
   spacing,
 }: TimelineRowViewProps) {
   const horizontalPadding = timelineRowHorizontalPadding(spacing);
-  const { onTitleAction } = useTimelineRendererStaticContext();
+  const staticContext = useTimelineRendererStaticContext();
+  const { onTitleAction } = staticContext;
+  const senderThreadMetadataById = useSenderThreadMetadataContext();
   const titleState = useTimelineRowTitleRenderState({
     activeLatestBundleId,
     compactActivityIntents,
@@ -1542,7 +1528,17 @@ function TimelineRowView({
       ? parseAgentThreadTellCommand(row.command)
       : null;
   if (sentAgentMessage !== null) {
-    return <SentAgentMessageRow row={row} tell={sentAgentMessage} />;
+    return (
+      <SentAgentMessage
+        counterpart={
+          senderThreadMetadataById.get(sentAgentMessage.targetThreadId) ?? null
+        }
+        links={staticContext}
+        sentAt={row.startedAt}
+        senderThreadId={staticContext.threadId ?? row.threadId}
+        tell={sentAgentMessage}
+      />
+    );
   }
 
   if (titleState.kind === "compact-activity-intents") {
@@ -1610,40 +1606,6 @@ function TimelineRowView({
       title={titleState.title}
       horizontalPadding={horizontalPadding}
       compactActivityIntents={compactActivityIntents}
-    />
-  );
-}
-
-interface SentAgentMessageRowProps {
-  row: ThreadTimelineViewRow;
-  tell: AgentThreadTellCommand;
-}
-
-function SentAgentMessageRow({ row, tell }: SentAgentMessageRowProps) {
-  const {
-    onOpenLink,
-    onOpenLocalFileLink,
-    onTitleAction,
-    projectId,
-    resolveMentionLink,
-    threadId,
-    workspaceRootPath,
-  } = useTimelineRendererStaticContext();
-  const senderThreadMetadataById = useSenderThreadMetadataContext();
-  return (
-    <AgentSentMessageRow
-      onOpenLink={onOpenLink}
-      onOpenLocalFileLink={onOpenLocalFileLink}
-      onTitleAction={onTitleAction}
-      projectId={projectId}
-      recipientMetadata={
-        senderThreadMetadataById.get(tell.targetThreadId) ?? null
-      }
-      resolveMentionLink={resolveMentionLink}
-      sentAt={row.startedAt}
-      senderThreadId={threadId ?? row.threadId}
-      tell={tell}
-      workspaceRootPath={workspaceRootPath}
     />
   );
 }
@@ -1789,14 +1751,9 @@ function groupTimelineRowsListSegment(
   rows: readonly ThreadTimelineViewRow[],
   grouping: AgentExchangeGrouping | null,
 ): TimelineRowsListItem[] {
-  if (grouping === null) {
-    return rows.map((row) => ({ kind: "row", row }));
-  }
-  return groupAgentExchanges({ ...grouping, rows }).map((entry) =>
-    entry.kind === "row"
-      ? { kind: "row", row: entry.row }
-      : { kind: "agent-exchanges", group: entry.group },
-  );
+  return grouping === null
+    ? rows.map((row) => ({ kind: "row", row }))
+    : groupAgentExchanges({ ...grouping, rows });
 }
 
 function buildTimelineRowsListItems({
@@ -1833,6 +1790,23 @@ function timelineRowsListItemKey(item: TimelineRowsListItem): string {
     case "agent-exchanges":
       return item.group.id;
   }
+}
+
+function renderAgentExchangeRows(
+  rows: readonly ThreadTimelineViewRow[],
+): ReactNode {
+  return (
+    <TimelineRowsList
+      rows={rows}
+      scopeActive={false}
+      showAssistantMessageActions={true}
+      compactActivityIntents={false}
+      spacing="nested"
+      className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}
+      unreadDividerAutoScroll={false}
+      unreadDividerPlacement={null}
+    />
+  );
 }
 
 function TimelineRowItemWrapper({
@@ -1932,11 +1906,11 @@ function TimelineRowsList({
     () => findActiveLatestBundleId(rows),
     [rows],
   );
-  const isExcludedAgentSender = useContext(IsExcludedAgentSenderContext);
+  const { isExcludedAgentSender } = useTimelineRendererStaticContext();
   const activeTurnId =
     spacing === "top-level" && scopeActive ? findLastRowTurnId(rows) : null;
   const agentExchangeGrouping = useMemo<AgentExchangeGrouping | null>(() => {
-    if (spacing !== "top-level" || isExcludedAgentSender === null) {
+    if (spacing !== "top-level") {
       return null;
     }
     const pinnedRowIds = new Set(stableSearchExpandedRowIds);
@@ -2078,18 +2052,7 @@ function TimelineRowsList({
                     {windowedState.isRealized ? (
                       <AgentExchangeGroupRow
                         group={item.group}
-                        renderRows={(groupRows) => (
-                          <TimelineRowsList
-                            rows={groupRows}
-                            scopeActive={false}
-                            showAssistantMessageActions={true}
-                            compactActivityIntents={false}
-                            spacing="nested"
-                            className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}
-                            unreadDividerAutoScroll={false}
-                            unreadDividerPlacement={null}
-                          />
-                        )}
+                        renderRows={renderAgentExchangeRows}
                       />
                     ) : null}
                   </div>
@@ -2295,6 +2258,7 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
   ]);
   const staticContextValue = useMemo<TimelineRendererStaticContextValue>(
     () => ({
+      agentReplyRecipients,
       canSpawnChild: props.canSpawnChild ?? false,
       getViewRows,
       onForkMessage: props.onForkMessage,
@@ -2320,10 +2284,13 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
       resolveImageViewSrc: props.resolveImageViewSrc,
       resolveMentionLink: props.resolveMentionLink,
       resolveUserAttachmentImageSrc: props.resolveUserAttachmentImageSrc,
+      isExcludedAgentSender,
       threadId: props.threadId,
       workspaceRootPath: props.workspaceRootPath,
     }),
     [
+      agentReplyRecipients,
+      isExcludedAgentSender,
       props.canSpawnChild,
       getViewRows,
       props.onForkMessage,
@@ -2370,66 +2337,60 @@ function ThreadTimelineRowsForTimelineView(props: ThreadTimelineRowsProps) {
           <SenderThreadMetadataContext.Provider
             value={senderThreadMetadataById}
           >
-            <AgentReplyRecipientsContext.Provider value={agentReplyRecipients}>
-              <IsExcludedAgentSenderContext.Provider
-                value={isExcludedAgentSender}
+            <LatestActionableAssistantMessageIdContext.Provider
+              value={latestActionableAssistantMessageId}
+            >
+              <LatestActionableUserMessageIdContext.Provider
+                value={latestActionableUserMessageId}
               >
-                <LatestActionableAssistantMessageIdContext.Provider
-                  value={latestActionableAssistantMessageId}
+                <StreamingAssistantMessageIdContext.Provider
+                  value={streamingAssistantMessageId}
                 >
-                  <LatestActionableUserMessageIdContext.Provider
-                    value={latestActionableUserMessageId}
+                  <TimelineTurnStateContext.Provider
+                    value={turnStateContextValue}
                   >
-                    <StreamingAssistantMessageIdContext.Provider
-                      value={streamingAssistantMessageId}
+                    <TimelineWindowingMeasurementsContext.Provider
+                      value={windowingMeasurements}
                     >
-                      <TimelineTurnStateContext.Provider
-                        value={turnStateContextValue}
+                      <AutoHeightContainer
+                        snapRevision={heightSnapRevision}
+                        animateGrowth={!scopeActive}
                       >
-                        <TimelineWindowingMeasurementsContext.Provider
-                          value={windowingMeasurements}
-                        >
-                          <AutoHeightContainer
-                            snapRevision={heightSnapRevision}
-                            animateGrowth={!scopeActive}
-                          >
-                            <TimelineRowsList
-                              hasOlderTimelineRows={props.hasOlderTimelineRows}
-                              isLoadingOlderTimelineRows={
-                                props.isLoadingOlderTimelineRows
-                              }
-                              navigationTargetRowId={
-                                props.timelineNavigationTargetRowId
-                              }
-                              onLoadOlderRows={props.onLoadOlderRows}
-                              rows={rows}
-                              scopeActive={scopeActive}
-                              showAssistantMessageActions={true}
-                              compactActivityIntents={false}
-                              spacing="top-level"
-                              unreadDividerAutoScroll={
-                                props.unreadDividerAutoScroll ?? true
-                              }
-                              unreadDividerPlacement={
-                                props.unreadDividerPlacement ?? null
-                              }
-                            />
-                          </AutoHeightContainer>
-                        </TimelineWindowingMeasurementsContext.Provider>
-                        {hasSelectionActions ? (
-                          <TimelineSelectionMenu
-                            selection={activeSelection?.selection ?? null}
-                            onAddToChat={selectionAddToChatHandler}
-                            pluginActions={selectionPluginActions}
-                            onDismiss={dismissSelection}
-                          />
-                        ) : null}
-                      </TimelineTurnStateContext.Provider>
-                    </StreamingAssistantMessageIdContext.Provider>
-                  </LatestActionableUserMessageIdContext.Provider>
-                </LatestActionableAssistantMessageIdContext.Provider>
-              </IsExcludedAgentSenderContext.Provider>
-            </AgentReplyRecipientsContext.Provider>
+                        <TimelineRowsList
+                          hasOlderTimelineRows={props.hasOlderTimelineRows}
+                          isLoadingOlderTimelineRows={
+                            props.isLoadingOlderTimelineRows
+                          }
+                          navigationTargetRowId={
+                            props.timelineNavigationTargetRowId
+                          }
+                          onLoadOlderRows={props.onLoadOlderRows}
+                          rows={rows}
+                          scopeActive={scopeActive}
+                          showAssistantMessageActions={true}
+                          compactActivityIntents={false}
+                          spacing="top-level"
+                          unreadDividerAutoScroll={
+                            props.unreadDividerAutoScroll ?? true
+                          }
+                          unreadDividerPlacement={
+                            props.unreadDividerPlacement ?? null
+                          }
+                        />
+                      </AutoHeightContainer>
+                    </TimelineWindowingMeasurementsContext.Provider>
+                    {hasSelectionActions ? (
+                      <TimelineSelectionMenu
+                        selection={activeSelection?.selection ?? null}
+                        onAddToChat={selectionAddToChatHandler}
+                        pluginActions={selectionPluginActions}
+                        onDismiss={dismissSelection}
+                      />
+                    ) : null}
+                  </TimelineTurnStateContext.Provider>
+                </StreamingAssistantMessageIdContext.Provider>
+              </LatestActionableUserMessageIdContext.Provider>
+            </LatestActionableAssistantMessageIdContext.Provider>
           </SenderThreadMetadataContext.Provider>
         </TimelineRendererStaticContext.Provider>
       </MessageDirectiveRegistryProvider>
