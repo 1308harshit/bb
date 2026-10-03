@@ -5,6 +5,7 @@ describe("parseAgentMessageToolCall", () => {
   it("reads the recipient and message of a bb thread message call", () => {
     expect(
       parseAgentMessageToolCall({
+        status: "completed",
         toolName: "bb:bb_thread_message",
         toolArgs: { threadId: "thr_wrkr234567", message: "Is it ready?" },
       }),
@@ -24,6 +25,18 @@ describe("parseAgentMessageToolCall", () => {
     ],
     ["a call without arguments", "bb:bb_thread_message", null],
   ])("ignores %s", (_case, toolName, toolArgs) => {
-    expect(parseAgentMessageToolCall({ toolName, toolArgs })).toBeNull();
+    expect(
+      parseAgentMessageToolCall({ status: "completed", toolName, toolArgs }),
+    ).toBeNull();
+  });
+
+  it("ignores a failed call so it stays in the work summary", () => {
+    expect(
+      parseAgentMessageToolCall({
+        status: "error",
+        toolName: "bb:bb_thread_message",
+        toolArgs: { threadId: "thr_wrkr234567", message: "Is it ready?" },
+      }),
+    ).toBeNull();
   });
 });
