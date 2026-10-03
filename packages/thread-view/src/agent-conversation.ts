@@ -1,9 +1,6 @@
 import type { TimelineRow } from "@bb/server-contract";
 import { parseAgentMessageEnvelope } from "./agent-message-envelope.js";
-import type {
-  ThreadTimelineViewRow,
-  TimelineAgentConversationRow,
-} from "./timeline-view.js";
+import type { ThreadTimelineViewRow } from "./timeline-view.js";
 
 const MIN_COLLAPSED_AGENT_EXCHANGES = 2;
 const SENT_AT_CLOCK_SKEW_MS = 5_000;
@@ -81,49 +78,6 @@ export function collectAgentReplyRecipients(
   return recipients;
 }
 
-function readExchangeRows(
-  rows: readonly ThreadTimelineViewRow[],
-  first: AgentMessageRow,
-  startIndex: number,
-  isExcludedSender: IsExcludedAgentSender,
-): { rows: ThreadTimelineViewRow[]; steeredByUser: boolean } {
-  const exchangeRows: ThreadTimelineViewRow[] = [first];
-  for (const row of rows.slice(startIndex + 1)) {
-    if (
-      row.turnId !== first.turnId ||
-      isAgentMessageRow(row, isExcludedSender)
-    ) {
-      break;
-    }
-    if (isUserAuthoredRow(row)) {
-      return { rows: exchangeRows, steeredByUser: true };
-    }
-    exchangeRows.push(row);
-  }
-  return { rows: exchangeRows, steeredByUser: false };
-}
-
-function agentConversationRow(
-  children: ThreadTimelineViewRow[],
-): TimelineAgentConversationRow | null {
-  const first = children[0];
-  const last = children.at(-1);
-  if (first === undefined || last === undefined) {
-    return null;
-  }
-  return {
-    id: `agent-conversation:${first.id}`,
-    threadId: first.threadId,
-    turnId: null,
-    sourceSeqStart: first.sourceSeqStart,
-    sourceSeqEnd: last.sourceSeqEnd,
-    startedAt: first.startedAt,
-    createdAt: first.createdAt,
-    kind: "agent-conversation",
-    children,
-  };
-}
-
 export function groupAgentConversations({
   activeTurnId,
   isExcludedSender,
@@ -133,19 +87,28 @@ export function groupAgentConversations({
   const entries: ThreadTimelineViewRow[] = [];
   let run: ThreadTimelineViewRow[] = [];
   let runExchangeCount = 0;
-  const pushRows = (rowsToPush: readonly ThreadTimelineViewRow[]): void => {
-    entries.push(...rowsToPush);
-  };
   const flushRun = (): void => {
-    const group =
+    const first = run[0];
+    const last = run.at(-1);
+    if (
+      first &&
+      last &&
       runExchangeCount >= MIN_COLLAPSED_AGENT_EXCHANGES &&
       !run.some((row) => pinnedRowIds.has(row.id))
-        ? agentConversationRow(run)
-        : null;
-    if (group === null) {
-      pushRows(run);
+    ) {
+      entries.push({
+        id: `agent-conversation:${first.id}`,
+        threadId: first.threadId,
+        turnId: null,
+        sourceSeqStart: first.sourceSeqStart,
+        sourceSeqEnd: last.sourceSeqEnd,
+        startedAt: first.startedAt,
+        createdAt: first.createdAt,
+        kind: "agent-conversation",
+        children: run,
+      });
     } else {
-      entries.push(group);
+      entries.push(...run);
     }
     run = [];
     runExchangeCount = 0;
@@ -157,22 +120,34 @@ export function groupAgentConversations({
     if (first === undefined) break;
     if (!isAgentMessageRow(first, isExcludedSender)) {
       flushRun();
-      pushRows([first]);
+      entries.push(first);
       index += 1;
       continue;
     }
-    const exchange = readExchangeRows(rows, first, index, isExcludedSender);
-    index += exchange.rows.length;
-    const settled =
-      first.turnId !== activeTurnId &&
-      !exchange.steeredByUser &&
-      !exchange.rows.some((row) => "status" in row && row.status === "pending");
+    const start = index++;
+    let settled = first.turnId !== activeTurnId;
+    while (index < rows.length) {
+      const row = rows[index];
+      if (
+        !row ||
+        row.turnId !== first.turnId ||
+        isAgentMessageRow(row, isExcludedSender)
+      )
+        break;
+      if (isUserAuthoredRow(row)) {
+        settled = false;
+        break;
+      }
+      if ("status" in row && row.status === "pending") settled = false;
+      index += 1;
+    }
+    const exchange = rows.slice(start, index);
     if (settled) {
-      run.push(...exchange.rows);
+      run.push(...exchange);
       runExchangeCount += 1;
     } else {
       flushRun();
-      pushRows(exchange.rows);
+      entries.push(...exchange);
     }
   }
   flushRun();

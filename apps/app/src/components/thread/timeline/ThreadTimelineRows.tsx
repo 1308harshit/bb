@@ -513,26 +513,18 @@ function useStableReadonlySet(
   return valuesRef.current;
 }
 
-function areReadonlyStringMapsEqual(
-  left: ReadonlyMap<string, string>,
-  right: ReadonlyMap<string, string>,
-): boolean {
-  if (left === right) return true;
-  if (left.size !== right.size) return false;
-  for (const [key, value] of left) {
-    if (right.get(key) !== value) {
-      return false;
-    }
-  }
-  return true;
-}
-
 function useStableReadonlyStringMap(
   values: ReadonlyMap<string, string>,
 ): ReadonlyMap<string, string> {
   const valuesRef = useRef(values);
-  if (!areReadonlyStringMapsEqual(valuesRef.current, values)) {
+  if (valuesRef.current.size !== values.size) {
     valuesRef.current = values;
+  }
+  for (const [key, value] of values) {
+    if (valuesRef.current.get(key) !== value) {
+      valuesRef.current = values;
+      break;
+    }
   }
   return valuesRef.current;
 }

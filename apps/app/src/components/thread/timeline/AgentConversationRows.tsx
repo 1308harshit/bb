@@ -1,58 +1,49 @@
-import { useMemo, type ReactNode } from "react";
-import type { PromptTextMention } from "@bb/domain";
-import type { TimelineConversationTurnRequest } from "@bb/server-contract";
+import { useMemo, type ComponentProps } from "react";
 import {
   findAgentSentMessageReply,
   type AgentThreadTellCommand,
 } from "@bb/thread-view";
-import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import { useThreadTimeline } from "@/hooks/queries/thread-queries";
 import type { SenderThreadMetadata } from "@/hooks/useSenderThreadMetadataById";
-import type { ConversationAttachmentItems } from "./ConversationAttachments.js";
-import {
-  GeneratedConversationMessage,
-  type GeneratedConversationSourceKind,
-} from "./GeneratedConversationMessage.js";
-import type { TimelineTitleActionResolver } from "./TimelineTitleView.js";
-import type {
-  ThreadTimelineLinkHandler,
-  ThreadTimelineLocalFileLinkHandler,
-} from "./types.js";
+import { GeneratedConversationMessage } from "./GeneratedConversationMessage.js";
 
-export interface AgentMessageChipLinks {
-  onOpenLink: ThreadTimelineLinkHandler | undefined;
-  onOpenLocalFileLink: ThreadTimelineLocalFileLinkHandler | undefined;
-  onTitleAction: TimelineTitleActionResolver | undefined;
-  projectId: string | undefined;
-  resolveMentionLink: PromptMentionLinkResolver | undefined;
-  workspaceRootPath: string | undefined;
-}
+type MessageProps = ComponentProps<typeof GeneratedConversationMessage>;
+type AgentMessageChipLinks = Pick<
+  MessageProps,
+  | "onOpenLink"
+  | "onOpenLocalFileLink"
+  | "onTitleAction"
+  | "projectId"
+  | "resolveMentionLink"
+  | "workspaceRootPath"
+>;
 
-interface AgentMessageChipProps {
+interface AgentMessageChipProps extends Pick<
+  MessageProps,
+  "expandedBody" | "text" | "timestamp"
+> {
   counterpart: SenderThreadMetadata | null;
   counterpartThreadId: string;
-  expandedBody?: ReactNode;
   links: AgentMessageChipLinks;
-  sourceKind: Exclude<GeneratedConversationSourceKind, "automation" | "system">;
-  text: string;
+  sourceKind: Exclude<MessageProps["sourceKind"], "automation" | "system">;
   threadId: string;
-  timestamp: number;
 }
 
-interface SentAgentMessageProps {
-  counterpart: SenderThreadMetadata | null;
-  links: AgentMessageChipLinks;
+interface SentAgentMessageProps extends Pick<
+  AgentMessageChipProps,
+  "counterpart" | "links"
+> {
   sentAt: number;
   senderThreadId: string;
   tell: AgentThreadTellCommand;
 }
 
-const NO_MENTIONS: readonly PromptTextMention[] = [];
-const NO_ATTACHMENTS: ConversationAttachmentItems = {
+const NO_MENTIONS: MessageProps["mentions"] = [];
+const NO_ATTACHMENTS: MessageProps["attachmentItems"] = {
   filePaths: [],
   imageItems: [],
 };
-const ACCEPTED_MESSAGE: TimelineConversationTurnRequest = {
+const ACCEPTED_MESSAGE: MessageProps["turnRequest"] = {
   isGrouped: false,
   kind: "message",
   status: "accepted",
@@ -61,15 +52,12 @@ const ACCEPTED_MESSAGE: TimelineConversationTurnRequest = {
 export function AgentMessageChip({
   counterpart,
   counterpartThreadId,
-  expandedBody,
   links,
-  sourceKind,
-  text,
-  threadId,
-  timestamp,
+  ...messageProps
 }: AgentMessageChipProps) {
   return (
     <GeneratedConversationMessage
+      {...messageProps}
       onOpenLink={links.onOpenLink}
       onOpenLocalFileLink={links.onOpenLocalFileLink}
       onTitleAction={links.onTitleAction}
@@ -78,19 +66,14 @@ export function AgentMessageChip({
       workspaceRootPath={links.workspaceRootPath}
       attachmentItems={NO_ATTACHMENTS}
       automationLink={null}
-      expandedBody={expandedBody}
       mentions={NO_MENTIONS}
       originKind={null}
       sourceIsPluginSideChat={false}
-      sourceKind={sourceKind}
       sourceName={counterpart?.title ?? "Agent"}
       sourceProjectId={counterpart?.projectId ?? null}
       sourceThreadId={counterpartThreadId}
       systemMessageKind="unlabeled"
       systemMessageSubject={null}
-      text={text}
-      threadId={threadId}
-      timestamp={timestamp}
       turnRequest={ACCEPTED_MESSAGE}
     />
   );

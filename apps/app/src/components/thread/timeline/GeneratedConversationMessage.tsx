@@ -83,7 +83,7 @@ interface GeneratedConversationMessageProps {
   workspaceRootPath?: string;
 }
 
-export type GeneratedConversationSourceKind =
+type GeneratedConversationSourceKind =
   | "agent"
   | "agent-reply-to"
   | "agent-message-to"
