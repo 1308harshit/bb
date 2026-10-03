@@ -401,9 +401,20 @@
   gap: 10px;
 }
 
+.marketplace-plugin-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.marketplace-card-topline > .marketplace-plugin-title {
+  flex: 1;
+}
+
 .marketplace-card-topline strong {
   min-width: 0;
-  flex: 1;
   overflow: hidden;
   color: var(--heading);
   font-size: 15px;
