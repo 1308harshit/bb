@@ -1772,6 +1772,7 @@ describe("migrate", () => {
         allowFastServiceTier: true,
         telemetryEnabled: true,
         managedBranchPrefix: "bb/",
+        threadNamingPrompt: null,
       });
       expect(
         db.$client

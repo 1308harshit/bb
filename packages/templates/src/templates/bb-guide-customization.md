@@ -464,3 +464,16 @@ upload date. The server fetches only public metadata, caches it for five minutes
 and returns `android: null` if unavailable or inconsistent. Download links remain
 usable during metadata failures. iOS version and release date are shown in TestFlight.
 Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on.
+
+
+## Thread naming prompt
+
+Settings → AI services lets you edit the prompt used for new automatic thread
+titles. Save before using Test. bb adds task text and invoked commands; no template
+variables are needed. Titles stay limited to 48 display columns, and existing
+titles are unchanged.
+
+`bb settings general threadNamingPrompt "Write short titles in French."` saves a
+server-wide override (1–8,000 characters). Set `null` or use Reset to default to
+restore the built-in prompt. The SDK uses `system.updateGeneralSettings` with the
+same `threadNamingPrompt` field and other current settings from `system.config()`.

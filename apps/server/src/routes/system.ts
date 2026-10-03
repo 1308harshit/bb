@@ -305,6 +305,10 @@ export function registerSystemRoutes(
         : undefined;
     const updatedSettings = appSettingsSchema.parse({
       ...settings,
+      threadNamingPrompt:
+        settings.threadNamingPrompt === undefined
+          ? current.threadNamingPrompt
+          : settings.threadNamingPrompt,
       allowFastServiceTier:
         settings.allowFastServiceTier ?? current.allowFastServiceTier,
       telemetryEnabled: settings.telemetryEnabled ?? current.telemetryEnabled,

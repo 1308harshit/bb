@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AiServiceSelection, AiTask, AiTextTask } from "@bb/domain";
 import type {
@@ -17,6 +17,8 @@ import {
   ChoiceDropdownSetting,
   type ChoiceDropdownOption,
 } from "./ChoiceDropdownSetting";
+
+import { ThreadNamingPromptSetting } from "./ThreadNamingPromptSetting";
 
 type AiTaskTestResult = TestAiServiceResponse | { ok: false; message: string };
 
@@ -229,43 +231,45 @@ export function AiServicesSettingsSection() {
           };
           const testTask = row.testTask;
           return (
-            <ChoiceDropdownSetting
-              key={row.task}
-              label={row.label}
-              description={rowDescription(
-                view,
-                row,
-                testTask === null ? undefined : testResults[testTask],
-              )}
-              triggerAriaLabel={row.label}
-              options={options}
-              selected={selected}
-              disabled={select.isPending}
-              onSelect={(nextKey) => {
-                const selection = selectionFromKey(view, nextKey);
-                if (selection === null) return;
-                setTestResults((current) => {
-                  if (testTask === null) return current;
-                  const { [testTask]: _cleared, ...rest } = current;
-                  return rest;
-                });
-                select.mutate({ task: row.task, selection });
-              }}
-            >
-              {testTask === null ? null : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Test ${row.label.toLowerCase()}`}
-                  disabled={test.isPending}
-                  onClick={() => test.mutate(testTask)}
-                >
-                  {test.isPending && test.variables === testTask
-                    ? "Testing…"
-                    : "Test"}
-                </Button>
-              )}
-            </ChoiceDropdownSetting>
+            <Fragment key={row.task}>
+              <ChoiceDropdownSetting
+                label={row.label}
+                description={rowDescription(
+                  view,
+                  row,
+                  testTask === null ? undefined : testResults[testTask],
+                )}
+                triggerAriaLabel={row.label}
+                options={options}
+                selected={selected}
+                disabled={select.isPending}
+                onSelect={(nextKey) => {
+                  const selection = selectionFromKey(view, nextKey);
+                  if (selection === null) return;
+                  setTestResults((current) => {
+                    if (testTask === null) return current;
+                    const { [testTask]: _cleared, ...rest } = current;
+                    return rest;
+                  });
+                  select.mutate({ task: row.task, selection });
+                }}
+              >
+                {testTask === null ? null : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Test ${row.label.toLowerCase()}`}
+                    disabled={test.isPending}
+                    onClick={() => test.mutate(testTask)}
+                  >
+                    {test.isPending && test.variables === testTask
+                      ? "Testing…"
+                      : "Test"}
+                  </Button>
+                )}
+              </ChoiceDropdownSetting>
+              {row.task === "thread-title" && <ThreadNamingPromptSetting />}
+            </Fragment>
           );
         })}
       </div>

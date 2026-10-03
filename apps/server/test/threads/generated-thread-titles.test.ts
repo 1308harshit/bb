@@ -1,5 +1,7 @@
 import {
   createThread,
+  getAppSettings,
+  setAppSettings,
   getThread,
   listEvents,
   setAiServiceSelection,
@@ -739,6 +741,50 @@ describe("generated thread titles", () => {
       ).toEqual([]);
     });
   });
+  it("uses the saved naming prompt for titles and service tests, then restores the default", async () => {
+    await withTestHarness(async (harness) => {
+      const custom =
+        "Write a short title in French. Keep {{literal}} as plain text.";
+      setAppSettings(harness.db, {
+        ...getAppSettings(harness.db),
+        threadNamingPrompt: custom,
+      });
+      completeTitle.mockResolvedValue("Améliorer les titres");
+      const generate = () =>
+        generateThreadMetadataWithOutcome(harness.deps, {
+          input: textInput("Improve the generated title fallback path"),
+          threadId: "thr_custom_prompt",
+        });
+      expect((await generate()).metadata?.title).toBe("Améliorer les titres");
+      expect(sentPrompt()).toContain(custom);
+      expect(sentPrompt()).toContain(
+        "Task:\nImprove the generated title fallback path",
+      );
+      expect(sentPrompt()).not.toContain(
+        "You create concise titles for coding tasks.",
+      );
+      const testResponse = await harness.app.request(
+        "/api/v1/system/ai-services/test",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ task: "thread-title" }),
+        },
+      );
+      expect(testResponse.status).toBe(200);
+      expect(sentPrompt(1)).toContain(custom);
+      setAppSettings(harness.db, {
+        ...getAppSettings(harness.db),
+        threadNamingPrompt: null,
+      });
+      await generate();
+      expect(sentPrompt(2)).toContain(
+        "You create concise titles for coding tasks.",
+      );
+      expect(sentPrompt(2)).not.toContain(custom);
+    });
+  });
+
   it("skips generation when thread titles are turned off", async () => {
     await withTestHarness(async (harness) => {
       setAiServiceSelection(harness.db, "thread-title", { mode: "off" });

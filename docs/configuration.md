@@ -1934,3 +1934,20 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 The publishing workflow verifies the signed APK and publishes both the checksum-named
 asset and the stable `bb-android.apk` alias, then `latest.json`.
+
+
+## Thread naming prompt
+
+Settings → AI services → Thread naming prompt customizes instructions for new
+automatic thread titles, server-wide. Save before using the Thread titles Test
+action. bb adds the task text and invoked commands automatically; write naming
+instructions without template variables. Titles remain limited to 48 display
+columns. Existing titles are not renamed.
+
+Use `bb settings general threadNamingPrompt "Write short titles in French."`
+or SDK `system.updateGeneralSettings({ ...settings, threadNamingPrompt: "Write short titles in French." })`.
+Read `settings` from `system.config().generalSettings` (await the config call).
+The override accepts 1–8,000 characters after trimming. Reset to default in
+settings, or `bb settings general threadNamingPrompt null`, restores the built-in
+prompt. The default remains unchanged; disabling the thread-title AI service
+still uses the start of the task instead.

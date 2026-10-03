@@ -1,6 +1,7 @@
 import { renderTemplate } from "@bb/templates";
-import { getThread, updateThread } from "@bb/db";
+import { getAppSettings, getThread, updateThread } from "@bb/db";
 import {
+  DEFAULT_THREAD_NAMING_PROMPT,
   removeCommandMentionsFromPromptInput,
   type PromptInput,
   type PromptMentionCommandTrigger,
@@ -173,7 +174,10 @@ export function sanitizeGeneratedBranchSlug(value: string): string | null {
   return slug.length > 0 ? slug : null;
 }
 
-export function buildThreadTitlePrompt(input: PromptInput[]): string | null {
+export function buildThreadTitlePrompt(
+  input: PromptInput[],
+  namingPrompt: string | null = null,
+): string | null {
   const fallback = deriveTitleFallback(input);
   if (!fallback) {
     return null;
@@ -181,6 +185,7 @@ export function buildThreadTitlePrompt(input: PromptInput[]): string | null {
   const commands = collectInvokedPromptCommands(input);
   const body = promptTextWithoutCommands(input, commands);
   return renderTemplate("generateThreadMetadata", {
+    namingPrompt: namingPrompt ?? DEFAULT_THREAD_NAMING_PROMPT,
     cleanedPrompt: body.length > 0 ? clampPromptText(body) : fallback,
     ...(commands.length > 0
       ? { invokedCommands: formatInvokedCommands(commands) }
@@ -202,7 +207,10 @@ export async function generateThreadMetadataWithOutcome(
     ...(reason ? { reason } : {}),
   });
 
-  const prompt = buildThreadTitlePrompt(args.input);
+  const prompt = buildThreadTitlePrompt(
+    args.input,
+    getAppSettings(deps.db).threadNamingPrompt,
+  );
   if (prompt === null) {
     return complete(null, "empty-input");
   }

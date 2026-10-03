@@ -1,4 +1,8 @@
-import { getAiServiceSelections, setAiServiceSelection } from "@bb/db";
+import {
+  getAppSettings,
+  getAiServiceSelections,
+  setAiServiceSelection,
+} from "@bb/db";
 import { promptInputSchema, type AiTextTask } from "@bb/domain";
 import type {
   SetAiServiceSelectionRequest,
@@ -95,7 +99,10 @@ export async function updateAiServiceSelection(
   return buildAiServicesView(deps);
 }
 
-function sampleFor(task: AiTextTask): {
+function sampleFor(
+  task: AiTextTask,
+  namingPrompt: string | null,
+): {
   prompt: string;
   sanitize: (value: string) => string | null;
 } {
@@ -105,7 +112,7 @@ function sampleFor(task: AiTextTask): {
       sanitize: sanitizeGeneratedCommitMessage,
     };
   }
-  const prompt = buildThreadTitlePrompt(SAMPLE_TITLE_INPUT);
+  const prompt = buildThreadTitlePrompt(SAMPLE_TITLE_INPUT, namingPrompt);
   if (prompt === null) {
     throw new Error("The sample title prompt is empty");
   }
@@ -116,7 +123,10 @@ export async function testAiService(
   deps: AiServicesViewDeps,
   args: { task: AiTextTask; signal: AbortSignal },
 ): Promise<TestAiServiceResponse> {
-  const sample = sampleFor(args.task);
+  const sample = sampleFor(
+    args.task,
+    getAppSettings(deps.db).threadNamingPrompt,
+  );
   const outcome = await runTextAiTask(deps, {
     task: args.task,
     label: "AI service test",
