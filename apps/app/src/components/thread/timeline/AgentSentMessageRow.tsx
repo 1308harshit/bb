@@ -64,6 +64,7 @@ export function AgentSentMessageRow({
   );
   const sharedProps = {
     attachmentItems: NO_ATTACHMENTS,
+    automationLink: null,
     mentions: NO_MENTIONS,
     onOpenLink,
     onOpenLocalFileLink,
@@ -89,12 +90,14 @@ export function AgentSentMessageRow({
         {...sharedProps}
         agentDirection="sent-message"
         text={tell.message ?? ""}
+        timestamp={sentAt}
       />
       {reply !== null ? (
         <GeneratedConversationMessage
           {...sharedProps}
           agentDirection="received-reply"
           text={reply.text}
+          timestamp={reply.startedAt}
         />
       ) : null}
     </div>

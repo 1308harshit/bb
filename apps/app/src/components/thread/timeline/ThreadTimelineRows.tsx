@@ -1098,6 +1098,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
       resolveMentionLink={resolveMentionLink}
       text={row.text}
       threadId={row.threadId}
+      timestamp={row.startedAt}
       workspaceRootPath={workspaceRootPath}
     />
   );

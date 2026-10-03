@@ -21,6 +21,7 @@ interface AgentReplyMessageProps {
   resolveMentionLink?: PromptMentionLinkResolver;
   text: string;
   threadId?: string;
+  timestamp: number;
   workspaceRootPath?: string;
 }
 
@@ -41,12 +42,14 @@ export function AgentReplyMessage({
   resolveMentionLink,
   text,
   threadId,
+  timestamp,
   workspaceRootPath,
 }: AgentReplyMessageProps) {
   return (
     <GeneratedConversationMessage
       agentDirection="sent-reply"
       attachmentItems={NO_ATTACHMENTS}
+      automationLink={null}
       expandedBody={body}
       originKind={null}
       mentions={NO_MENTIONS}
@@ -64,6 +67,7 @@ export function AgentReplyMessage({
       systemMessageSubject={null}
       text={text}
       threadId={threadId}
+      timestamp={timestamp}
       turnRequest={null}
       workspaceRootPath={workspaceRootPath}
     />
