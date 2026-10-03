@@ -17,12 +17,12 @@ import {
   ChoiceDropdownSetting,
   type ChoiceDropdownOption,
 } from "./ChoiceDropdownSetting";
-
 import { AiTaskInstructionsSetting } from "./AiTaskInstructionsSetting";
 
 type AiTaskTestResult = TestAiServiceResponse | { ok: false; message: string };
 
 const AUTOMATIC_KEY = "automatic";
+const ROW_CLASS_NAME = "space-y-2 py-4 first:pt-0 last:pb-0";
 const OFF_KEY = "off";
 
 interface AiTaskRow {
@@ -209,38 +209,42 @@ export function AiServicesSettingsSection() {
     >
       <div className="divide-y divide-border">
         {AI_TASK_ROWS.map((row) => {
-          const options = view === undefined ? [] : aiTaskOptions(view, row);
-          const key =
-            view === undefined
-              ? AUTOMATIC_KEY
-              : selectionKey(view.selections[row.task]);
-          const selected =
-            view === undefined
-              ? { key, title: "Loading" }
-              : (options.find((option) => option.key === key) ?? {
-                  key,
-                  title: "Unavailable plugin",
-                });
+          if (view === undefined) {
+            return (
+              <div key={row.task} className={ROW_CLASS_NAME}>
+                <ChoiceDropdownSetting
+                  label={row.label}
+                  description={row.hint}
+                  triggerAriaLabel={row.label}
+                  options={[]}
+                  selected={{ key: AUTOMATIC_KEY, title: "Loading" }}
+                  onSelect={() => undefined}
+                  disabled
+                />
+              </div>
+            );
+          }
+          const options = aiTaskOptions(view, row);
+          const key = selectionKey(view.selections[row.task]);
+          const selected = options.find((option) => option.key === key) ?? {
+            key,
+            title: "Unavailable plugin",
+          };
           const testTask = row.testTask;
           return (
-            <div key={row.task} className="space-y-2 py-4 first:pt-0 last:pb-0">
+            <div key={row.task} className={ROW_CLASS_NAME}>
               <ChoiceDropdownSetting
                 label={row.label}
-                description={
-                  view === undefined
-                    ? row.hint
-                    : rowDescription(
-                        view,
-                        row,
-                        testTask === null ? undefined : testResults[testTask],
-                      )
-                }
+                description={rowDescription(
+                  view,
+                  row,
+                  testTask === null ? undefined : testResults[testTask],
+                )}
                 triggerAriaLabel={row.label}
                 options={options}
                 selected={selected}
-                disabled={view === undefined || select.isPending}
+                disabled={select.isPending}
                 onSelect={(nextKey) => {
-                  if (view === undefined) return;
                   const selection = selectionFromKey(view, nextKey);
                   if (selection === null) return;
                   setTestResults((current) => {
@@ -251,7 +255,7 @@ export function AiServicesSettingsSection() {
                   select.mutate({ task: row.task, selection });
                 }}
               >
-                {testTask === null || view === undefined ? null : (
+                {testTask === null ? null : (
                   <Button
                     variant="ghost"
                     size="sm"
