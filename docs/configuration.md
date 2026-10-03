@@ -253,6 +253,26 @@ primary machine. bb cloud is on by default once you sign in; `bb ai off` turns i
 is used alone; if it fails, titles fall back to the start of the prompt and
 commits to `bb: automated commit`. Each plugin picks its own model.
 
+### Instructions
+
+Settings → AI services → Add instructions adds your own instructions to bb's
+built-in rules for a task, server-wide. The field saves when it loses focus.
+Use instructions for language, format, or conventions, such as "Write titles
+in French." Your instructions take precedence over bb's style rules, but output
+stays one line: titles are limited to 48 display columns and commit subjects to
+72. bb adds the task text, invoked commands, and diff itself, so no template
+variables are needed. Existing titles are not renamed.
+
+| Task | Instructions setting |
+| --- | --- |
+| `thread-title` | `threadTitleInstructions` |
+| `commit-message` | `commitMessageInstructions` |
+
+Set one with `bb settings general <setting> "<instructions>"`, or pass it with
+the other current settings from `system.config().generalSettings` to SDK
+`system.updateGeneralSettings`. Each accepts 1–2,000 characters after trimming.
+Set `null`, or clear the field, to use only bb's rules.
+
 `BB_INFERENCE`, `BB_INFERENCE_FALLBACK`, and `BB_TRANSCRIPTION` were removed.
 bb ignores them in `~/.bb/config.json` with a warning, and `bb-app config set`
 refuses them.
@@ -1934,23 +1954,3 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 The publishing workflow verifies the signed APK and publishes both the checksum-named
 asset and the stable `bb-android.apk` alias, then `latest.json`.
-
-
-## AI task instructions
-
-Settings → AI services → Add instructions under Thread titles or Commit
-messages adds your own instructions to bb's built-in rules for that task,
-server-wide. The field saves when it loses focus. Use them for language, format, or conventions, such as "Write
-titles in French." or "Skip the conventional commit type prefix." Your
-instructions take precedence over the built-in style rules, but output stays
-one line: titles are limited to 48 display columns and commit subjects to 72.
-bb adds the task text, invoked commands, and diff automatically, so no template
-variables are needed. Existing titles are not renamed.
-
-Use `bb settings general threadTitleInstructions "Write titles in French."` or
-`bb settings general commitMessageInstructions "Write commit subjects in French."`.
-In the SDK, pass `threadTitleInstructions` or `commitMessageInstructions` with
-the other current settings from `system.config().generalSettings` to
-`system.updateGeneralSettings`. Each accepts 1–2,000 characters after trimming;
-set `null`, or clear the field, to use only the built-in rules. The
-two settings are independent.

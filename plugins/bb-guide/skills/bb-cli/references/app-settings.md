@@ -270,22 +270,14 @@ and returns `android: null` if unavailable or inconsistent. Download links remai
 usable during metadata failures. iOS version and release date are shown in TestFlight.
 Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on.
 
-
 ## AI task instructions
 
-Settings → AI services → Add instructions under Thread titles or Commit
-messages adds your own instructions to bb's built-in rules for that task,
-server-wide. The field saves when it loses focus. Use them for language, format, or conventions, such as "Write
-titles in French." or "Skip the conventional commit type prefix." Your
-instructions take precedence over the built-in style rules, but output stays
-one line: titles are limited to 48 display columns and commit subjects to 72.
-bb adds the task text, invoked commands, and diff automatically, so no template
-variables are needed. Existing titles are not renamed.
+Settings → AI services → Add instructions adds your own instructions to bb's
+built-in rules for a task, server-wide. Instructions take precedence over bb's
+style rules, but output stays one line. Each setting accepts 1–2,000
+characters after trimming; `null` uses only bb's rules.
 
-Use `bb settings general threadTitleInstructions "Write titles in French."` or
-`bb settings general commitMessageInstructions "Write commit subjects in French."`.
-In the SDK, pass `threadTitleInstructions` or `commitMessageInstructions` with
-the other current settings from `system.config().generalSettings` to
-`system.updateGeneralSettings`. Each accepts 1–2,000 characters after trimming;
-set `null`, or clear the field, to use only the built-in rules. The
-two settings are independent.
+| Task | Instructions setting |
+| --- | --- |
+| `thread-title` | `threadTitleInstructions` |
+| `commit-message` | `commitMessageInstructions` |
