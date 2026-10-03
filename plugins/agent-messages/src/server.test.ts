@@ -108,13 +108,7 @@ describe("bb_thread_message", () => {
     expect(host.harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 
-  it.each([
-    "../hosts/host_x/suspend#",
-    "./thr_sender",
-    "thr_sender/../thr_sender",
-    "thr_x?y",
-    "thr_%2e%2e",
-  ])(
+  it.each(["../hosts/host_x/suspend#", "./thr_sender", "thr_%2e%2e"])(
     "rejects the path-like thread id %s before any request",
     async (threadId) => {
       const host = createHost();

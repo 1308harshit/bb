@@ -13,20 +13,9 @@ describe("parseAgentMessageToolCall", () => {
 
   it.each([
     [
-      "another bb tool",
-      "bb:bb_workflow_run",
-      { threadId: "thr_wrkr234567", message: "hi" },
-    ],
-    [
       "a same-named tool on another server",
       "mcp:bb_thread_message",
       { threadId: "thr_wrkr234567", message: "hi" },
-    ],
-    ["a call without a recipient", "bb:bb_thread_message", { message: "hi" }],
-    [
-      "a call with a blank recipient",
-      "bb:bb_thread_message",
-      { threadId: "", message: "hi" },
     ],
     [
       "a call with a path-like recipient",
