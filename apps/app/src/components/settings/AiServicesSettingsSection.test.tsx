@@ -2,6 +2,8 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_THREAD_NAMING_PROMPT, defaultAppSettings } from "@bb/domain";
+import { makeSystemConfig } from "@/test/fixtures/system-config";
 import type { SystemAiServicesResponse } from "@bb/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
@@ -74,6 +76,7 @@ function stubFetch(
   testResponse: () => Response = TEST_SUCCESS,
 ): RecordedRequest[] {
   const requests: RecordedRequest[] = [];
+  let settings = { ...defaultAppSettings };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -84,6 +87,13 @@ function stubFetch(
       const url = new URL(request.url).pathname;
       const text = await request.text();
       requests.push({ url, method: request.method, body: text });
+      if (url === "/api/v1/system/config") {
+        return jsonResponse(makeSystemConfig({ generalSettings: settings }));
+      }
+      if (url === "/api/v1/settings/general") {
+        settings = JSON.parse(text);
+        return jsonResponse(settings);
+      }
       if (url === "/api/v1/system/ai-services/selection") {
         const body = JSON.parse(text);
         return jsonResponse({
@@ -155,6 +165,37 @@ describe("AiServicesSettingsSection", () => {
       });
     });
     await vi.waitFor(() => expect(trigger.textContent).toContain("Off"));
+  });
+
+  it("saves a naming prompt and resets the editor to the default", async () => {
+    const requests = stubFetch();
+    const { wrapper } = createQueryClientTestHarness();
+    render(<AiServicesSettingsSection />, { wrapper });
+    const editor = await screen.findByRole("textbox", {
+      name: "Thread naming prompt",
+    });
+    await vi.waitFor(() => expect(editor).not.toBeDisabled());
+    fireEvent.change(editor, { target: { value: "Write titles in French." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => {
+      const put = requests.find(
+        (request) => request.url === "/api/v1/settings/general",
+      );
+      expect(JSON.parse(put?.body ?? "null").threadNamingPrompt).toBe(
+        "Write titles in French.",
+      );
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+    await vi.waitFor(() =>
+      expect(editor).toHaveValue(DEFAULT_THREAD_NAMING_PROMPT),
+    );
+    const writes = requests.filter(
+      (request) => request.url === "/api/v1/settings/general",
+    );
+    expect(
+      JSON.parse(writes.at(-1)?.body ?? "null").threadNamingPrompt,
+    ).toBeNull();
   });
 
   it("runs a test and shows the reply", async () => {

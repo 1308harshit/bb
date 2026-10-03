@@ -211,16 +211,17 @@ export function AiServicesSettingsSection() {
         {AI_TASK_ROWS.map((row) => {
           if (view === undefined) {
             return (
-              <ChoiceDropdownSetting
-                key={row.task}
-                label={row.label}
-                description={row.hint}
-                triggerAriaLabel={row.label}
-                options={[]}
-                selected={{ key: AUTOMATIC_KEY, title: "Loading" }}
-                onSelect={() => undefined}
-                disabled
-              />
+              <Fragment key={row.task}>
+                <ChoiceDropdownSetting
+                  label={row.label}
+                  description={row.hint}
+                  triggerAriaLabel={row.label}
+                  options={[]}
+                  selected={{ key: AUTOMATIC_KEY, title: "Loading" }}
+                  onSelect={() => undefined}
+                  disabled
+                />
+              </Fragment>
             );
           }
           const options = aiTaskOptions(view, row);
