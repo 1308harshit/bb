@@ -50,6 +50,7 @@ import {
 import {
   buildTimelineWorkSummaryLabelParts,
   type ThreadTimelineViewRow,
+  type TimelineAgentConversationRow,
   type TimelineWorkSummaryRow,
   type TimelineViewDelegationWorkRow,
   type TimelineQuestionViewWorkRow,
@@ -1502,6 +1503,20 @@ function mapWorkSummaryTitle(
   });
 }
 
+function mapAgentConversationTitle(
+  row: TimelineAgentConversationRow,
+): TimelineTitle {
+  const messageCount = row.children.filter(
+    (child) => child.kind === "conversation",
+  ).length;
+  return makeTitle({
+    segments: [
+      segment("Agent conversation"),
+      segment(`${messageCount} messages`, { accent: "subtle" }),
+    ],
+  });
+}
+
 function mapTurnTitle(row: TimelineViewTurnRow): TimelineTitle {
   const isPending = row.status === "pending";
   const durationDeco = isPending
@@ -1773,6 +1788,8 @@ export function buildTimelineRowTitle(
       return mapWorkSummaryTitle(row, options);
     case "turn":
       return mapTurnTitle(row);
+    case "agent-conversation":
+      return mapAgentConversationTitle(row);
     default:
       return assertNever(row);
   }

@@ -411,7 +411,6 @@ function UserConversationMessage({
     return (
       <GeneratedConversationMessage
         {...generatedSource}
-        agentDirection="received-message"
         attachmentItems={attachmentItems}
         automationLink={
           automationDue === null || projectId === undefined

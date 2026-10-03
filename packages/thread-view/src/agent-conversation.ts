@@ -1,8 +1,9 @@
 import type { TimelineRow } from "@bb/server-contract";
-import {
-  parseAgentMessageEnvelope,
-  type ThreadTimelineViewRow,
-} from "@bb/thread-view";
+import { parseAgentMessageEnvelope } from "./agent-message-envelope.js";
+import type {
+  ThreadTimelineViewRow,
+  TimelineAgentConversationRow,
+} from "./timeline-view.js";
 
 const MIN_COLLAPSED_AGENT_EXCHANGES = 2;
 const SENT_AT_CLOCK_SKEW_MS = 5_000;
@@ -15,16 +16,7 @@ type UserRow = Extract<ConversationRow, { role: "user" }>;
 type AssistantRow = Extract<ConversationRow, { role: "assistant" }>;
 type AgentMessageRow = UserRow & { senderThreadId: string; turnId: string };
 
-export interface AgentExchangeGroup {
-  id: string;
-  rows: readonly ThreadTimelineViewRow[];
-}
-
-export type AgentExchangeListEntry =
-  | { kind: "row"; row: ThreadTimelineViewRow }
-  | { kind: "agent-exchanges"; group: AgentExchangeGroup };
-
-interface GroupAgentExchangesArgs {
+interface GroupAgentConversationsArgs {
   activeTurnId: string | null;
   isExcludedSender: IsExcludedAgentSender;
   pinnedRowIds: ReadonlySet<string>;
@@ -111,31 +103,49 @@ function readExchangeRows(
   return { rows: exchangeRows, steeredByUser: false };
 }
 
-export function groupAgentExchanges({
+function agentConversationRow(
+  children: ThreadTimelineViewRow[],
+): TimelineAgentConversationRow | null {
+  const first = children[0];
+  const last = children.at(-1);
+  if (first === undefined || last === undefined) {
+    return null;
+  }
+  return {
+    id: `agent-conversation:${first.id}`,
+    threadId: first.threadId,
+    turnId: null,
+    sourceSeqStart: first.sourceSeqStart,
+    sourceSeqEnd: last.sourceSeqEnd,
+    startedAt: first.startedAt,
+    createdAt: first.createdAt,
+    kind: "agent-conversation",
+    children,
+  };
+}
+
+export function groupAgentConversations({
   activeTurnId,
   isExcludedSender,
   pinnedRowIds,
   rows,
-}: GroupAgentExchangesArgs): AgentExchangeListEntry[] {
-  const entries: AgentExchangeListEntry[] = [];
+}: GroupAgentConversationsArgs): ThreadTimelineViewRow[] {
+  const entries: ThreadTimelineViewRow[] = [];
   let run: ThreadTimelineViewRow[] = [];
   let runExchangeCount = 0;
   const pushRows = (rowsToPush: readonly ThreadTimelineViewRow[]): void => {
-    for (const row of rowsToPush) entries.push({ kind: "row", row });
+    entries.push(...rowsToPush);
   };
   const flushRun = (): void => {
-    const first = run[0];
-    if (
-      first !== undefined &&
+    const group =
       runExchangeCount >= MIN_COLLAPSED_AGENT_EXCHANGES &&
       !run.some((row) => pinnedRowIds.has(row.id))
-    ) {
-      entries.push({
-        kind: "agent-exchanges",
-        group: { id: `agent-exchanges:${first.id}`, rows: run },
-      });
-    } else {
+        ? agentConversationRow(run)
+        : null;
+    if (group === null) {
       pushRows(run);
+    } else {
+      entries.push(group);
     }
     run = [];
     runExchangeCount = 0;

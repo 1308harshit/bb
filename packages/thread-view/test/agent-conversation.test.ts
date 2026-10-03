@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadTimelineViewRow } from "@bb/thread-view";
+import type { ThreadTimelineViewRow } from "../src/timeline-view.js";
 import type {
   TimelineConversationRow,
   TimelineConversationTurnRequest,
@@ -7,8 +7,11 @@ import type {
 import {
   collectAgentReplyRecipients,
   findAgentSentMessageReply,
-  groupAgentExchanges,
-} from "./agent-exchanges.js";
+  groupAgentConversations,
+} from "../src/agent-conversation.js";
+import { buildTimelineRowTitle } from "../src/timeline-row-title.js";
+
+const TITLE_OPTIONS = { summaryStyle: "bundle", workStyle: "default" } as const;
 
 const MANAGER = "thr_manager";
 const notExcluded = (): boolean => false;
@@ -96,15 +99,15 @@ function grouped(
   rows: ThreadTimelineViewRow[],
   options: { activeTurnId?: string; pinned?: string[] } = {},
 ): string[] {
-  return groupAgentExchanges({
+  return groupAgentConversations({
     activeTurnId: options.activeTurnId ?? null,
     isExcludedSender: notExcluded,
     pinnedRowIds: new Set(options.pinned),
     rows,
-  }).map((entry) =>
-    entry.kind === "row"
-      ? entry.row.id
-      : `group(${entry.group.rows.map((row) => row.id).join(",")})`,
+  }).map((row) =>
+    row.kind === "agent-conversation"
+      ? `group(${row.children.map((child) => child.id).join(",")})`
+      : row.id,
   );
 }
 
@@ -155,7 +158,7 @@ describe("collectAgentReplyRecipients", () => {
   });
 });
 
-describe("groupAgentExchanges", () => {
+describe("groupAgentConversations", () => {
   it("collapses two or more settled exchanges between other rows", () => {
     const rows = [
       user("start", "turn_0", { from: null }),
@@ -165,6 +168,15 @@ describe("groupAgentExchanges", () => {
     ];
 
     expect(grouped(rows)).toEqual(["start", "group(u1,t1,a1,u2,t2,a2)", "end"]);
+    const group = groupAgentConversations({
+      activeTurnId: null,
+      isExcludedSender: notExcluded,
+      pinnedRowIds: new Set(),
+      rows,
+    })[1];
+    expect(group && buildTimelineRowTitle(group, TITLE_OPTIONS).plain).toBe(
+      "Agent conversation 4 messages",
+    );
   });
 
   it("leaves a single exchange ungrouped", () => {

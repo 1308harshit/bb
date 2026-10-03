@@ -29,14 +29,17 @@ import {
   buildTimelineActivityIntentTitles,
   buildTimelineRowTitle,
   buildTimelineViewRows,
+  collectAgentReplyRecipients,
   createTimelineViewRowsCache,
   findActiveLatestBundleId,
+  groupAgentConversations,
   parseAgentThreadTellCommand,
   workRowGlyph,
   workRowPluginGlyph,
   workRowPresentation,
   type BuildTimelineRowTitleOptions,
   type BuildTimelineViewRowsOptions,
+  type IsExcludedAgentSender,
   type ThreadTimelineViewRow,
   type TimelineActivityIntentTitle,
   type TimelineTitle,
@@ -136,17 +139,7 @@ import {
   type PluginComposerHost,
 } from "@/components/plugin/plugin-composer-host";
 import { isPluginSideChatSenderThread } from "@/lib/side-chat-plugin.js";
-import {
-  AgentExchangeGroupRow,
-  AgentMessageChip,
-  SentAgentMessage,
-} from "./AgentConversationRows.js";
-import {
-  collectAgentReplyRecipients,
-  groupAgentExchanges,
-  type AgentExchangeListEntry,
-  type IsExcludedAgentSender,
-} from "./agent-exchanges.js";
+import { AgentMessageChip, SentAgentMessage } from "./AgentConversationRows.js";
 import {
   buildMessageDirectiveRegistry,
   MessageDirectiveRegistryProvider,
@@ -286,15 +279,8 @@ interface TimelineSystemDetailBlockProps {
 }
 
 interface BuildTimelineRowsListItemsArgs {
-  agentExchangeGrouping: AgentExchangeGrouping | null;
   rows: readonly ThreadTimelineViewRow[];
   unreadDividerPlacement: ThreadTimelineUnreadDividerPlacement | null;
-}
-
-interface AgentExchangeGrouping {
-  activeTurnId: string | null;
-  isExcludedSender: IsExcludedAgentSender;
-  pinnedRowIds: ReadonlySet<string>;
 }
 
 interface FindUnreadDividerIndexArgs {
@@ -344,7 +330,10 @@ type GetTimelineViewRows = (
   options?: BuildTimelineViewRowsOptions,
 ) => ThreadTimelineViewRow[];
 type TimelineRowsListItem =
-  | AgentExchangeListEntry
+  | {
+      kind: "row";
+      row: ThreadTimelineViewRow;
+    }
   | {
       kind: "unread-divider";
       id: "thread-unread-divider";
@@ -1076,7 +1065,7 @@ const ConversationRowContent = memo(function ConversationRowContent({
   }
   return (
     <AgentMessageChip
-      agentDirection="sent-reply"
+      sourceKind="agent-reply-to"
       counterpart={senderThreadMetadataById.get(replyRecipientThreadId) ?? null}
       counterpartThreadId={replyRecipientThreadId}
       expandedBody={assistantMessage}
@@ -1191,6 +1180,19 @@ function TimelineExpandableBody({
         </TimelineDetailScroll>
       );
     }
+    case "agent-conversation":
+      return (
+        <TimelineRowsList
+          rows={row.children}
+          scopeActive={false}
+          showAssistantMessageActions={showAssistantMessageActions}
+          compactActivityIntents={false}
+          spacing="nested"
+          className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}
+          unreadDividerAutoScroll={false}
+          unreadDividerPlacement={null}
+        />
+      );
     case "turn":
       return (
         <TurnRowBody
@@ -1418,6 +1420,7 @@ export function pastRowDimClassName({
     case "step-summary":
       return row.status === "completed" ? PAST_ROW_DIM_CLASS_NAME : undefined;
     case "conversation":
+    case "agent-conversation":
       return undefined;
   }
 }
@@ -1471,6 +1474,9 @@ function leadingIconForSystemRow(
 }
 
 function leadingIconForRow(row: ThreadTimelineViewRow): IconName | undefined {
+  if (row.kind === "agent-conversation") {
+    return "MessageMultiple";
+  }
   return leadingIconForWorkRow(row) ?? leadingIconForSystemRow(row);
 }
 
@@ -1747,66 +1753,24 @@ function findLastRowTurnId(
   return null;
 }
 
-function groupTimelineRowsListSegment(
-  rows: readonly ThreadTimelineViewRow[],
-  grouping: AgentExchangeGrouping | null,
-): TimelineRowsListItem[] {
-  return grouping === null
-    ? rows.map((row) => ({ kind: "row", row }))
-    : groupAgentExchanges({ ...grouping, rows });
-}
-
 function buildTimelineRowsListItems({
-  agentExchangeGrouping,
   rows,
   unreadDividerPlacement,
 }: BuildTimelineRowsListItemsArgs): TimelineRowsListItem[] {
+  const items: TimelineRowsListItem[] = [];
   const dividerIndex = findUnreadDividerIndex({
     rows,
     unreadDividerPlacement,
   });
-  if (dividerIndex < 0) {
-    return groupTimelineRowsListSegment(rows, agentExchangeGrouping);
-  }
-  return [
-    ...groupTimelineRowsListSegment(
-      rows.slice(0, dividerIndex),
-      agentExchangeGrouping,
-    ),
-    { kind: "unread-divider", id: "thread-unread-divider" },
-    ...groupTimelineRowsListSegment(
-      rows.slice(dividerIndex),
-      agentExchangeGrouping,
-    ),
-  ];
-}
 
-function timelineRowsListItemKey(item: TimelineRowsListItem): string {
-  switch (item.kind) {
-    case "row":
-      return item.row.id;
-    case "unread-divider":
-      return `divider:${item.id}`;
-    case "agent-exchanges":
-      return item.group.id;
+  for (const [index, row] of rows.entries()) {
+    if (index === dividerIndex) {
+      items.push({ kind: "unread-divider", id: "thread-unread-divider" });
+    }
+    items.push({ kind: "row", row });
   }
-}
 
-function renderAgentExchangeRows(
-  rows: readonly ThreadTimelineViewRow[],
-): ReactNode {
-  return (
-    <TimelineRowsList
-      rows={rows}
-      scopeActive={false}
-      showAssistantMessageActions={true}
-      compactActivityIntents={false}
-      spacing="nested"
-      className={NESTED_TIMELINE_GROUP_LINE_CLASS_NAME}
-      unreadDividerAutoScroll={false}
-      unreadDividerPlacement={null}
-    />
-  );
+  return items;
 }
 
 function TimelineRowItemWrapper({
@@ -1909,9 +1873,9 @@ function TimelineRowsList({
   const { isExcludedAgentSender } = useTimelineRendererStaticContext();
   const activeTurnId =
     spacing === "top-level" && scopeActive ? findLastRowTurnId(rows) : null;
-  const agentExchangeGrouping = useMemo<AgentExchangeGrouping | null>(() => {
+  const listRows = useMemo(() => {
     if (spacing !== "top-level") {
-      return null;
+      return rows;
     }
     const pinnedRowIds = new Set(stableSearchExpandedRowIds);
     if (scrollRestoreRowId !== null) {
@@ -1920,34 +1884,50 @@ function TimelineRowsList({
     if (navigationTargetRowId != null) {
       pinnedRowIds.add(navigationTargetRowId);
     }
-    return {
-      activeTurnId,
-      isExcludedSender: isExcludedAgentSender,
-      pinnedRowIds,
-    };
+    const group = (segment: readonly ThreadTimelineViewRow[]) =>
+      groupAgentConversations({
+        activeTurnId,
+        isExcludedSender: isExcludedAgentSender,
+        pinnedRowIds,
+        rows: segment,
+      });
+    const dividerIndex = findUnreadDividerIndex({
+      rows,
+      unreadDividerPlacement,
+    });
+    return dividerIndex < 0
+      ? group(rows)
+      : [
+          ...group(rows.slice(0, dividerIndex)),
+          ...group(rows.slice(dividerIndex)),
+        ];
   }, [
     activeTurnId,
     isExcludedAgentSender,
     navigationTargetRowId,
+    rows,
     scrollRestoreRowId,
     spacing,
     stableSearchExpandedRowIds,
+    unreadDividerPlacement,
   ]);
   const items = useMemo(
     () =>
-      buildTimelineRowsListItems({
-        agentExchangeGrouping,
-        rows,
-        unreadDividerPlacement,
-      }),
-    [agentExchangeGrouping, rows, unreadDividerPlacement],
+      buildTimelineRowsListItems({ rows: listRows, unreadDividerPlacement }),
+    [listRows, unreadDividerPlacement],
   );
-  const itemKeys = useMemo(() => items.map(timelineRowsListItemKey), [items]);
+  const itemKeys = useMemo(
+    () =>
+      items.map((item) =>
+        item.kind === "row" ? item.row.id : `divider:${item.id}`,
+      ),
+    [items],
+  );
   const alwaysMountedKeys = useMemo(() => {
     const keys = new Set<string>();
-    const lastItem = items.at(-1);
-    if (lastItem !== undefined) {
-      keys.add(timelineRowsListItemKey(lastItem));
+    const lastRow = listRows.at(-1);
+    if (lastRow !== undefined) {
+      keys.add(lastRow.id);
     }
     for (const item of items) {
       if (item.kind === "unread-divider") {
@@ -1966,6 +1946,7 @@ function TimelineRowsList({
     return keys;
   }, [
     items,
+    listRows,
     scrollRestoreRowId,
     spacing,
     stableSearchExpandedRowIds,
@@ -2030,29 +2011,6 @@ function TimelineRowsList({
                     {windowedState.isRealized ? (
                       <TimelineUnreadDivider
                         autoScroll={unreadDividerAutoScroll}
-                      />
-                    ) : null}
-                  </div>
-                );
-              }
-              if (item.kind === "agent-exchanges") {
-                return (
-                  <div
-                    key={item.group.id}
-                    ref={windowedState.itemRef}
-                    data-index={windowedState.itemIndex}
-                    data-timeline-window-key={item.group.id}
-                    data-timeline-windowed-realized={
-                      windowedState.windowingEnabled
-                        ? String(windowedState.isRealized)
-                        : undefined
-                    }
-                    style={windowedState.itemStyle}
-                  >
-                    {windowedState.isRealized ? (
-                      <AgentExchangeGroupRow
-                        group={item.group}
-                        renderRows={renderAgentExchangeRows}
                       />
                     ) : null}
                   </div>

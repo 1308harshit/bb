@@ -58,9 +58,16 @@ export {
   buildTimelineViewRows,
   createTimelineViewRowsCache,
 } from "./timeline-view.js";
+export {
+  collectAgentReplyRecipients,
+  findAgentSentMessageReply,
+  groupAgentConversations,
+  type IsExcludedAgentSender,
+} from "./agent-conversation.js";
 export type {
   BuildTimelineViewRowsOptions,
   ThreadTimelineViewRow,
+  TimelineAgentConversationRow,
   TimelineQuestionViewWorkRow,
   TimelineViewTurnRow,
   TimelineViewWorkflowWorkRow,

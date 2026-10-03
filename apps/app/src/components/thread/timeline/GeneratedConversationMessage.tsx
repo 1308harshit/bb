@@ -59,7 +59,6 @@ interface AutomationLink {
 }
 
 interface GeneratedConversationMessageProps {
-  agentDirection: GeneratedAgentMessageDirection;
   attachmentItems: ConversationAttachmentItems;
   automationLink: AutomationLink | null;
   expandedBody?: ReactNode;
@@ -84,12 +83,13 @@ interface GeneratedConversationMessageProps {
   workspaceRootPath?: string;
 }
 
-type GeneratedConversationSourceKind = "agent" | "automation" | "system";
-export type GeneratedAgentMessageDirection =
-  | "received-message"
-  | "sent-reply"
-  | "sent-message"
-  | "received-reply";
+export type GeneratedConversationSourceKind =
+  | "agent"
+  | "agent-reply-to"
+  | "agent-message-to"
+  | "agent-reply-from"
+  | "automation"
+  | "system";
 
 interface GeneratedConversationBodyTextArgs {
   initiator: TimelineUserConversationRow["initiator"];
@@ -117,7 +117,6 @@ interface TimelineTitleSegmentArgs {
 }
 
 interface GeneratedConversationTitleArgs {
-  agentDirection: GeneratedAgentMessageDirection;
   originKind: ThreadOriginKind | null;
   sourceKind: GeneratedConversationSourceKind;
   sourceName: string;
@@ -272,25 +271,22 @@ function systemMessageTitleSegments(
   }
 }
 
-interface AgentMessageLeadInArgs {
-  agentDirection: GeneratedAgentMessageDirection;
-  originKind: ThreadOriginKind | null;
-  sourceIsPluginSideChat: boolean;
-}
-
-function agentMessageLeadIn({
-  agentDirection,
-  originKind,
-  sourceIsPluginSideChat,
-}: AgentMessageLeadInArgs): string {
-  switch (agentDirection) {
-    case "sent-reply":
+function agentMessageLeadIn(
+  sourceKind: GeneratedConversationSourceKind,
+  originKind: ThreadOriginKind | null,
+  sourceIsPluginSideChat: boolean,
+): string | null {
+  switch (sourceKind) {
+    case "agent-reply-to":
       return "Reply to";
-    case "sent-message":
+    case "agent-message-to":
       return "Message to";
-    case "received-reply":
+    case "agent-reply-from":
       return "Reply from";
-    case "received-message":
+    case "automation":
+    case "system":
+      return null;
+    case "agent":
       if (sourceIsPluginSideChat) {
         return "Replying to";
       }
@@ -298,14 +294,7 @@ function agentMessageLeadIn({
   }
 }
 
-function isSentAgentMessage(
-  agentDirection: GeneratedAgentMessageDirection,
-): boolean {
-  return agentDirection === "sent-reply" || agentDirection === "sent-message";
-}
-
 export function generatedConversationTitle({
-  agentDirection,
   originKind,
   sourceKind,
   sourceName,
@@ -314,11 +303,11 @@ export function generatedConversationTitle({
   systemMessageKind,
   systemMessageSubject,
 }: GeneratedConversationTitleArgs): TimelineTitle {
-  const agentLeadIn = agentMessageLeadIn({
-    agentDirection,
+  const agentLeadIn = agentMessageLeadIn(
+    sourceKind,
     originKind,
     sourceIsPluginSideChat,
-  });
+  );
   const sideChatAction =
     sourceIsPluginSideChat && sourceThreadId !== null
       ? ({ kind: "open-plugin-side-chat", threadId: sourceThreadId } as const)
@@ -328,7 +317,7 @@ export function generatedConversationTitle({
       ? null
       : ({ kind: "thread", threadId: sourceThreadId } as const);
   const segments: TimelineTitleSegment[] =
-    sourceKind === "agent"
+    agentLeadIn !== null
       ? [
           timelineTitleSegment({
             em: false,
@@ -365,6 +354,9 @@ function generatedConversationEmptyText(
 ): string {
   switch (sourceKind) {
     case "agent":
+    case "agent-reply-to":
+    case "agent-message-to":
+    case "agent-reply-from":
       return "Sent an agent message";
     case "automation":
       return "Ran an automation";
@@ -397,7 +389,6 @@ function systemMessageIconName(systemMessageKind: SystemMessageKind): IconName {
 }
 
 function generatedConversationIconName(
-  agentDirection: GeneratedAgentMessageDirection,
   sourceKind: GeneratedConversationSourceKind,
   originKind: ThreadOriginKind | null,
   systemMessageKind: SystemMessageKind,
@@ -407,7 +398,11 @@ function generatedConversationIconName(
   }
   switch (sourceKind) {
     case "agent":
-      return isSentAgentMessage(agentDirection) ? "Sent" : "MessageSquare";
+    case "agent-reply-from":
+      return "MessageSquare";
+    case "agent-reply-to":
+    case "agent-message-to":
+      return "Sent";
     case "automation":
       return "Repeat";
     case "system":
@@ -547,7 +542,6 @@ const COLLAPSED_MARKDOWN_PREVIEW_CLASS = cn(
 
 export const GeneratedConversationMessage = memo(
   function GeneratedConversationMessage({
-    agentDirection,
     attachmentItems,
     automationLink,
     expandedBody,
@@ -601,7 +595,6 @@ export const GeneratedConversationMessage = memo(
     const title = useMemo(
       () =>
         generatedConversationTitle({
-          agentDirection,
           originKind,
           sourceKind,
           sourceName,
@@ -611,7 +604,6 @@ export const GeneratedConversationMessage = memo(
           systemMessageSubject,
         }),
       [
-        agentDirection,
         originKind,
         sourceKind,
         sourceName,
@@ -622,7 +614,7 @@ export const GeneratedConversationMessage = memo(
       ],
     );
     const sourceTitleContent =
-      sourceKind === "agent" ? (
+      sourceKind !== "automation" && sourceKind !== "system" ? (
         <GeneratedAgentSourceTitle
           onTitleAction={onTitleAction}
           sourceIsPluginSideChat={sourceIsPluginSideChat}
@@ -639,7 +631,6 @@ export const GeneratedConversationMessage = memo(
         />
       ) : undefined;
     const leadingIcon = generatedConversationIconName(
-      agentDirection,
       sourceKind,
       originKind,
       systemMessageKind,
@@ -686,8 +677,7 @@ export const GeneratedConversationMessage = memo(
         ? closeUnterminatedMarkdownCodeSpan(collapsedPreviewBody.text)
         : collapsedPreviewBody.text;
     const suppressGeneratedAgentImages =
-      sourceKind === "agent" &&
-      !isSentAgentMessage(agentDirection) &&
+      (sourceKind === "agent" || sourceKind === "agent-reply-from") &&
       !sourceIsPluginSideChat;
     const collapsedPreview =
       !titleOnly && collapsedPreviewBody.text ? (

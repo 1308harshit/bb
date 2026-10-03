@@ -19,7 +19,6 @@ function systemTitle({
   systemMessageSubject,
 }: SystemTitleArgs) {
   return generatedConversationTitle({
-    agentDirection: "received-message",
     originKind: null,
     sourceKind: "system",
     sourceName: "BB",
@@ -146,7 +145,6 @@ describe("generatedConversationTitle — system source", () => {
 describe("generatedConversationTitle — agent source", () => {
   it("links the sender thread name (reference pattern, unchanged)", () => {
     const title = generatedConversationTitle({
-      agentDirection: "received-message",
       originKind: null,
       sourceKind: "agent",
       sourceName: "Worker 2",
@@ -163,25 +161,21 @@ describe("generatedConversationTitle — agent source", () => {
   });
 
   it.each([
-    ["sent-reply", "Reply to Worker"],
-    ["sent-message", "Message to Worker"],
-    ["received-reply", "Reply from Worker"],
-  ] as const)(
-    "labels %s chips with the linked thread",
-    (agentDirection, plain) => {
-      const title = generatedConversationTitle({
-        agentDirection,
-        originKind: null,
-        sourceKind: "agent",
-        sourceName: "Worker",
-        sourceThreadId: "thr_worker",
-        sourceIsPluginSideChat: false,
-        systemMessageKind: "unlabeled",
-        systemMessageSubject: null,
-      });
+    ["agent-reply-to", "Reply to Worker"],
+    ["agent-message-to", "Message to Worker"],
+    ["agent-reply-from", "Reply from Worker"],
+  ] as const)("labels %s chips with the linked thread", (sourceKind, plain) => {
+    const title = generatedConversationTitle({
+      originKind: null,
+      sourceKind,
+      sourceName: "Worker",
+      sourceThreadId: "thr_worker",
+      sourceIsPluginSideChat: false,
+      systemMessageKind: "unlabeled",
+      systemMessageSubject: null,
+    });
 
-      expect(title.plain).toBe(plain);
-      expect(title.segments[1]?.link).toEqual(threadLink("thr_worker"));
-    },
-  );
+    expect(title.plain).toBe(plain);
+    expect(title.segments[1]?.link).toEqual(threadLink("thr_worker"));
+  });
 });

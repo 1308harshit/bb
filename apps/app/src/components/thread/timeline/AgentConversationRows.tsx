@@ -1,23 +1,17 @@
-import { memo, useCallback, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { PromptTextMention } from "@bb/domain";
 import type { TimelineConversationTurnRequest } from "@bb/server-contract";
-import type {
-  AgentThreadTellCommand,
-  ThreadTimelineViewRow,
-  TimelineTitle,
+import {
+  findAgentSentMessageReply,
+  type AgentThreadTellCommand,
 } from "@bb/thread-view";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import { useThreadTimeline } from "@/hooks/queries/thread-queries";
 import type { SenderThreadMetadata } from "@/hooks/useSenderThreadMetadataById";
-import {
-  findAgentSentMessageReply,
-  type AgentExchangeGroup,
-} from "./agent-exchanges.js";
 import type { ConversationAttachmentItems } from "./ConversationAttachments.js";
-import { ExpandableTimelineRow } from "./ExpandableTimelineRow.js";
 import {
   GeneratedConversationMessage,
-  type GeneratedAgentMessageDirection,
+  type GeneratedConversationSourceKind,
 } from "./GeneratedConversationMessage.js";
 import type { TimelineTitleActionResolver } from "./TimelineTitleView.js";
 import type {
@@ -35,11 +29,11 @@ export interface AgentMessageChipLinks {
 }
 
 interface AgentMessageChipProps {
-  agentDirection: GeneratedAgentMessageDirection;
   counterpart: SenderThreadMetadata | null;
   counterpartThreadId: string;
   expandedBody?: ReactNode;
   links: AgentMessageChipLinks;
+  sourceKind: Exclude<GeneratedConversationSourceKind, "automation" | "system">;
   text: string;
   threadId: string;
   timestamp: number;
@@ -53,11 +47,6 @@ interface SentAgentMessageProps {
   tell: AgentThreadTellCommand;
 }
 
-interface AgentExchangeGroupRowProps {
-  group: AgentExchangeGroup;
-  renderRows: (rows: readonly ThreadTimelineViewRow[]) => ReactNode;
-}
-
 const NO_MENTIONS: readonly PromptTextMention[] = [];
 const NO_ATTACHMENTS: ConversationAttachmentItems = {
   filePaths: [],
@@ -68,14 +57,13 @@ const ACCEPTED_MESSAGE: TimelineConversationTurnRequest = {
   kind: "message",
   status: "accepted",
 };
-const AGENT_EXCHANGE_GROUP_LABEL = "Agent conversation";
 
 export function AgentMessageChip({
-  agentDirection,
   counterpart,
   counterpartThreadId,
   expandedBody,
   links,
+  sourceKind,
   text,
   threadId,
   timestamp,
@@ -88,14 +76,13 @@ export function AgentMessageChip({
       projectId={links.projectId}
       resolveMentionLink={links.resolveMentionLink}
       workspaceRootPath={links.workspaceRootPath}
-      agentDirection={agentDirection}
       attachmentItems={NO_ATTACHMENTS}
       automationLink={null}
       expandedBody={expandedBody}
       mentions={NO_MENTIONS}
       originKind={null}
       sourceIsPluginSideChat={false}
-      sourceKind="agent"
+      sourceKind={sourceKind}
       sourceName={counterpart?.title ?? "Agent"}
       sourceProjectId={counterpart?.projectId ?? null}
       sourceThreadId={counterpartThreadId}
@@ -141,14 +128,14 @@ export function SentAgentMessage({
     <div className="flex flex-col gap-2">
       <AgentMessageChip
         {...chipProps}
-        agentDirection="sent-message"
+        sourceKind="agent-message-to"
         text={tell.message ?? ""}
         timestamp={sentAt}
       />
       {reply === null ? null : (
         <AgentMessageChip
           {...chipProps}
-          agentDirection="received-reply"
+          sourceKind="agent-reply-from"
           text={reply.text}
           timestamp={reply.startedAt}
         />
@@ -156,50 +143,3 @@ export function SentAgentMessage({
     </div>
   );
 }
-
-export const AgentExchangeGroupRow = memo(function AgentExchangeGroupRow({
-  group,
-  renderRows,
-}: AgentExchangeGroupRowProps) {
-  const messageCount = group.rows.filter(
-    (row) => row.kind === "conversation",
-  ).length;
-  const messageCountLabel = `${messageCount} messages`;
-  const title = useMemo<TimelineTitle>(
-    () => ({
-      action: null,
-      decorations: [],
-      plain: `${AGENT_EXCHANGE_GROUP_LABEL} ${messageCountLabel}`,
-      segments: [
-        {
-          em: false,
-          shimmer: false,
-          text: AGENT_EXCHANGE_GROUP_LABEL,
-          truncate: false,
-        },
-      ],
-      tone: "default",
-    }),
-    [messageCountLabel],
-  );
-  const { rows } = group;
-  const renderBody = useCallback(() => renderRows(rows), [renderRows, rows]);
-  return (
-    <ExpandableTimelineRow
-      reasoningExpansionKey={group.id}
-      title={title}
-      titleContent={
-        <span className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden whitespace-nowrap text-sm leading-5">
-          <span className="shrink-0 text-muted-foreground">
-            {AGENT_EXCHANGE_GROUP_LABEL}
-          </span>
-          <span className="shrink-0 text-subtle-foreground">
-            {messageCountLabel}
-          </span>
-        </span>
-      }
-      leadingIcon="MessageMultiple"
-      renderBody={renderBody}
-    />
-  );
-});
