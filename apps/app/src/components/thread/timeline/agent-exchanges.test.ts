@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadTimelineViewRow } from "@bb/thread-view";
-import type { TimelineConversationTurnRequest } from "@bb/server-contract";
+import type {
+  TimelineConversationRow,
+  TimelineConversationTurnRequest,
+} from "@bb/server-contract";
 import {
   collectAgentReplyRecipients,
   findAgentSentMessageReply,
@@ -35,7 +38,7 @@ function user(
   id: string,
   turnId: string,
   options: UserOptions = {},
-): ThreadTimelineViewRow {
+): TimelineConversationRow {
   const from = options.from === undefined ? MANAGER : options.from;
   return {
     ...base(id, turnId, options.at),
@@ -57,7 +60,11 @@ function user(
   };
 }
 
-function reply(id: string, turnId: string, at?: number): ThreadTimelineViewRow {
+function reply(
+  id: string,
+  turnId: string,
+  at?: number,
+): TimelineConversationRow {
   return {
     ...base(id, turnId, at),
     kind: "conversation",
