@@ -6,7 +6,7 @@ export const TOOL_NAME = "bb_thread_message";
 export const toolParameters = z.object({
   threadId: z
     .string()
-    .min(1)
+    .regex(/^[A-Za-z0-9_-]+$/)
     .describe("ID of the thread to message, such as thr_abc123."),
   message: z.string().trim().min(1).describe("The message, in Markdown."),
 });

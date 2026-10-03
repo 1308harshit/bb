@@ -12,6 +12,22 @@ import {
   type ToolInput,
 } from "./tool-definition.js";
 
+const SIDE_CHAT_PLUGIN_ID = "side-chat";
+
+interface Recipient {
+  originKind: string | null;
+  originPluginId: string | null;
+  visibility: string;
+}
+
+function isSideChat(recipient: Recipient): boolean {
+  return (
+    recipient.originKind === "fork" &&
+    recipient.originPluginId === SIDE_CHAT_PLUGIN_ID &&
+    recipient.visibility === "hidden"
+  );
+}
+
 function errorResult(text: string): PluginAgentToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
@@ -27,6 +43,11 @@ async function sendThreadMessage(
     );
   }
   try {
+    if (isSideChat(await bb.sdk.threads.get({ threadId }))) {
+      return errorResult(
+        "That thread is a side chat; the user forwarded its message to you. Answer the user in your normal response instead.",
+      );
+    }
     const { delivery } = await bb.sdk.threads.send({
       threadId,
       input: [{ type: "text", text: message, mentions: [] }],
