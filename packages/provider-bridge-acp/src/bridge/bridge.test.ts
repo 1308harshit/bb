@@ -2179,11 +2179,15 @@ describe("acp bridge", () => {
         input: [{ type: "text", text: "request-permission", mentions: [] }],
         options: executionOptions({ permissionMode: "accept-edits" }),
       }));
-      const forwarded = await waitFor(
-        () => output.messages.find((message) => message.method === "interaction/request"),
-        "approval under the new workspace policy",
+      await waitFor(
+        () => output.messages.some((message) => message.method === "interaction/request") ||
+          agentMessageTexts().includes("permission:yes") ? true : undefined,
+        "permission decision under the new workspace policy",
       );
-      handleLine(JSON.stringify({ jsonrpc: "2.0", id: forwarded.id, result: { decision: "deny" } }));
+      const forwarded = output.messages.find((message) => message.method === "interaction/request");
+      expect(agentMessageTexts()).not.toContain("permission:yes");
+      expect(forwarded).toBeDefined();
+      handleLine(JSON.stringify({ jsonrpc: "2.0", id: forwarded?.id, result: { decision: "deny" } }));
       await waitFor(() => agentMessageTexts().includes("permission:no") ? true : undefined, "denied permission");
       expect(notifications("session/replaced").at(-1)?.params).toMatchObject({
         providerThreadId,
