@@ -1,10 +1,10 @@
-import type { JsonObject } from "@bb/domain";
+import { rawThreadIdSchema, type JsonObject } from "@bb/domain";
 import { z } from "zod";
 
 const AGENT_MESSAGE_TOOL_NAME = "bb:bb_thread_message";
 
 const agentMessageToolCallSchema = z.object({
-  threadId: z.string().min(1),
+  threadId: rawThreadIdSchema,
   message: z.string(),
 });
 

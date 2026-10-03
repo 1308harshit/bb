@@ -6,12 +6,24 @@ import {
 import plugin from "./server.js";
 import { TOOL_NAME } from "./tool-definition.js";
 
-function createHost(
-  send: () => Promise<unknown> = async () => ({ ok: true, delivery: "sent" }),
-): FakePluginHost {
+const VISIBLE_THREAD = {
+  originKind: null,
+  originPluginId: null,
+  visibility: "visible",
+};
+
+interface HostStubs {
+  get?: () => Promise<unknown>;
+  send?: () => Promise<unknown>;
+}
+
+function createHost({
+  get = async () => VISIBLE_THREAD,
+  send = async () => ({ ok: true, delivery: "sent" }),
+}: HostStubs = {}): FakePluginHost {
   const host = createFakePluginHost({
     pluginId: "bb--agent-messages",
-    sdk: { threads: { send } },
+    sdk: { threads: { get, send } },
   });
   plugin(host.bb);
   return host;
@@ -49,7 +61,9 @@ describe("bb_thread_message", () => {
   });
 
   it("tells the agent when the recipient queued the message", async () => {
-    const host = createHost(async () => ({ ok: true, delivery: "queued" }));
+    const host = createHost({
+      send: async () => ({ ok: true, delivery: "queued" }),
+    });
 
     const result = await host.harness.callAgentTool(
       TOOL_NAME,
@@ -75,9 +89,52 @@ describe("bb_thread_message", () => {
     expect(host.harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 
+  it("refuses to message a side chat", async () => {
+    const host = createHost({
+      get: async () => ({
+        originKind: "fork",
+        originPluginId: "side-chat",
+        visibility: "hidden",
+      }),
+    });
+
+    const result = await host.harness.callAgentTool(
+      TOOL_NAME,
+      { threadId: "thr_sidechat", message: "Thanks." },
+      SENDER,
+    );
+
+    expect(result).toMatchObject({ isError: true });
+    expect(host.harness.sdk.callsTo("threads.send")).toEqual([]);
+  });
+
+  it.each([
+    "../hosts/host_x/suspend#",
+    "./thr_sender",
+    "thr_sender/../thr_sender",
+    "thr_x?y",
+    "thr_%2e%2e",
+  ])(
+    "rejects the path-like thread id %s before any request",
+    async (threadId) => {
+      const host = createHost();
+
+      await expect(
+        host.harness.callAgentTool(
+          TOOL_NAME,
+          { threadId, message: "Ready?" },
+          SENDER,
+        ),
+      ).rejects.toThrow(/arguments are invalid/);
+      expect(host.harness.sdk.calls).toEqual([]);
+    },
+  );
+
   it("reports a failed delivery as an error", async () => {
-    const host = createHost(async () => {
-      throw new Error("Thread is archived");
+    const host = createHost({
+      send: async () => {
+        throw new Error("Thread is archived");
+      },
     });
 
     const result = await host.harness.callAgentTool(
