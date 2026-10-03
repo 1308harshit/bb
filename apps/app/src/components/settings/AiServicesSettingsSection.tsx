@@ -18,7 +18,7 @@ import {
   type ChoiceDropdownOption,
 } from "./ChoiceDropdownSetting";
 
-import { AiTaskPromptSetting } from "./AiTaskPromptSetting";
+import { AiTaskInstructionsSetting } from "./AiTaskInstructionsSetting";
 
 type AiTaskTestResult = TestAiServiceResponse | { ok: false; message: string };
 
@@ -205,7 +205,7 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose a service for each task, and edit the prompts that shape titles and commit messages."
+      description="Choose a service for each task. Add instructions to shape titles and commit messages."
     >
       <div className="divide-y divide-border">
         {AI_TASK_ROWS.map((row) => {
@@ -234,14 +234,17 @@ export function AiServicesSettingsSection() {
             title: "Unavailable plugin",
           };
           const testTask = row.testTask;
-          const renderRow = (editButton: ReactNode, promptStatus: string) => (
+          const renderRow = (
+            editButton: ReactNode,
+            instructionsStatus: string,
+          ) => (
             <ChoiceDropdownSetting
               label={row.label}
               description={`${rowDescription(
                 view,
                 row,
                 testTask === null ? undefined : testResults[testTask],
-              )}${promptStatus}`}
+              )}${instructionsStatus}`}
               triggerAriaLabel={row.label}
               options={options}
               selected={selected}
@@ -278,9 +281,9 @@ export function AiServicesSettingsSection() {
               {testTask === null ? (
                 renderRow(null, "")
               ) : (
-                <AiTaskPromptSetting task={testTask}>
+                <AiTaskInstructionsSetting task={testTask}>
                   {({ editButton, status }) => renderRow(editButton, status)}
-                </AiTaskPromptSetting>
+                </AiTaskInstructionsSetting>
               )}
             </div>
           );

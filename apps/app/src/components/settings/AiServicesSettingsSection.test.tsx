@@ -8,11 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  DEFAULT_COMMIT_MESSAGE_PROMPT,
-  DEFAULT_THREAD_NAMING_PROMPT,
-  defaultAppSettings,
-} from "@bb/domain";
+import { defaultAppSettings } from "@bb/domain";
 import { TooltipProvider } from "@bb/shared-ui/tooltip";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
 import type { SystemAiServicesResponse } from "@bb/server-contract";
@@ -189,91 +185,73 @@ describe("AiServicesSettingsSection", () => {
   });
 
   it.each([
-    {
-      label: "Thread naming prompt",
-      key: "threadNamingPrompt",
-      defaultPrompt: DEFAULT_THREAD_NAMING_PROMPT,
-    },
-    {
-      label: "Commit message prompt",
-      key: "commitMessagePrompt",
-      defaultPrompt: DEFAULT_COMMIT_MESSAGE_PROMPT,
-    },
-  ])(
-    "saves $label independently and resets it to the default",
-    async ({ label, key, defaultPrompt }) => {
-      const requests = stubFetch();
-      const { wrapper } = createQueryClientTestHarness();
-      render(
-        <TooltipProvider>
-          <AiServicesSettingsSection />
-        </TooltipProvider>,
-        { wrapper },
+    { label: "Thread title instructions", key: "threadTitleInstructions" },
+    { label: "Commit message instructions", key: "commitMessageInstructions" },
+  ])("saves $label independently and clears them", async ({ label, key }) => {
+    const requests = stubFetch();
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <TooltipProvider>
+        <AiServicesSettingsSection />
+      </TooltipProvider>,
+      { wrapper },
+    );
+    const toggle = await screen.findByRole("button", {
+      name: `Edit ${label.toLowerCase()}`,
+    });
+    fireEvent.click(toggle);
+    const draftEditor = await screen.findByRole("textbox", { name: label });
+    if (!(draftEditor instanceof HTMLTextAreaElement))
+      throw new Error("Expected instructions textarea");
+    await vi.waitFor(() => expect(draftEditor.disabled).toBe(false));
+    expect(draftEditor.value).toBe("");
+    fireEvent.change(draftEditor, {
+      target: { value: "Unsaved instructions" },
+    });
+    fireEvent.click(toggle);
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
+    );
+    fireEvent.click(toggle);
+    const resumed = await screen.findByRole("textbox", { name: label });
+    if (!(resumed instanceof HTMLTextAreaElement))
+      throw new Error("Expected instructions textarea");
+    expect(resumed.value).toBe("Unsaved instructions");
+    fireEvent.click(
+      within(screen.getByRole("group", { name: label })).getByRole("button", {
+        name: "Cancel",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
+    );
+    fireEvent.click(toggle);
+    const editor = await screen.findByRole("textbox", { name: label });
+    if (!(editor instanceof HTMLTextAreaElement))
+      throw new Error("Expected instructions textarea");
+    const controls = within(screen.getByRole("group", { name: label }));
+    expect(editor.value).toBe("");
+    fireEvent.change(editor, { target: { value: "  Write in French.  " } });
+    fireEvent.click(controls.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => {
+      const put = requests.find(
+        (request) => request.url === "/api/v1/settings/general",
       );
-      const disclosure = await screen.findByRole("button", {
-        name: new RegExp(label.replace(" prompt", "\\s*prompt"), "i"),
-      });
-      fireEvent.click(disclosure);
-      const draftEditor = await screen.findByRole("textbox", { name: label });
-      if (!(draftEditor instanceof HTMLTextAreaElement))
-        throw new Error("Expected prompt textarea");
-      await vi.waitFor(() => expect(draftEditor.disabled).toBe(false));
-      fireEvent.change(draftEditor, {
-        target: { value: "Unsaved instructions" },
-      });
-      fireEvent.click(disclosure);
-      await vi.waitFor(() =>
-        expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
-      );
-      fireEvent.click(disclosure);
-      const resumed = await screen.findByRole("textbox", { name: label });
-      if (!(resumed instanceof HTMLTextAreaElement))
-        throw new Error("Expected prompt textarea");
-      expect(resumed.value).toBe("Unsaved instructions");
-      fireEvent.click(
-        within(screen.getByRole("group", { name: label })).getByRole("button", {
-          name: "Cancel",
-        }),
-      );
-      await vi.waitFor(() =>
-        expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
-      );
-      fireEvent.click(disclosure);
-      const editor = await screen.findByRole("textbox", { name: label });
-      if (!(editor instanceof HTMLTextAreaElement))
-        throw new Error("Expected prompt textarea");
-      const controls = within(screen.getByRole("group", { name: label }));
-      expect(editor.value).toBe(defaultPrompt);
-      fireEvent.change(editor, {
-        target: { value: "Write titles in French." },
-      });
-      fireEvent.click(controls.getByRole("button", { name: "Save" }));
-      await vi.waitFor(() => {
-        const put = requests.find(
-          (request) => request.url === "/api/v1/settings/general",
-        );
-        expect(JSON.parse(put?.body ?? "null")[key]).toBe(
-          "Write titles in French.",
-        );
-        expect(
-          controls
-            .getByRole("button", { name: "Save" })
-            .hasAttribute("disabled"),
-        ).toBe(true);
-      });
-      const reset = controls.getByRole("button", { name: "Reset to default" });
-      await vi.waitFor(() => {
-        expect(editor.value).toBe("Write titles in French.");
-        expect(reset.hasAttribute("disabled")).toBe(false);
-      });
-      fireEvent.click(reset);
-      await vi.waitFor(() => expect(editor.value).toBe(defaultPrompt));
+      expect(JSON.parse(put?.body ?? "null")[key]).toBe("Write in French.");
+      expect(
+        controls.getByRole("button", { name: "Save" }).hasAttribute("disabled"),
+      ).toBe(true);
+    });
+    fireEvent.change(editor, { target: { value: " " } });
+    fireEvent.click(controls.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => {
       const writes = requests.filter(
         (request) => request.url === "/api/v1/settings/general",
       );
+      expect(writes).toHaveLength(2);
       expect(JSON.parse(writes.at(-1)?.body ?? "null")[key]).toBeNull();
-    },
-  );
+    });
+  });
 
   it("runs a test and shows the reply", async () => {
     stubFetch();

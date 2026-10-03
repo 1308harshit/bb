@@ -114,14 +114,14 @@ function sampleFor(
     return {
       prompt: buildCommitMessagePrompt(
         SAMPLE_COMMIT,
-        settings.commitMessagePrompt,
+        settings.commitMessageInstructions,
       ),
       sanitize: sanitizeGeneratedCommitMessage,
     };
   }
   const prompt = buildThreadTitlePrompt(
     SAMPLE_TITLE_INPUT,
-    settings.threadNamingPrompt,
+    settings.threadTitleInstructions,
   );
   if (prompt === null) {
     throw new Error("The sample title prompt is empty");

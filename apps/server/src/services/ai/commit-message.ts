@@ -1,5 +1,4 @@
 import { getAppSettings } from "@bb/db";
-import { DEFAULT_COMMIT_MESSAGE_PROMPT } from "@bb/domain";
 import { renderTemplate } from "@bb/templates";
 import { truncateToWidthAtWordBoundary } from "@bb/text-utils";
 import type { LoggedWorkSessionDeps } from "../../types.js";
@@ -16,10 +15,10 @@ export interface GenerateCommitMessageArgs {
 
 export function buildCommitMessagePrompt(
   args: GenerateCommitMessageArgs,
-  messagePrompt: string | null = null,
+  instructions: string | null = null,
 ): string {
   return renderTemplate("generateCommitMessage", {
-    messagePrompt: messagePrompt ?? DEFAULT_COMMIT_MESSAGE_PROMPT,
+    ...(instructions === null ? {} : { instructions }),
     diffDescription: args.diffDescription,
     shortstat: args.shortstat,
     files: args.files,
@@ -44,7 +43,7 @@ export async function generateCommitMessage(
     label: "Commit message generation",
     prompt: buildCommitMessagePrompt(
       args,
-      getAppSettings(deps.db).commitMessagePrompt,
+      getAppSettings(deps.db).commitMessageInstructions,
     ),
   });
   return outcome.ok ? sanitizeGeneratedCommitMessage(outcome.value) : null;

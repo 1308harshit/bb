@@ -2,15 +2,7 @@ import { z } from "zod";
 import { completedTurnDisplaySchema } from "./completed-turn-display.js";
 import { isValidGitBranchName } from "./git-checkout.js";
 
-export const DEFAULT_THREAD_NAMING_PROMPT =
-  "You create concise titles for coding tasks.\nReply with only the title: short, clear, sentence case, in the same language as the task. Keep it under about 40 characters; for scripts that do not separate words with spaces, that is roughly 20 characters. Summarize the task in your own words instead of copying its text. No quotes, no trailing punctuation, no explanation.\n\nConsider the user's intent when titling to make it useful. For instance, if they detail specific tools to use to solve a problem, it is the problem that should be the title, not the tools that should be used.";
-
-export const DEFAULT_COMMIT_MESSAGE_PROMPT =
-  "Reply with only the commit message line, without quotes or explanation.\nRules:\n- Use conventional commit style (feat|fix|refactor|test|docs|chore|perf|build|ci|style).\n- Prefer specific types like feat/fix/refactor/test/docs/perf over chore.\n- Use chore only for housekeeping (deps, tooling, CI, formatting, repo maintenance).\n- Use imperative mood, max 72 characters.\n- Single line only, no body.";
-
-export const COMMIT_MESSAGE_PROMPT_MAX_LENGTH = 8000;
-
-export const THREAD_NAMING_PROMPT_MAX_LENGTH = 8000;
+export const AI_TASK_INSTRUCTIONS_MAX_LENGTH = 2000;
 
 export const MANAGED_BRANCH_PREFIX_MAX_LENGTH = 64;
 
@@ -39,18 +31,18 @@ export const appSettingsSchema = z
     allowFastServiceTier: z.boolean(),
     telemetryEnabled: z.boolean(),
     managedBranchPrefix: managedBranchPrefixSchema,
-    threadNamingPrompt: z
+    threadTitleInstructions: z
       .string()
       .trim()
       .min(1)
-      .max(THREAD_NAMING_PROMPT_MAX_LENGTH)
+      .max(AI_TASK_INSTRUCTIONS_MAX_LENGTH)
       .nullable()
       .default(null),
-    commitMessagePrompt: z
+    commitMessageInstructions: z
       .string()
       .trim()
       .min(1)
-      .max(COMMIT_MESSAGE_PROMPT_MAX_LENGTH)
+      .max(AI_TASK_INSTRUCTIONS_MAX_LENGTH)
       .nullable()
       .default(null),
     machineServerUrl: z
@@ -83,8 +75,8 @@ export const defaultAppSettings: AppSettings = {
   allowFastServiceTier: true,
   telemetryEnabled: true,
   managedBranchPrefix: DEFAULT_MANAGED_BRANCH_PREFIX,
-  threadNamingPrompt: null,
-  commitMessagePrompt: null,
+  threadTitleInstructions: null,
+  commitMessageInstructions: null,
   machineServerUrl: null,
   defaultMachineAccess: null,
   machineGitCredentialsEnabled: true,
@@ -94,10 +86,10 @@ export const disabledProviderIdsSchema = z.array(z.string().min(1));
 
 export const appSettingsUpdateSchema = z.union([
   appSettingsSchema.extend({
-    threadNamingPrompt: appSettingsSchema.shape.threadNamingPrompt
+    threadTitleInstructions: appSettingsSchema.shape.threadTitleInstructions
       .removeDefault()
       .optional(),
-    commitMessagePrompt: appSettingsSchema.shape.commitMessagePrompt
+    commitMessageInstructions: appSettingsSchema.shape.commitMessageInstructions
       .removeDefault()
       .optional(),
     allowFastServiceTier: z.boolean().optional(),
@@ -106,10 +98,10 @@ export const appSettingsUpdateSchema = z.union([
     showUnhandledProviderEvents: z.boolean().optional(),
   }),
   appSettingsSchema.omit({ showDiagnosticEvents: true }).extend({
-    threadNamingPrompt: appSettingsSchema.shape.threadNamingPrompt
+    threadTitleInstructions: appSettingsSchema.shape.threadTitleInstructions
       .removeDefault()
       .optional(),
-    commitMessagePrompt: appSettingsSchema.shape.commitMessagePrompt
+    commitMessageInstructions: appSettingsSchema.shape.commitMessageInstructions
       .removeDefault()
       .optional(),
     allowFastServiceTier: z.boolean().optional(),

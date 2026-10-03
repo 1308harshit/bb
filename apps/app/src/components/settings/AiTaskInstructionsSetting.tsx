@@ -1,11 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  DEFAULT_THREAD_NAMING_PROMPT,
-  DEFAULT_COMMIT_MESSAGE_PROMPT,
-  COMMIT_MESSAGE_PROMPT_MAX_LENGTH,
-  type AiTextTask,
-  THREAD_NAMING_PROMPT_MAX_LENGTH,
-} from "@bb/domain";
+import { AI_TASK_INSTRUCTIONS_MAX_LENGTH, type AiTextTask } from "@bb/domain";
 import { Button } from "@bb/shared-ui/button";
 import { Icon } from "@bb/shared-ui/icon";
 import { cn } from "@bb/shared-ui/lib/utils";
@@ -14,38 +8,42 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 
-export function AiTaskPromptSetting({
+export function AiTaskInstructionsSetting({
   task,
   children,
 }: {
   task: AiTextTask;
-  children: (prompt: { editButton: ReactNode; status: string }) => ReactNode;
+  children: (instructions: {
+    editButton: ReactNode;
+    status: string;
+  }) => ReactNode;
 }) {
   const isTitle = task === "thread-title";
-  const settingKey = isTitle ? "threadNamingPrompt" : "commitMessagePrompt";
-  const defaultPrompt = isTitle
-    ? DEFAULT_THREAD_NAMING_PROMPT
-    : DEFAULT_COMMIT_MESSAGE_PROMPT;
-  const label = isTitle ? "Thread naming prompt" : "Commit message prompt";
+  const settingKey = isTitle
+    ? "threadTitleInstructions"
+    : "commitMessageInstructions";
+  const label = isTitle
+    ? "Thread title instructions"
+    : "Commit message instructions";
   const settings = useSystemConfig().data?.generalSettings;
   const update = useUpdateGeneralSettings();
   const [isExpanded, setIsExpanded] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
-  const saved = settings?.[settingKey] ?? defaultPrompt;
+  const saved = settings?.[settingKey] ?? "";
   const value = draft ?? saved;
   const dirty = value.trim() !== saved;
-  const customized = Boolean(settings?.[settingKey]);
   const disabled = settings === undefined || update.isPending;
 
   useEffect(() => {
     if (draft === saved) setDraft(null);
   }, [draft, saved]);
 
-  function save(prompt: string | null) {
+  function save() {
     if (settings === undefined) return;
+    const instructions = value.trim();
     update.mutate(
-      { ...settings, [settingKey]: prompt },
-      { onSuccess: () => setDraft(prompt ?? defaultPrompt) },
+      { ...settings, [settingKey]: instructions === "" ? null : instructions },
+      { onSuccess: () => setDraft(instructions) },
     );
   }
 
@@ -66,7 +64,7 @@ export function AiTaskPromptSetting({
           <Icon name="Edit" className="size-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">Edit prompt</TooltipContent>
+      <TooltipContent side="bottom">Edit instructions</TooltipContent>
     </Tooltip>
   );
 
@@ -75,9 +73,9 @@ export function AiTaskPromptSetting({
       {children({
         editButton,
         status: dirty
-          ? " Unsaved prompt."
-          : customized
-            ? " Custom prompt."
+          ? " Unsaved instructions."
+          : saved
+            ? " Custom instructions."
             : "",
       })}
       {isExpanded ? (
@@ -86,30 +84,21 @@ export function AiTaskPromptSetting({
             aria-label={label}
             value={value}
             onChange={(event) => setDraft(event.target.value)}
-            className="max-h-80 min-h-32 resize-y overflow-y-auto text-xs leading-relaxed field-sizing-content"
-            maxLength={
+            placeholder={
               isTitle
-                ? THREAD_NAMING_PROMPT_MAX_LENGTH
-                : COMMIT_MESSAGE_PROMPT_MAX_LENGTH
+                ? "e.g. Write titles in French. Start with the ticket number when the task mentions one."
+                : "e.g. Write commit subjects in French. Skip the conventional commit type prefix."
             }
+            className="max-h-60 min-h-20 resize-y overflow-y-auto text-xs leading-relaxed field-sizing-content"
+            maxLength={AI_TASK_INSTRUCTIONS_MAX_LENGTH}
             disabled={disabled}
           />
           <div className="flex flex-wrap items-center gap-2">
             <p className="mr-auto text-xs text-muted-foreground">
               {isTitle
-                ? "Task context is added automatically."
-                : "The diff is added automatically."}
+                ? "Added to bb’s built-in title rules."
+                : "Added to bb’s built-in commit rules."}
             </p>
-            {customized ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                onClick={() => save(null)}
-              >
-                Reset to default
-              </Button>
-            ) : null}
             <Button
               size="sm"
               variant="ghost"
@@ -121,11 +110,7 @@ export function AiTaskPromptSetting({
             >
               Cancel
             </Button>
-            <Button
-              size="sm"
-              disabled={disabled || !value.trim() || !dirty}
-              onClick={() => save(value.trim())}
-            >
+            <Button size="sm" disabled={disabled || !dirty} onClick={save}>
               {update.isPending ? "Saving…" : "Save"}
             </Button>
           </div>

@@ -741,13 +741,13 @@ describe("generated thread titles", () => {
       ).toEqual([]);
     });
   });
-  it("uses the saved naming prompt for titles and service tests, then restores the default", async () => {
+  it("adds saved title instructions to titles and service tests, then clears them", async () => {
     await withTestHarness(async (harness) => {
       const custom =
         "Write a short title in French. Keep {{literal}} as plain text.";
       setAppSettings(harness.db, {
         ...getAppSettings(harness.db),
-        threadNamingPrompt: custom,
+        threadTitleInstructions: custom,
       });
       completeTitle.mockResolvedValue("Améliorer les titres");
       const generate = () =>
@@ -760,8 +760,11 @@ describe("generated thread titles", () => {
       expect(sentPrompt()).toContain(
         "Task:\nImprove the generated title fallback path",
       );
-      expect(sentPrompt()).not.toContain(
+      expect(sentPrompt()).toContain(
         "You create concise titles for coding tasks.",
+      );
+      expect(sentPrompt().indexOf(custom)).toBeLessThan(
+        sentPrompt().indexOf("Task:"),
       );
       const testResponse = await harness.app.request(
         "/api/v1/system/ai-services/test",
@@ -775,12 +778,9 @@ describe("generated thread titles", () => {
       expect(sentPrompt(1)).toContain(custom);
       setAppSettings(harness.db, {
         ...getAppSettings(harness.db),
-        threadNamingPrompt: null,
+        threadTitleInstructions: null,
       });
       await generate();
-      expect(sentPrompt(2)).toContain(
-        "You create concise titles for coding tasks.",
-      );
       expect(sentPrompt(2)).not.toContain(custom);
     });
   });

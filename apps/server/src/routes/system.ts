@@ -305,14 +305,14 @@ export function registerSystemRoutes(
         : undefined;
     const updatedSettings = appSettingsSchema.parse({
       ...settings,
-      commitMessagePrompt:
-        settings.commitMessagePrompt === undefined
-          ? current.commitMessagePrompt
-          : settings.commitMessagePrompt,
-      threadNamingPrompt:
-        settings.threadNamingPrompt === undefined
-          ? current.threadNamingPrompt
-          : settings.threadNamingPrompt,
+      commitMessageInstructions:
+        settings.commitMessageInstructions === undefined
+          ? current.commitMessageInstructions
+          : settings.commitMessageInstructions,
+      threadTitleInstructions:
+        settings.threadTitleInstructions === undefined
+          ? current.threadTitleInstructions
+          : settings.threadTitleInstructions,
       allowFastServiceTier:
         settings.allowFastServiceTier ?? current.allowFastServiceTier,
       telemetryEnabled: settings.telemetryEnabled ?? current.telemetryEnabled,

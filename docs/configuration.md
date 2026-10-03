@@ -1936,33 +1936,21 @@ The publishing workflow verifies the signed APK and publishes both the checksum-
 asset and the stable `bb-android.apk` alias, then `latest.json`.
 
 
-## Thread naming prompt
+## AI task instructions
 
-Settings → AI services → Thread titles → Prompt customizes instructions for new
-automatic thread titles, server-wide. Save before using the Thread titles Test
-action. bb adds the task text and invoked commands automatically; write naming
-instructions without template variables. Titles remain limited to 48 display
-columns. Existing titles are not renamed.
+Settings → AI services → Thread titles or Commit messages → Edit instructions
+(pencil) adds your own instructions to bb's built-in rules for that task,
+server-wide. Use them for language, format, or conventions, such as "Write
+titles in French." or "Skip the conventional commit type prefix." Your
+instructions take precedence over the built-in style rules, but output stays
+one line: titles are limited to 48 display columns and commit subjects to 72.
+bb adds the task text, invoked commands, and diff automatically, so no template
+variables are needed. Save before using Test. Existing titles are not renamed.
 
-Use `bb settings general threadNamingPrompt "Write short titles in French."`
-or SDK `system.updateGeneralSettings({ ...settings, threadNamingPrompt: "Write short titles in French." })`.
-Read `settings` from `system.config().generalSettings` (await the config call).
-The override accepts 1–8,000 characters after trimming. Reset to default in
-settings, or `bb settings general threadNamingPrompt null`, restores the built-in
-prompt. The default remains unchanged; disabling the thread-title AI service
-still uses the start of the task instead.
-
-
-## Commit message prompt
-
-Settings → AI services → Commit messages → Prompt customizes generated commit
-subjects server-wide, including the Commit messages Test action. bb supplies the
-changed files, diff summary, and patch automatically; no template variables are
-needed. Save before testing. Output remains a single subject line of up to 72
-display columns.
-
-Use `bb settings general commitMessagePrompt "Write short commit subjects in French."`
-or pass `commitMessagePrompt` with the current settings to SDK
-`system.updateGeneralSettings`. The override accepts 1–8,000 characters after
-trimming. Set `null` or use Reset to default to restore conventional commit
-instructions. Thread naming and commit prompts are independent.
+Use `bb settings general threadTitleInstructions "Write titles in French."` or
+`bb settings general commitMessageInstructions "Write commit subjects in French."`.
+In the SDK, pass `threadTitleInstructions` or `commitMessageInstructions` with
+the other current settings from `system.config().generalSettings` to
+`system.updateGeneralSettings`. Each accepts 1–2,000 characters after trimming;
+set `null`, or clear the field and save, to use only the built-in rules. The
+two settings are independent.

@@ -136,13 +136,13 @@ describe("commit message generation", () => {
     });
   });
 
-  it("uses the custom prompt for generated commits and service tests, then resets", async () => {
+  it("adds custom instructions to generated commits and service tests, then clears them", async () => {
     await withTestHarness({}, async (harness) => {
       const custom =
         "Write a short French commit subject without a type prefix. Keep {{literal}} as text.";
       setAppSettings(harness.db, {
         ...getAppSettings(harness.db),
-        commitMessagePrompt: custom,
+        commitMessageInstructions: custom,
       });
       const service = registerCodex(
         harness,
@@ -154,7 +154,8 @@ describe("commit message generation", () => {
       const prompt = service.completeCalls[0]?.prompt ?? "";
       expect(prompt).toContain(custom);
       expect(prompt).toContain(commitMessageArgs.patch.trim());
-      expect(prompt).not.toContain("Use conventional commit style");
+      expect(prompt).toContain("Use conventional commit style");
+      expect(prompt.indexOf(custom)).toBeLessThan(prompt.indexOf("Shortstat:"));
       const response = await harness.app.request(
         "/api/v1/system/ai-services/test",
         {
@@ -167,12 +168,9 @@ describe("commit message generation", () => {
       expect(service.completeCalls[1]?.prompt).toContain(custom);
       setAppSettings(harness.db, {
         ...getAppSettings(harness.db),
-        commitMessagePrompt: null,
+        commitMessageInstructions: null,
       });
       await generateCommitMessage(harness.deps, commitMessageArgs);
-      expect(service.completeCalls[2]?.prompt).toContain(
-        "Use conventional commit style",
-      );
       expect(service.completeCalls[2]?.prompt).not.toContain(custom);
     });
   });

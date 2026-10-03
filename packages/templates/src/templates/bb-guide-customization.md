@@ -466,29 +466,21 @@ usable during metadata failures. iOS version and release date are shown in TestF
 Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on.
 
 
-## Thread naming prompt
+## AI task instructions
 
-Settings → AI services → Thread titles → Prompt lets you edit instructions for
-new automatic thread titles. Save before using Test. bb adds task text and invoked commands; no template
-variables are needed. Titles stay limited to 48 display columns, and existing
-titles are unchanged.
+Settings → AI services → Thread titles or Commit messages → Edit instructions
+(pencil) adds your own instructions to bb's built-in rules for that task,
+server-wide. Use them for language, format, or conventions, such as "Write
+titles in French." or "Skip the conventional commit type prefix." Your
+instructions take precedence over the built-in style rules, but output stays
+one line: titles are limited to 48 display columns and commit subjects to 72.
+bb adds the task text, invoked commands, and diff automatically, so no template
+variables are needed. Save before using Test. Existing titles are not renamed.
 
-`bb settings general threadNamingPrompt "Write short titles in French."` saves a
-server-wide override (1–8,000 characters). Set `null` or use Reset to default to
-restore the built-in prompt. The SDK uses `system.updateGeneralSettings` with the
-same `threadNamingPrompt` field and other current settings from `system.config()`.
-
-
-## Commit message prompt
-
-Settings → AI services → Commit messages → Prompt customizes generated commit
-subjects server-wide, including the Commit messages Test action. bb supplies the
-changed files, diff summary, and patch automatically; no template variables are
-needed. Save before testing. Output remains a single subject line of up to 72
-display columns.
-
-Use `bb settings general commitMessagePrompt "Write short commit subjects in French."`
-or pass `commitMessagePrompt` with the current settings to SDK
-`system.updateGeneralSettings`. The override accepts 1–8,000 characters after
-trimming. Set `null` or use Reset to default to restore conventional commit
-instructions. Thread naming and commit prompts are independent.
+Use `bb settings general threadTitleInstructions "Write titles in French."` or
+`bb settings general commitMessageInstructions "Write commit subjects in French."`.
+In the SDK, pass `threadTitleInstructions` or `commitMessageInstructions` with
+the other current settings from `system.config().generalSettings` to
+`system.updateGeneralSettings`. Each accepts 1–2,000 characters after trimming;
+set `null`, or clear the field and save, to use only the built-in rules. The
+two settings are independent.
