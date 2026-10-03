@@ -253,12 +253,12 @@ export function AiServicesSettingsSection() {
                 select.mutate({ task: row.task, selection });
               }}
             >
-              {testTask === null ? null : (
+              {testTask === null || view === undefined ? null : (
                 <Button
                   variant="ghost"
                   size="sm"
                   aria-label={`Test ${row.label.toLowerCase()}`}
-                  disabled={view === undefined || test.isPending}
+                  disabled={test.isPending}
                   onClick={() => test.mutate(testTask)}
                 >
                   {test.isPending && test.variables === testTask
