@@ -91,7 +91,7 @@ function stubFetch(
         return jsonResponse(makeSystemConfig({ generalSettings: settings }));
       }
       if (url === "/api/v1/settings/general") {
-        settings = JSON.parse(text);
+        settings = { ...settings, ...JSON.parse(text) };
         return jsonResponse(settings);
       }
       if (url === "/api/v1/system/ai-services/selection") {
@@ -168,11 +168,19 @@ describe("AiServicesSettingsSection", () => {
   });
 
   it.each([
-    { label: "Thread title instructions", key: "threadTitleInstructions" },
-    { label: "Commit message instructions", key: "commitMessageInstructions" },
+    {
+      label: "Thread title instructions",
+      key: "threadTitleInstructions",
+      otherKey: "commitMessageInstructions",
+    },
+    {
+      label: "Commit message instructions",
+      key: "commitMessageInstructions",
+      otherKey: "threadTitleInstructions",
+    },
   ])(
     "adds $label, autosaves them on blur, and collapses when cleared",
-    async ({ label, key }) => {
+    async ({ label, key, otherKey }) => {
       const requests = stubFetch();
       const { wrapper } = createQueryClientTestHarness();
       render(<AiServicesSettingsSection />, { wrapper });
@@ -205,6 +213,9 @@ describe("AiServicesSettingsSection", () => {
         expect(writes()).toHaveLength(1);
         expect(JSON.parse(writes()[0]?.body ?? "null")[key]).toBe(
           "Write in French.",
+        );
+        expect(JSON.parse(writes()[0]?.body ?? "null")).not.toHaveProperty(
+          otherKey,
         );
       });
       await vi.waitFor(() => expect(editor.value).toBe("Write in French."));

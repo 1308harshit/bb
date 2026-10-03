@@ -54,8 +54,16 @@ export function AiTaskInstructionsSetting({ task }: { task: AiTextTask }) {
       setDraft(null);
       return;
     }
+    const {
+      threadTitleInstructions: _threadTitleInstructions,
+      commitMessageInstructions: _commitMessageInstructions,
+      ...otherSettings
+    } = settings;
     update.mutate(
-      { ...settings, [settingKey]: instructions === "" ? null : instructions },
+      {
+        ...otherSettings,
+        [settingKey]: instructions === "" ? null : instructions,
+      },
       { onSuccess: () => setDraft(instructions) },
     );
   }
