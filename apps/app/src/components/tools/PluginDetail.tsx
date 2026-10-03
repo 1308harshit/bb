@@ -1,3 +1,4 @@
+import { PluginExperimentalBadge } from "@/components/plugin/management/PluginExperimentalBadge";
 import { PluginCardAuthorAvatar } from "@/components/plugin/management/PluginCard";
 import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
 import { useSyncExternalStore } from "react";
@@ -204,6 +205,7 @@ export function CatalogPluginDetail({
       leading={<CatalogEntryIconChip entry={entry} compact />}
       leadingClassName="size-6"
       title={entry.displayName}
+      titleMeta={entry.experimental ? <PluginExperimentalBadge /> : undefined}
       metadataLeading={<PluginCardAuthorAvatar entry={entry} />}
       metadata={<PluginMarketplaceByline entry={entry} />}
       actions={
@@ -470,6 +472,7 @@ export function PluginDetail({
       maxWidthClassName="max-w-5xl"
       leading={<PluginLogo plugin={plugin} className="size-4" />}
       title={pluginName}
+      titleMeta={plugin.experimental ? <PluginExperimentalBadge /> : undefined}
       metadataLeading={
         bylineEntry === undefined ? undefined : (
           <PluginCardAuthorAvatar entry={bylineEntry} />

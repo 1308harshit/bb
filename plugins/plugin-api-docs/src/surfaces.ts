@@ -1092,7 +1092,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginMachineProviderResource",
           "PluginMachineProviderRemoveResult",
         ],
-        firstParty: ["Modal Sandbox [Experimental]"],
+        firstParty: ["Modal Sandbox"],
         experimental: true,
       },
       {
@@ -1280,6 +1280,23 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         ],
         firstParty: ["Codex provider", "bb cloud AI"],
         experimental: true,
+      },
+      {
+        id: "plugin-experimental-status",
+        title: "Experimental plugins",
+        summary:
+          "Marks a plugin as experimental without changing its display name.",
+        bullets: [
+          "Set bb.experimental to true in package.json to show an Experimental badge on installed plugin cards and details; omit it or set false for no badge",
+          "Set experimental to true on a marketplace entry to show the badge before installation; BB Official entries inherit the plugin manifest value",
+          "Read experimental through sdk.plugins.list(), sdk.plugins.catalog.search(), bb plugin list --json, or bb plugin catalog search --json",
+        ],
+        apiSymbols: [
+          "PluginPackageJson.bb.experimental",
+          "InstalledPlugin.experimental",
+          "PluginCatalogSearchResult.experimental",
+        ],
+        firstParty: ["Modal Sandbox"],
       },
       {
         id: "host-components",
