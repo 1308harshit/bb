@@ -4,7 +4,7 @@ import {
   type FakePluginHost,
 } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server.js";
-import { SENT_NOTE, TOOL_NAME } from "./tool-definition.js";
+import { TOOL_NAME } from "./tool-definition.js";
 
 const VISIBLE_THREAD = {
   originKind: null,
@@ -41,7 +41,7 @@ describe("bb_thread_message", () => {
       SENDER,
     );
 
-    expect(result).toBe(`Delivered to thr_worker. ${SENT_NOTE}`);
+    expect(result).toBe("Delivered to thr_worker.");
     expect(host.harness.sdk.callsTo("threads.send")).toEqual([
       [
         {
@@ -72,7 +72,7 @@ describe("bb_thread_message", () => {
     );
 
     expect(result).toBe(
-      `Queued for thr_worker; it is delivered once that thread can take it. ${SENT_NOTE}`,
+      "Queued for thr_worker; it is delivered once that thread can take it.",
     );
   });
 
