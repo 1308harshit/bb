@@ -218,26 +218,31 @@ export function UpdateActionButton({
   );
 }
 
-const ROW_GRID =
-  "grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3";
-
 const ROW_SPACING = "py-2 first:pt-0 last:pb-0";
 
 function UpdatesRow({
   leading,
   children,
-  className,
+  actions,
 }: {
-  leading?: ReactNode;
+  leading: ReactNode;
   children: ReactNode;
-  className?: string;
+  actions: ReactNode;
 }) {
   return (
-    <div className={cn(ROW_GRID, ROW_SPACING, "text-sm", className)}>
-      <span className="flex size-6 shrink-0 items-center justify-center">
-        {leading}
+    <div
+      className={cn(
+        "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm",
+        ROW_SPACING,
+      )}
+    >
+      <span className="flex min-w-0 items-start gap-3">
+        <span className="flex h-5 w-6 shrink-0 items-center justify-center">
+          {leading}
+        </span>
+        {children}
       </span>
-      {children}
+      {actions}
     </div>
   );
 }
@@ -827,12 +832,12 @@ export function BbAppUpdateRows({
           <BbLogo className="size-4" />
         </span>
       }
+      actions={<RowActions>{indicator}</RowActions>}
     >
-      <span className="flex min-w-0 items-baseline gap-2">
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
         {name}
         {caption}
       </span>
-      <RowActions>{indicator}</RowActions>
     </UpdatesRow>
   );
   if (isDesktop && desktopInfo === null) {
