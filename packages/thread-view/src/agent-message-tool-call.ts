@@ -11,15 +11,20 @@ const agentMessageToolCallSchema = z.object({
 export type AgentMessageToolCall = z.infer<typeof agentMessageToolCallSchema>;
 
 interface ToolCall {
+  status: string;
   toolArgs: JsonObject | null;
   toolName: string;
 }
 
 export function parseAgentMessageToolCall({
+  status,
   toolArgs,
   toolName,
 }: ToolCall): AgentMessageToolCall | null {
-  if (toolName !== AGENT_MESSAGE_TOOL_NAME) {
+  if (
+    toolName !== AGENT_MESSAGE_TOOL_NAME ||
+    (status !== "pending" && status !== "completed")
+  ) {
     return null;
   }
   const parsed = agentMessageToolCallSchema.safeParse(toolArgs);
