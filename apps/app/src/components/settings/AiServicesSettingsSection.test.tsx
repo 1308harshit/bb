@@ -195,7 +195,7 @@ describe("AiServicesSettingsSection", () => {
       const { wrapper } = createQueryClientTestHarness();
       render(<AiServicesSettingsSection />, { wrapper });
       const disclosure = await screen.findByRole("button", {
-        name: new RegExp(label, "i"),
+        name: new RegExp(label.replace(" prompt", "\\s*prompt"), "i"),
       });
       fireEvent.click(disclosure);
       const draftEditor = await screen.findByRole("textbox", { name: label });
