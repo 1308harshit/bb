@@ -12,10 +12,8 @@
 <duration>` (seconds, or a duration with a unit such as `90s`, `20m`, `4h`)
   when you need a shorter or longer budget.
 - Use `bb thread tell <thread-id> "..."` when requirements change, a blocker
-  needs clarification, or follow-up work is needed. When the
-  `bb_thread_message` tool is available, use it instead unless you need a
-  `bb thread tell` option such as `--plan` or `--mode queue`. For multi-line
-  or Markdown text use `bb thread tell <thread-id> --message-file <path>` (`-` reads
+  needs clarification, or follow-up work is needed. For multi-line or Markdown
+  text use `bb thread tell <thread-id> --message-file <path>` (`-` reads
   stdin): inside double quotes the shell runs `backticks` and `$(...)` before
   bb sees the message. `bb thread edit-message`, `bb thread queue create`, and
   `bb thread queue update` take `--message-file` too.

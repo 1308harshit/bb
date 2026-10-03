@@ -8,7 +8,6 @@ import {
   TOOL_INSTRUCTIONS,
   TOOL_NAME,
   TOOL_PRESENTATION,
-  SENT_NOTE,
   toolParameters,
   type ToolInput,
 } from "./tool-definition.js";
@@ -56,8 +55,8 @@ async function sendThreadMessage(
       senderThreadId: ctx.threadId,
     });
     return delivery === "queued"
-      ? `Queued for ${threadId}; it is delivered once that thread can take it. ${SENT_NOTE}`
-      : `Delivered to ${threadId}. ${SENT_NOTE}`;
+      ? `Queued for ${threadId}; it is delivered once that thread can take it.`
+      : `Delivered to ${threadId}.`;
   } catch (error) {
     return errorResult(
       `The message was not delivered: ${error instanceof Error ? error.message : String(error)}`,
