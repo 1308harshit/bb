@@ -765,6 +765,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "desktop-browsers",
           "ai-services",
           "host-components",
+          "plugin-experimental-status",
         ],
       },
       {
@@ -1285,7 +1286,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "plugin-experimental-status",
         title: "Experimental plugins",
         summary:
-          "Marks a plugin as experimental without changing its display name.",
+          "Declares experimental status separately from a plugin’s display name. With this, a plugin can:",
         bullets: [
           "Set bb.experimental to true in package.json to show an Experimental badge on installed plugin cards and details; omit it or set false for no badge",
           "Set experimental to true on a marketplace entry to show the badge before installation; BB Official entries inherit the plugin manifest value",
