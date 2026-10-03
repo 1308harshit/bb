@@ -1,5 +1,9 @@
 import { useEffect, useId, useState } from "react";
-import { AI_TASK_INSTRUCTIONS_MAX_LENGTH, type AiTextTask } from "@bb/domain";
+import {
+  AI_TASK_INSTRUCTIONS_MAX_LENGTH,
+  type AiTextTask,
+  type AppSettings,
+} from "@bb/domain";
 import { Button } from "@bb/shared-ui/button";
 import { Icon } from "@bb/shared-ui/icon";
 import { Textarea } from "@bb/shared-ui/textarea";
@@ -7,14 +11,29 @@ import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 
+const INSTRUCTIONS_FIELDS = {
+  "thread-title": {
+    settingKey: "threadTitleInstructions",
+    label: "Thread title instructions",
+    placeholder: "Added to bb’s title rules, e.g. Write titles in French.",
+  },
+  "commit-message": {
+    settingKey: "commitMessageInstructions",
+    label: "Commit message instructions",
+    placeholder:
+      "Added to bb’s commit rules, e.g. Skip the conventional commit type prefix.",
+  },
+} satisfies Record<
+  AiTextTask,
+  {
+    settingKey: keyof AppSettings & `${string}Instructions`;
+    label: string;
+    placeholder: string;
+  }
+>;
+
 export function AiTaskInstructionsSetting({ task }: { task: AiTextTask }) {
-  const isTitle = task === "thread-title";
-  const settingKey = isTitle
-    ? "threadTitleInstructions"
-    : "commitMessageInstructions";
-  const label = isTitle
-    ? "Thread title instructions"
-    : "Commit message instructions";
+  const { settingKey, label, placeholder } = INSTRUCTIONS_FIELDS[task];
   const messageId = useId();
   const settings = useSystemConfig().data?.generalSettings;
   const update = useUpdateGeneralSettings();
@@ -72,11 +91,7 @@ export function AiTaskInstructionsSetting({ task }: { task: AiTextTask }) {
         onChange={(event) => setDraft(event.target.value)}
         onBlur={save}
         autoFocus={isAdding}
-        placeholder={
-          isTitle
-            ? "Added to bb’s title rules, e.g. Write titles in French."
-            : "Added to bb’s commit rules, e.g. Skip the conventional commit type prefix."
-        }
+        placeholder={placeholder}
         className="max-h-96 min-h-16 w-full resize-y overflow-y-auto font-mono text-xs field-sizing-content"
         maxLength={AI_TASK_INSTRUCTIONS_MAX_LENGTH}
         disabled={settings === undefined}
