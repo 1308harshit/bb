@@ -1655,6 +1655,7 @@ type AcpSessionStartRequest =
       kind: "resume";
       params: AcpSessionParams;
       resumeProviderThreadId: string;
+      continueTurn?: boolean;
     }
   | {
       kind: "fork";
@@ -1927,7 +1928,9 @@ async function startAgentSession(
       providerThreadId: sessionId,
       sessionRestorable: session.supportsLoadSession,
     });
-    sendThreadDeltas(bbThreadId, [{ kind: "session.reset" }]);
+    if (request.kind !== "resume" || !request.continueTurn) {
+      sendThreadDeltas(bbThreadId, [{ kind: "session.reset" }]);
+    }
     if (createdFreshSession) {
       emitGrokContextWindow(session, 0);
     }
@@ -2113,6 +2116,7 @@ function requiresTurnSessionRefresh(
 async function refreshTurnSession(
   session: AcpThreadSession,
   construction: AcpSessionParams,
+  continueTurn = false,
 ): Promise<AcpThreadSession> {
   if (!requiresTurnSessionRefresh(session, construction)) {
     session.construction = construction;
@@ -2130,6 +2134,7 @@ async function refreshTurnSession(
     kind: "resume",
     params: construction,
     resumeProviderThreadId: previousProviderThreadId,
+    continueTurn,
   });
   sendNotification(BRIDGE_NOTIFICATION_METHODS.sessionReplaced, {
     threadId: session.bbThreadId,
@@ -2211,7 +2216,7 @@ function runTurn(
               session.activePromptKind = null;
               session.turnSettled = undefined;
               try {
-                const replacement = await refreshTurnSession(session, construction);
+                const replacement = await refreshTurnSession(session, construction, true);
                 replacement.queuedInputs.push(...queued);
                 runTurn(replacement, next);
               } catch (error) {
