@@ -512,6 +512,7 @@ export function createPluginCatalogService(deps: {
       official,
       author: entryAuthor(entry),
       installed,
+      installedByDefault: bundled?.autoInstall ?? false,
       conflictingInstallSource:
         installed || installedPlugin === undefined
           ? null
