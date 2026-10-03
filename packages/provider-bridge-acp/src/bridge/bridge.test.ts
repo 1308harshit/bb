@@ -2154,6 +2154,43 @@ describe("acp bridge", () => {
     );
   });
 
+  it.each(["turn/start", "turn/steer"] as const)(
+    "refreshes permission policy and native flags before %s",
+    async (method) => {
+      const { providerThreadId } = await startThread({
+        permissionMode: "full",
+        envVars: { FAKE_ACP_LOAD_SESSION: "1" },
+        permissionCli: { full: ["--always-approve"] },
+      });
+      if (method === "turn/steer") {
+        await waitForResponse(sendTurnRequest("turn/start", providerThreadId, {
+          input: [{ type: "text", text: "hang", mentions: [] }],
+        }));
+      }
+      await waitForResponse(sendTurnRequest(method, providerThreadId, {
+        expectedTurnId: "turn-1",
+        input: [{ type: "text", text: "request-permission", mentions: [] }],
+        options: executionOptions({ permissionMode: "accept-edits" }),
+      }));
+      const forwarded = await waitFor(
+        () => output.messages.find((message) => message.method === "interaction/request"),
+        "approval under the new workspace policy",
+      );
+      handleLine(JSON.stringify({ jsonrpc: "2.0", id: forwarded.id, result: { decision: "deny" } }));
+      await waitFor(() => agentMessageTexts().includes("permission:no") ? true : undefined, "denied permission");
+      expect(notifications("session/replaced").at(-1)?.params).toMatchObject({
+        providerThreadId,
+        contextLost: false,
+      });
+      await waitFor(() => threadEventsOfType("turn/completed").some((event) => event.status === "completed") ? true : undefined, "completed workspace turn");
+      await waitForResponse(sendTurnRequest("turn/start", providerThreadId, {
+        input: [{ type: "text", text: "echo-argv", mentions: [] }],
+        options: executionOptions({ permissionMode: "accept-edits" }),
+      }));
+      await waitFor(() => agentMessageTexts().includes("argv:") ? true : undefined, "workspace launch flags");
+    },
+  );
+
   it("auto-allows permission requests in full mode", async () => {
     const { providerThreadId } = await startThread({ permissionMode: "full" });
     const turnId = sendTurnRequest("turn/start", providerThreadId, {
