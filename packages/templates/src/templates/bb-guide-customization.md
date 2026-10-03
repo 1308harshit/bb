@@ -468,7 +468,7 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 ## AI task instructions
 
-Settings → AI services → the instructions field under Thread titles or Commit
+Settings → AI services → Add instructions under Thread titles or Commit
 messages adds your own instructions to bb's built-in rules for that task,
 server-wide. The field saves when it loses focus. Use them for language, format, or conventions, such as "Write
 titles in French." or "Skip the conventional commit type prefix." Your
