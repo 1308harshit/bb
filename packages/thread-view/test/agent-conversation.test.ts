@@ -8,12 +8,10 @@ import type { ThreadTimelineViewRow } from "../src/timeline-view.js";
 import { groupAgentConversations } from "../src/agent-conversation.js";
 import { buildTimelineRowTitle } from "../src/timeline-row-title.js";
 
-const TITLE_OPTIONS = { summaryStyle: "bundle", workStyle: "default" } as const;
 const MANAGER = "thr_mngr234567";
-const notExcluded = (): boolean => false;
 let seq = 0;
 
-function base(id: string, turnId: string | null) {
+function base(id: string, turnId: string) {
   seq += 1;
   return {
     id,
@@ -26,22 +24,17 @@ function base(id: string, turnId: string | null) {
   };
 }
 
-interface UserOptions {
-  from?: string | null;
-  request?: Partial<TimelineConversationTurnRequest>;
-}
-
-function user(
+function received(
   id: string,
   turnId: string,
-  options: UserOptions = {},
+  from: string | null = MANAGER,
+  request: Partial<TimelineConversationTurnRequest> = {},
 ): TimelineConversationRow {
-  const from = options.from === undefined ? MANAGER : options.from;
   return {
     ...base(id, turnId),
     kind: "conversation",
     role: "user",
-    text: `[bb message from thread:${from}]\n\n${id}`,
+    text: id,
     attachments: null,
     initiator: from === null ? "user" : "agent",
     senderThreadId: from,
@@ -51,7 +44,7 @@ function user(
       isGrouped: false,
       kind: "message",
       status: "accepted",
-      ...options.request,
+      ...request,
     },
     mentions: [],
   };
@@ -72,90 +65,78 @@ function sent(id: string, turnId: string): TimelineToolWorkRow {
   };
 }
 
-function reply(id: string, turnId: string): TimelineConversationRow {
-  return {
-    ...base(id, turnId),
-    kind: "conversation",
-    role: "assistant",
-    text: id,
-    attachments: null,
-    turnRequest: null,
-  };
-}
-
 function exchange(n: number): ThreadTimelineViewRow[] {
-  const turnId = `turn_${n}`;
-  return [user(`u${n}`, turnId), sent(`s${n}`, turnId), reply(`a${n}`, turnId)];
+  return [received(`r${n}`, `turn_${n}`), sent(`s${n}`, `turn_${n}`)];
 }
 
-function grouped(
+function group(
   rows: ThreadTimelineViewRow[],
-  options: { activeTurnId?: string; pinned?: string[] } = {},
-): string[] {
+  activeTurnId: string | null = null,
+  pinned: string[] = [],
+): ThreadTimelineViewRow[] {
   return groupAgentConversations({
-    activeTurnId: options.activeTurnId ?? null,
-    isExcludedSender: notExcluded,
-    pinnedRowIds: new Set(options.pinned),
+    activeTurnId,
+    isExcludedSender: () => false,
+    pinnedRowIds: new Set(pinned),
     rows,
-  }).map((row) =>
-    row.kind === "agent-conversation"
-      ? `group(${row.children.map((child) => child.id).join(",")})`
-      : row.id,
-  );
+  });
 }
 
 const ids = (rows: ThreadTimelineViewRow[]) => rows.map((row) => row.id);
 
 describe("groupAgentConversations", () => {
-  it("collapses two or more settled exchanges and counts their agent messages", () => {
+  it("collapses back-to-back settled exchanges and counts their agent messages", () => {
     const rows = [
-      user("start", "turn_0", { from: null }),
       ...exchange(1),
       ...exchange(2),
-      user("end", "turn_9", { from: null }),
+      received("user", "turn_9", null),
     ];
 
-    const result = groupAgentConversations({
-      activeTurnId: null,
-      isExcludedSender: notExcluded,
-      pinnedRowIds: new Set(),
-      rows,
-    });
+    const [conversation, ...rest] = group(rows);
 
-    expect(grouped(rows)).toEqual(["start", "group(u1,s1,a1,u2,s2,a2)", "end"]);
     expect(
-      result[1] && buildTimelineRowTitle(result[1], TITLE_OPTIONS).plain,
+      conversation?.kind === "agent-conversation" && ids(conversation.children),
+    ).toEqual(["r1", "s1", "r2", "s2"]);
+    expect(
+      conversation &&
+        buildTimelineRowTitle(conversation, {
+          summaryStyle: "bundle",
+          workStyle: "default",
+        }).plain,
     ).toBe("Agent conversation 4 messages");
+    expect(ids(rest)).toEqual(["user"]);
   });
 
-  it("leaves a single exchange ungrouped", () => {
-    const rows = [
-      ...exchange(1),
-      user("user", "turn_5", { from: null }),
-      ...exchange(2),
-    ];
-
-    expect(grouped(rows)).toEqual(ids(rows));
-  });
-
-  it("keeps the running exchange out", () => {
-    const rows = [...exchange(1), ...exchange(2)];
-
-    expect(grouped(rows, { activeTurnId: "turn_2" })).toEqual(ids(rows));
-  });
-
-  it("does not group pending messages, user-steered exchanges, or pinned runs", () => {
-    const pending = [
-      ...exchange(1),
-      user("queued", "turn_2", { request: { status: "pending" } }),
-      ...exchange(3),
-      user("u4", "turn_4"),
-      reply("a4", "turn_4"),
-      user("steer", "turn_4", { from: null, request: { kind: "steer" } }),
-    ];
-    const pinned = [...exchange(5), ...exchange(6)];
-
-    expect(grouped(pending)).toEqual(ids(pending));
-    expect(grouped(pinned, { pinned: ["a6"] })).toEqual(ids(pinned));
+  it.each([
+    [
+      "a single exchange",
+      [...exchange(1), received("user", "turn_5", null), ...exchange(2)],
+      null,
+      [],
+    ],
+    ["the running exchange", [...exchange(3), ...exchange(4)], "turn_4", []],
+    [
+      "a pending message",
+      [
+        ...exchange(5),
+        received("queued", "turn_6", MANAGER, { status: "pending" }),
+        ...exchange(7),
+      ],
+      null,
+      [],
+    ],
+    [
+      "a user-steered exchange",
+      [
+        ...exchange(8),
+        ...exchange(9),
+        received("steer", "turn_9", null, { kind: "steer" }),
+      ],
+      null,
+      [],
+    ],
+    ["a pinned run", [...exchange(10), ...exchange(11)], null, ["s11"]],
+  ])("keeps %s ungrouped", (_case, rows, activeTurnId, pinned) => {
+    expect(ids(group(rows, activeTurnId, pinned))).toEqual(ids(rows));
   });
 });
