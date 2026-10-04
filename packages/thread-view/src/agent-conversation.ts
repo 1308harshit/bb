@@ -11,7 +11,6 @@ type UserRow = Extract<ConversationRow, { role: "user" }>;
 type AgentMessageRow = UserRow & { senderThreadId: string; turnId: string };
 
 interface GroupAgentConversationsArgs {
-  activeTurnId: string | null;
   isExcludedSender: IsExcludedAgentSender;
   pinnedRowIds: ReadonlySet<string>;
   rows: readonly ThreadTimelineViewRow[];
@@ -56,7 +55,6 @@ export function countAgentMessages(
 }
 
 export function groupAgentConversations({
-  activeTurnId,
   isExcludedSender,
   pinnedRowIds,
   rows,
@@ -67,12 +65,7 @@ export function groupAgentConversations({
   const flushRun = (): void => {
     const first = run[0];
     const last = run.at(-1);
-    if (
-      first &&
-      last &&
-      runExchangeCount >= MIN_COLLAPSED_AGENT_EXCHANGES &&
-      !run.some((row) => pinnedRowIds.has(row.id))
-    ) {
+    if (first && last && runExchangeCount >= MIN_COLLAPSED_AGENT_EXCHANGES) {
       entries.push({
         id: `agent-conversation:${first.id}`,
         threadId: first.threadId,
@@ -102,7 +95,7 @@ export function groupAgentConversations({
       continue;
     }
     const start = index++;
-    let settled = first.turnId !== activeTurnId;
+    let settled = true;
     while (index < rows.length) {
       const row = rows[index];
       if (
@@ -115,11 +108,17 @@ export function groupAgentConversations({
         settled = false;
         break;
       }
-      if ("status" in row && row.status === "pending") settled = false;
       index += 1;
     }
     const exchange = rows.slice(start, index);
-    if (settled) {
+    if (
+      settled &&
+      !exchange.some(
+        (row) =>
+          pinnedRowIds.has(row.id) ||
+          ("status" in row && row.status === "pending"),
+      )
+    ) {
       run.push(...exchange);
       runExchangeCount += 1;
     } else {
