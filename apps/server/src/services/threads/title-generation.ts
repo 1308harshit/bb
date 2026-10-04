@@ -16,7 +16,7 @@ import type { AppDeps, LoggedWorkSessionDeps } from "../../types.js";
 import { runTextAiTask } from "../ai/ai-tasks.js";
 
 const MIN_TITLE_GENERATION_WORDS = 5;
-const MAX_GENERATED_TITLE_WIDTH = 48;
+const MAX_GENERATED_TITLE_WIDTH = 100;
 const MAX_TITLE_FALLBACK_WIDTH = 80;
 const MAX_TITLE_PROMPT_WIDTH = 4000;
 const ELLIPSIS = "...";

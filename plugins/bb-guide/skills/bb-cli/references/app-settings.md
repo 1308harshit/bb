@@ -274,6 +274,6 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 Settings → AI services → Thread titles → Add instructions adds your own
 instructions to bb's built-in title rules, server-wide. Instructions take
-precedence over bb's style rules, but a title stays one line of at most 48
+precedence over bb's style rules, but a title stays one line of at most 100
 display columns. `threadTitleInstructions` accepts 1–2,000 characters after
 trimming; `null` uses only bb's rules.

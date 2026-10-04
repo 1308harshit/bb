@@ -815,7 +815,7 @@ describe("generated thread titles", () => {
     });
   });
 
-  it("cleans and clamps a chatty title reply", async () => {
+  it("cleans a chatty title reply", async () => {
     completeTitle.mockResolvedValue(
       '<think>short and clear</think>\nTitle: "Make the generated branch names easier to read in the sidebar"',
     );
@@ -825,7 +825,7 @@ describe("generated thread titles", () => {
         threadId: "thr_chatty_title",
       });
       expect(outcome.metadata?.title).toBe(
-        "Make the generated branch names easier to read",
+        "Make the generated branch names easier to read in the sidebar",
       );
     });
   });

@@ -259,7 +259,7 @@ Settings → AI services → Thread titles → Add instructions adds your own
 instructions to bb's built-in title rules, server-wide. The field saves when it
 loses focus. Use instructions for language, length, tone, or naming
 conventions, such as "Write titles in French." Your instructions take
-precedence over bb's style rules, but a title stays one line of at most 48
+precedence over bb's style rules, but a title stays one line of at most 100
 display columns. bb adds the task text and invoked commands itself, so no
 template variables are needed. Existing titles are not renamed.
 
