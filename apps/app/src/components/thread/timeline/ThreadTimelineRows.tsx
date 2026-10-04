@@ -9,7 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { useComposedRefs } from "@radix-ui/react-compose-refs";
 import { TimelineImageGallery } from "./TimelineImageGallery";
 import type {
@@ -37,6 +37,7 @@ import {
   workRowPluginGlyph,
   workRowPresentation,
   type BuildTimelineRowTitleOptions,
+  type AgentMessageToolCall,
   type BuildTimelineViewRowsOptions,
   type IsExcludedAgentSender,
   type ThreadTimelineViewRow,
@@ -120,7 +121,7 @@ import {
   useArmTopLevelTimelineRowContainment,
 } from "./timeline-row-containment.js";
 import { NESTED_TIMELINE_GROUP_LINE_CLASS_NAME } from "./timeline-nested-group-line.js";
-import { SentAgentMessage } from "./SentAgentMessage.js";
+import { GeneratedConversationMessage } from "./GeneratedConversationMessage.js";
 import { useThreadTimelineTurnSummaryDetails } from "@/hooks/queries/thread-queries";
 import { type ThreadTimelineTurnSummaryDetailsQueryIdentity } from "@/hooks/queries/query-keys";
 import {
@@ -1454,6 +1455,56 @@ function useLeadingIconUrlForRow(
   );
 }
 
+type GeneratedMessageProps = ComponentProps<
+  typeof GeneratedConversationMessage
+>;
+const NO_ATTACHMENTS: GeneratedMessageProps["attachmentItems"] = {
+  filePaths: [],
+  imageItems: [],
+};
+const NO_MENTIONS: GeneratedMessageProps["mentions"] = [];
+const ACCEPTED_MESSAGE: GeneratedMessageProps["turnRequest"] = {
+  isGrouped: false,
+  kind: "message",
+  status: "accepted",
+};
+
+function SentAgentMessageRow({
+  message,
+  sentAt,
+}: {
+  message: AgentMessageToolCall;
+  sentAt: number;
+}) {
+  const context = useTimelineRendererStaticContext();
+  const recipient = useSenderThreadMetadataContext().get(message.threadId);
+  return (
+    <GeneratedConversationMessage
+      attachmentItems={NO_ATTACHMENTS}
+      automationLink={null}
+      mentions={NO_MENTIONS}
+      onOpenLink={context.onOpenLink}
+      onOpenLocalFileLink={context.onOpenLocalFileLink}
+      onTitleAction={context.onTitleAction}
+      originKind={null}
+      projectId={context.projectId}
+      resolveMentionLink={context.resolveMentionLink}
+      sourceIsPluginSideChat={false}
+      sourceKind="agent-recipient"
+      sourceName={recipient?.title ?? "Agent"}
+      sourceProjectId={recipient?.projectId ?? null}
+      sourceThreadId={message.threadId}
+      systemMessageKind="unlabeled"
+      systemMessageSubject={null}
+      text={message.message}
+      threadId={context.threadId}
+      timestamp={sentAt}
+      turnRequest={ACCEPTED_MESSAGE}
+      workspaceRootPath={context.workspaceRootPath}
+    />
+  );
+}
+
 function TimelineRowView({
   activeLatestBundleId,
   compactActivityIntents,
@@ -1463,9 +1514,7 @@ function TimelineRowView({
   spacing,
 }: TimelineRowViewProps) {
   const horizontalPadding = timelineRowHorizontalPadding(spacing);
-  const staticContext = useTimelineRendererStaticContext();
-  const { onTitleAction } = staticContext;
-  const senderThreadMetadataById = useSenderThreadMetadataContext();
+  const { onTitleAction } = useTimelineRendererStaticContext();
   const titleState = useTimelineRowTitleRenderState({
     activeLatestBundleId,
     compactActivityIntents,
@@ -1513,14 +1562,7 @@ function TimelineRowView({
       : null;
   if (sentAgentMessage !== null) {
     return (
-      <SentAgentMessage
-        links={staticContext}
-        message={sentAgentMessage}
-        recipient={
-          senderThreadMetadataById.get(sentAgentMessage.threadId) ?? null
-        }
-        sentAt={row.startedAt}
-      />
+      <SentAgentMessageRow message={sentAgentMessage} sentAt={row.startedAt} />
     );
   }
 
@@ -1675,18 +1717,6 @@ const MemoizedTimelineExpandableRowView = memo(
   TimelineExpandableRowView,
   areTimelineExpandableRowViewPropsEqual,
 );
-
-function findLastRowTurnId(
-  rows: readonly ThreadTimelineViewRow[],
-): string | null {
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const turnId = rows[index]?.turnId;
-    if (turnId != null) {
-      return turnId;
-    }
-  }
-  return null;
-}
 
 function findUnreadDividerIndex({
   rows,
@@ -1848,41 +1878,31 @@ function TimelineRowsList({
     () => findActiveLatestBundleId(rows),
     [rows],
   );
-  const activeTurnId =
-    spacing === "top-level" && scopeActive ? findLastRowTurnId(rows) : null;
   const listRows = useMemo(() => {
     if (spacing !== "top-level") {
       return rows;
     }
     const pinnedRowIds = new Set(stableSearchExpandedRowIds);
-    if (scrollRestoreRowId !== null) {
-      pinnedRowIds.add(scrollRestoreRowId);
+    for (const rowId of [
+      scrollRestoreRowId,
+      navigationTargetRowId,
+      scopeActive ? rows.at(-1)?.id : null,
+      rows[findUnreadDividerIndex({ rows, unreadDividerPlacement })]?.id,
+    ]) {
+      if (rowId != null) {
+        pinnedRowIds.add(rowId);
+      }
     }
-    if (navigationTargetRowId != null) {
-      pinnedRowIds.add(navigationTargetRowId);
-    }
-    const group = (segment: readonly ThreadTimelineViewRow[]) =>
-      groupAgentConversations({
-        activeTurnId,
-        isExcludedSender: isExcludedAgentSender,
-        pinnedRowIds,
-        rows: segment,
-      });
-    const dividerIndex = findUnreadDividerIndex({
+    return groupAgentConversations({
+      isExcludedSender: isExcludedAgentSender,
+      pinnedRowIds,
       rows,
-      unreadDividerPlacement,
     });
-    return dividerIndex < 0
-      ? group(rows)
-      : [
-          ...group(rows.slice(0, dividerIndex)),
-          ...group(rows.slice(dividerIndex)),
-        ];
   }, [
-    activeTurnId,
     isExcludedAgentSender,
     navigationTargetRowId,
     rows,
+    scopeActive,
     scrollRestoreRowId,
     spacing,
     stableSearchExpandedRowIds,
