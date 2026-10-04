@@ -11,10 +11,7 @@ import type {
   TimelineTurnRow,
   TimelineWorkRow,
 } from "@bb/server-contract";
-import {
-  isAgentNoReplyMessage,
-  parseAgentMessageToolCall,
-} from "./agent-message-tool-call.js";
+import { parseAgentMessageToolCall } from "./agent-message-tool-call.js";
 import { assertNever } from "./assert-never.js";
 import {
   getFileChangeAction,
@@ -1000,9 +997,7 @@ export function buildTimelineViewRows(
     if (cached) return cached;
   }
   const childCache = cache ?? createTimelineViewRowsCache();
-  const viewRows = rows
-    .filter((row) => !isAgentNoReplyMessage(row))
-    .map((row) => toTimelineViewRow(row, childCache));
+  const viewRows = rows.map((row) => toTimelineViewRow(row, childCache));
   const result: ThreadTimelineViewRow[] = [];
   let openStep: TimelineWorkSummaryChild[] = [];
 

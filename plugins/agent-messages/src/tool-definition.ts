@@ -1,5 +1,6 @@
 import type { PluginRowPresentation } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { NO_REPLY_DIRECTIVE } from "./no-reply.js";
 
 export const TOOL_NAME = "bb_thread_message";
 
@@ -16,7 +17,7 @@ export type ToolInput = z.infer<typeof toolParameters>;
 export const TOOL_DESCRIPTION =
   "Send a message to the agent working in another bb thread. It arrives there as a message from this thread, and that agent can answer with this same tool. The user sees the message in both threads, so do not repeat it to them. To answer the user, use your normal response.";
 
-export const TOOL_INSTRUCTIONS = `Messages from other agents begin with \`[bb message from thread:<thread id>]\`. Answer the agent with \`${TOOL_NAME}\` and the user in your normal response, or do both. You may answer a thread that messaged you even if the user did not ask, but message other threads only when the user asks. Answer questions and requests, and never send acknowledgements or thanks. Other agents do the same, so do not wait for a reply to a message that asks for nothing. Prefer \`${TOOL_NAME}\` to \`bb thread tell\`: only the tool shows the message in this thread. Use \`bb thread tell\` only when you need its \`--mode queue\`, \`--send-at\`, \`--plan\`, or attachment options. The user sees every message you send and receive in the timeline, so do not announce, summarize, or restate them. When you have nothing else for the user, including when you are only waiting for a reply, your entire response must be exactly \`[no reply]\`, which bb hides.`;
+export const TOOL_INSTRUCTIONS = `Messages from other agents begin with \`[bb message from thread:<thread id>]\`. Answer the agent with \`${TOOL_NAME}\` and the user in your normal response, or do both. You may answer a thread that messaged you even if the user did not ask, but message other threads only when the user asks. Answer questions and requests, and never send acknowledgements or thanks. Other agents do the same, so do not wait for a reply to a message that asks for nothing. Prefer \`${TOOL_NAME}\` to \`bb thread tell\`: only the tool shows the message in this thread. Use \`bb thread tell\` only when you need its \`--mode queue\`, \`--send-at\`, \`--plan\`, or attachment options. The user sees every message you send and receive in the timeline, so do not announce, summarize, or restate them. When you have nothing else for the user, including when you are only waiting for a reply, your entire response must be exactly \`::${NO_REPLY_DIRECTIVE}\`, which bb hides.`;
 
 export const TOOL_PRESENTATION: PluginRowPresentation = {
   label: { pending: "Messaging a thread", completed: "Messaged a thread" },

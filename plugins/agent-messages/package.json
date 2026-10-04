@@ -14,7 +14,8 @@
     "branding": {
       "icon": "Sent"
     },
-    "server": "./src/server.ts"
+    "server": "./src/server.ts",
+    "app": "./src/app.ts"
   },
   "keywords": [
     "bb-plugin"
@@ -32,6 +33,7 @@
     "@bb/plugin-build": "workspace:*",
     "@get-bb/plugin-sdk": "workspace:*",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.1"
   }

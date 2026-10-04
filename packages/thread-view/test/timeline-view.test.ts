@@ -833,19 +833,3 @@ describe("reasoning within activity groups", () => {
     expect(rows[1]?.id).toBe("warning");
   });
 });
-
-describe("agent no-reply marker", () => {
-  it("hides an agent reply that is exactly the marker and keeps other replies", () => {
-    const rows = buildTimelineViewRows([
-      assistantRow({ id: "no-reply", text: " [no reply]\n" }),
-      assistantRow({
-        id: "answer",
-        text: "[no reply] does not apply here.",
-        sourceSeqStart: 2,
-        sourceSeqEnd: 2,
-      }),
-    ]);
-
-    expect(rows.map((row) => row.id)).toEqual(["answer"]);
-  });
-});

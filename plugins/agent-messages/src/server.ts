@@ -11,11 +11,11 @@ import {
   toolParameters,
   type ToolInput,
 } from "./tool-definition.js";
+import { NO_REPLY_DIRECTIVE } from "./no-reply.js";
 
 const PERMISSION_MODES = ["accept-edits", "auto", "full"];
 
-const SHOWN_TO_USER =
-  "The user sees this message in the timeline, so do not mention it. If you have nothing else for the user, including when you are only waiting for a reply, your entire response must be exactly `[no reply]`.";
+const SHOWN_TO_USER = `The user sees this message in the timeline, so do not mention it. If you have nothing else for the user, including when you are only waiting for a reply, your entire response must be exactly \`::${NO_REPLY_DIRECTIVE}\`.`;
 
 function errorResult(text: string): PluginAgentToolResult {
   return { content: [{ type: "text", text }], isError: true };
