@@ -1,7 +1,9 @@
 import { rawThreadIdSchema, type JsonObject } from "@bb/domain";
+import type { TimelineRow } from "@bb/server-contract";
 import { z } from "zod";
 
 const AGENT_MESSAGE_TOOL_NAME = "bb:bb_thread_message";
+const AGENT_NO_REPLY_TEXT = "[no reply]";
 
 const agentMessageToolCallSchema = z.object({
   threadId: rawThreadIdSchema,
@@ -29,4 +31,12 @@ export function parseAgentMessageToolCall({
   }
   const parsed = agentMessageToolCallSchema.safeParse(toolArgs);
   return parsed.success ? parsed.data : null;
+}
+
+export function isAgentNoReplyMessage(row: TimelineRow): boolean {
+  return (
+    row.kind === "conversation" &&
+    row.role === "assistant" &&
+    row.text.trim() === AGENT_NO_REPLY_TEXT
+  );
 }

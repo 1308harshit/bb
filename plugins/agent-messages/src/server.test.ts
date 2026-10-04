@@ -37,7 +37,9 @@ describe("bb_thread_message", () => {
   it("delivers the message as sent by the calling thread", async () => {
     const host = createHost();
 
-    expect(await message(host, "thr_worker")).toBe("Delivered to thr_worker.");
+    expect(await message(host, "thr_worker")).toBe(
+      "Delivered to thr_worker. The user sees this message in the timeline, so do not mention it. If you have nothing else for the user, including when you are only waiting for a reply, your entire response must be exactly `[no reply]`.",
+    );
     expect(host.harness.sdk.callsTo("threads.send")).toEqual([
       [
         {

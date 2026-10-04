@@ -14,6 +14,9 @@ import {
 
 const PERMISSION_MODES = ["accept-edits", "auto", "full"];
 
+const SHOWN_TO_USER =
+  "The user sees this message in the timeline, so do not mention it. If you have nothing else for the user, including when you are only waiting for a reply, your entire response must be exactly `[no reply]`.";
+
 function errorResult(text: string): PluginAgentToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
@@ -49,9 +52,11 @@ async function sendThreadMessage(
       mode: "steer-if-active",
       senderThreadId: ctx.threadId,
     });
-    return delivery === "queued"
-      ? `Queued for ${threadId}; it is delivered once that thread can take it.`
-      : `Delivered to ${threadId}.`;
+    return `${
+      delivery === "queued"
+        ? `Queued for ${threadId}; it is delivered once that thread can take it.`
+        : `Delivered to ${threadId}.`
+    } ${SHOWN_TO_USER}`;
   } catch (error) {
     return errorResult(
       `The message was not delivered: ${error instanceof Error ? error.message : String(error)}`,
