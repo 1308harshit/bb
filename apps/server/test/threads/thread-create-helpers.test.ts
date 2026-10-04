@@ -31,20 +31,6 @@ describe("sanitizeGeneratedBranchSlug", () => {
   it("caps slugs before branch construction", () => {
     expect(sanitizeGeneratedBranchSlug("a".repeat(80))).toHaveLength(48);
   });
-
-  it("keeps accented letters as their base letters", () => {
-    expect(
-      sanitizeGeneratedBranchSlug("Añadir gráfico de burndown al panel"),
-    ).toBe("anadir-grafico-de-burndown-al-panel");
-  });
-
-  it("cuts long slugs at a word boundary", () => {
-    expect(
-      sanitizeGeneratedBranchSlug(
-        "Feature: Add a hideable burndown chart to the project dashboard",
-      ),
-    ).toBe("feature-add-a-hideable-burndown-chart-to-the");
-  });
 });
 
 describe("buildSuggestedBranchName", () => {

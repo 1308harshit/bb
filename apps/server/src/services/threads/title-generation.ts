@@ -159,22 +159,15 @@ export function sanitizeGeneratedTitle(value: string): string | null {
 }
 
 export function sanitizeGeneratedBranchSlug(value: string): string | null {
-  const full = value
-    .normalize("NFKD")
-    .replace(/\p{M}+/gu, "")
+  const slug = value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/gu, "-")
     .replace(/-{2,}/gu, "-")
-    .replace(/^-+|-+$/gu, "");
-  if (full.length <= MAX_BRANCH_SLUG_LENGTH) {
-    return full.length > 0 ? full : null;
-  }
-  const cut = full.slice(0, MAX_BRANCH_SLUG_LENGTH + 1);
-  const wordEnd = cut.lastIndexOf("-");
-  const slug = (
-    wordEnd > 0 ? cut.slice(0, wordEnd) : cut.slice(0, MAX_BRANCH_SLUG_LENGTH)
-  ).replace(/-+$/u, "");
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, MAX_BRANCH_SLUG_LENGTH)
+    .replace(/-+$/u, "");
+
   return slug.length > 0 ? slug : null;
 }
 
