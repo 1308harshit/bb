@@ -20,10 +20,19 @@ const SIDE_CHAT = {
 function createHost(
   recipient: object = VISIBLE_THREAD,
   send: () => Promise<unknown> = async () => ({ ok: true, delivery: "sent" }),
+  permissionModes: Record<string, string> = {},
 ): FakePluginHost {
   const host = createFakePluginHost({
     pluginId: "bb--agent-messages",
-    sdk: { threads: { get: async () => recipient, send } },
+    sdk: {
+      threads: {
+        get: async () => recipient,
+        send,
+        defaultExecutionOptions: async ({ threadId }) => ({
+          permissionMode: permissionModes[threadId] ?? "auto",
+        }),
+      },
+    },
   });
   plugin(host.bb);
   return host;
@@ -61,6 +70,16 @@ describe("bb_thread_message", () => {
     const host = createHost(recipient);
 
     expect(await message(host, threadId)).toMatchObject({ isError: true });
+    expect(host.harness.sdk.callsTo("threads.send")).toEqual([]);
+  });
+
+  it("refuses a recipient with broader permissions than the sender", async () => {
+    const host = createHost(VISIBLE_THREAD, undefined, {
+      thr_sender: "accept-edits",
+      thr_worker: "full",
+    });
+
+    expect(await message(host, "thr_worker")).toMatchObject({ isError: true });
     expect(host.harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 

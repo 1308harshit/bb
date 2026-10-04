@@ -12,6 +12,8 @@ import {
   type ToolInput,
 } from "./tool-definition.js";
 
+const PERMISSION_MODES = ["accept-edits", "auto", "full"];
+
 function errorResult(text: string): PluginAgentToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
@@ -34,6 +36,20 @@ async function sendThreadMessage(
     ) {
       return errorResult(
         "That thread is a side chat; the user forwarded its message to you. Answer the user in your normal response instead.",
+      );
+    }
+    const [sender, receiver] = await Promise.all([
+      bb.sdk.threads.defaultExecutionOptions({ threadId: ctx.threadId }),
+      bb.sdk.threads.defaultExecutionOptions({ threadId }),
+    ]);
+    if (
+      sender === null ||
+      receiver === null ||
+      PERMISSION_MODES.indexOf(receiver.permissionMode) >
+        PERMISSION_MODES.indexOf(sender.permissionMode)
+    ) {
+      return errorResult(
+        "That thread runs with broader permissions than this one, so it can't take messages from here. Ask the user to relay the message instead.",
       );
     }
     const { delivery } = await bb.sdk.threads.send({
