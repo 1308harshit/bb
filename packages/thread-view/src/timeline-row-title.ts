@@ -35,7 +35,6 @@ import {
 import {
   durationToCompactString,
   formatDiffStatsText,
-  plural,
 } from "./format-helpers.js";
 import {
   formatTimelineActivityIntentDetailParts,
@@ -48,11 +47,9 @@ import {
   fileNameFromPath,
   formatTimelinePath,
 } from "./timeline-path-display.js";
-import { countAgentMessages } from "./agent-conversation.js";
 import {
   buildTimelineWorkSummaryLabelParts,
   type ThreadTimelineViewRow,
-  type TimelineAgentConversationRow,
   type TimelineWorkSummaryRow,
   type TimelineViewDelegationWorkRow,
   type TimelineQuestionViewWorkRow,
@@ -1505,19 +1502,6 @@ function mapWorkSummaryTitle(
   });
 }
 
-function mapAgentConversationTitle(
-  row: TimelineAgentConversationRow,
-): TimelineTitle {
-  return makeTitle({
-    segments: [
-      segment("Agent conversation"),
-      segment(plural(countAgentMessages(row.children), "message"), {
-        accent: "subtle",
-      }),
-    ],
-  });
-}
-
 function mapTurnTitle(row: TimelineViewTurnRow): TimelineTitle {
   const isPending = row.status === "pending";
   const durationDeco = isPending
@@ -1789,8 +1773,6 @@ export function buildTimelineRowTitle(
       return mapWorkSummaryTitle(row, options);
     case "turn":
       return mapTurnTitle(row);
-    case "agent-conversation":
-      return mapAgentConversationTitle(row);
     default:
       return assertNever(row);
   }
