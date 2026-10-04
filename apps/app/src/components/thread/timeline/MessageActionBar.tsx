@@ -294,7 +294,7 @@ function MessageTimestampFooter({ timestamp }: { timestamp: number }) {
   });
   return (
     <div
-      className="px-2 py-1.5 text-2xs text-muted-foreground"
+      className="mt-1 border-t border-border px-2 pt-2 pb-1 text-xs text-subtle-foreground"
       data-message-metadata=""
     >
       <time dateTime={date.toISOString()} title={fullDate}>
