@@ -4,10 +4,6 @@ export {
   parseAgentMessageToolCall,
   type AgentMessageToolCall,
 } from "./agent-message-tool-call.js";
-export {
-  groupAgentConversations,
-  type IsExcludedAgentSender,
-} from "./agent-conversation.js";
 export type { ThreadTimelineTextFormat } from "./format-timeline-text.js";
 export { assertNever } from "./assert-never.js";
 export {
@@ -65,7 +61,6 @@ export {
 export type {
   BuildTimelineViewRowsOptions,
   ThreadTimelineViewRow,
-  TimelineAgentConversationRow,
   TimelineQuestionViewWorkRow,
   TimelineViewTurnRow,
   TimelineViewWorkflowWorkRow,
