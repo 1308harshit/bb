@@ -29,15 +29,6 @@ async function sendThreadMessage(
     );
   }
   try {
-    const recipient = await bb.sdk.threads.get({ threadId });
-    if (
-      recipient.originPluginId === "side-chat" &&
-      recipient.visibility === "hidden"
-    ) {
-      return errorResult(
-        "That thread is a side chat; the user forwarded its message to you. Answer the user in your normal response instead.",
-      );
-    }
     const [sender, receiver] = await Promise.all([
       bb.sdk.threads.defaultExecutionOptions({ threadId: ctx.threadId }),
       bb.sdk.threads.defaultExecutionOptions({ threadId }),

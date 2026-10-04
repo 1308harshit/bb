@@ -6,19 +6,7 @@ import {
 import plugin from "./server.js";
 import { TOOL_NAME } from "./tool-definition.js";
 
-const VISIBLE_THREAD = {
-  originKind: null,
-  originPluginId: null,
-  visibility: "visible",
-};
-const SIDE_CHAT = {
-  originKind: "fork",
-  originPluginId: "side-chat",
-  visibility: "hidden",
-};
-
 function createHost(
-  recipient: object = VISIBLE_THREAD,
   send: () => Promise<unknown> = async () => ({ ok: true, delivery: "sent" }),
   permissionModes: Record<string, string> = {},
 ): FakePluginHost {
@@ -26,7 +14,6 @@ function createHost(
     pluginId: "bb--agent-messages",
     sdk: {
       threads: {
-        get: async () => recipient,
         send,
         defaultExecutionOptions: async ({ threadId }) => ({
           permissionMode: permissionModes[threadId] ?? "auto",
@@ -63,18 +50,15 @@ describe("bb_thread_message", () => {
     ]);
   });
 
-  it.each([
-    ["its own thread", "thr_sender", VISIBLE_THREAD],
-    ["a side chat", "thr_sidechat", SIDE_CHAT],
-  ])("refuses to message %s", async (_case, threadId, recipient) => {
-    const host = createHost(recipient);
+  it("refuses to message its own thread", async () => {
+    const host = createHost();
 
-    expect(await message(host, threadId)).toMatchObject({ isError: true });
+    expect(await message(host, "thr_sender")).toMatchObject({ isError: true });
     expect(host.harness.sdk.callsTo("threads.send")).toEqual([]);
   });
 
   it("refuses a recipient with broader permissions than the sender", async () => {
-    const host = createHost(VISIBLE_THREAD, undefined, {
+    const host = createHost(undefined, {
       thr_sender: "accept-edits",
       thr_worker: "full",
     });
@@ -96,7 +80,7 @@ describe("bb_thread_message", () => {
   );
 
   it("reports a failed delivery as an error", async () => {
-    const host = createHost(VISIBLE_THREAD, async () => {
+    const host = createHost(async () => {
       throw new Error("Thread is archived");
     });
 
