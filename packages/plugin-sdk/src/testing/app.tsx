@@ -991,6 +991,10 @@ const testPluginSdkApp = {
   experimental_usePluginId(): string {
     return useSlotEnv("experimental_usePluginId").pluginId;
   },
+  experimental_useThreadScroll() {
+    useSlotEnv("experimental_useThreadScroll");
+    return { scrollIntoView: () => false };
+  },
   experimental_useQuestionFormHost(): ExperimentalQuestionFormHost {
     return useSlotEnv("experimental_useQuestionFormHost").questionFormHost;
   },

@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type {
   ActiveThinking,
   ThreadOriginKind,
@@ -6,6 +12,7 @@ import type {
 } from "@bb/domain";
 import type { TimelineRow } from "@bb/server-contract";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
+import { ThreadScrollContext } from "@/components/ui/thread-scroll-context";
 import { Button } from "@bb/shared-ui/button";
 import { ConversationTimeline } from "@/components/ui/conversation.js";
 import { HeightTransition } from "@/components/ui/height-transition.js";
@@ -188,6 +195,14 @@ export function ThreadTimelineSurface({
     showActiveThinking && activeThinking
       ? activeThinking.id
       : (ongoingIndicatorLabel ?? "working");
+  const threadScroll = useContext(ThreadScrollContext);
+  const contentVersion = timelineRows.reduce(
+    (max, row) => Math.max(max, row.sourceSeqEnd),
+    0,
+  );
+  useEffect(() => {
+    threadScroll?.contentArrived(contentVersion);
+  }, [threadScroll, contentVersion]);
   const timelineRowsWithPendingStop = useTimelineRowsWithPendingStop({
     rows: timelineRows,
     isStopping,

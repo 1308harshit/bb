@@ -8,10 +8,12 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ExperimentalThreadScroll } from "@get-bb/plugin-sdk";
 import type { ReactNode } from "react";
 import { useStore } from "jotai";
 import { cn } from "@bb/shared-ui/lib/utils";
 import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { ThreadScrollContext } from "./thread-scroll-context";
 import { PAGE_SHELL_CONTENT_STYLE } from "./page-shell-content-style.js";
 import { supportsScrollAnchoring } from "@/lib/scroll-anchoring-support";
 import { PAGE_SCROLL_TO_TOP_EVENT } from "@/lib/page-scroll-to-top";
@@ -236,6 +238,8 @@ export function BottomAnchoredScrollBody({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
+  const pluginDetachedRef = useRef(false);
+  const timelineContentVersionRef = useRef<number | null>(null);
   const scrollToTopInProgressRef = useRef(false);
   const userScrollIntentUntilRef = useRef(0);
   const userScrollInputPendingRef = useRef(false);
@@ -356,6 +360,7 @@ export function BottomAnchoredScrollBody({
   }, [restoreBottomOnce, restoreBottomFromCacheOnce]);
 
   const scrollToBottom = useCallback(() => {
+    pluginDetachedRef.current = false;
     const scrollArea = scrollAreaRef.current;
     scrollToTopInProgressRef.current = false;
     cancelPendingScrollRestore();
@@ -369,6 +374,85 @@ export function BottomAnchoredScrollBody({
     }
     queueBottomRestore();
   }, [cancelPendingScrollRestore, queueBottomRestore, refreshMaxScrollOffset]);
+
+  const pluginScrollIntoView = useCallback<
+    ExperimentalThreadScroll["scrollIntoView"]
+  >(
+    (element, options) => {
+      const scrollArea = scrollAreaRef.current;
+      if (!scrollArea?.contains(element)) return false;
+      const viewport = scrollArea.getBoundingClientRect();
+      const target = element.getBoundingClientRect();
+      const top = target.top - viewport.top - scrollArea.clientTop;
+      const bottom =
+        target.bottom -
+        viewport.top -
+        scrollArea.clientTop -
+        scrollArea.clientHeight;
+      const block = options?.block ?? "start";
+      let delta = top;
+      if (block === "center") delta = (top + bottom) / 2;
+      if (block === "end") delta = bottom;
+      if (block === "nearest") {
+        if (top < 0 && bottom > 0) delta = 0;
+        else if (top < 0)
+          delta = target.height <= scrollArea.clientHeight ? top : bottom;
+        else if (bottom > 0)
+          delta = target.height <= scrollArea.clientHeight ? bottom : top;
+        else delta = 0;
+      }
+      cancelQueuedRestore();
+      pendingScrollRestoreRef.current = null;
+      pendingPrependAnchorRef.current = null;
+      userScrollInputPendingRef.current = false;
+      pointerScrollIntentRef.current = false;
+      userScrollIntentUntilRef.current = 0;
+      pluginDetachedRef.current = true;
+      userDetachedFromBottomRef.current = true;
+      shouldStickToBottomRef.current = false;
+      setIsAtBottom(false);
+      scrollArea.scrollTo({
+        top: Math.max(
+          0,
+          Math.min(
+            refreshMaxScrollOffset(scrollArea),
+            scrollArea.scrollTop + delta,
+          ),
+        ),
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : (options?.behavior ?? "auto"),
+      });
+      return true;
+    },
+    [cancelQueuedRestore, refreshMaxScrollOffset],
+  );
+
+  const contentArrived = useCallback(
+    (version: number) => {
+      const previous = timelineContentVersionRef.current;
+      timelineContentVersionRef.current = Math.max(
+        previous ?? version,
+        version,
+      );
+      if (
+        previous !== null &&
+        version > previous &&
+        pluginDetachedRef.current
+      ) {
+        scrollToBottom();
+      }
+    },
+    [scrollToBottom],
+  );
+
+  const threadScroll = useMemo(
+    () => ({
+      scrollIntoView: pluginScrollIntoView,
+      contentArrived,
+    }),
+    [pluginScrollIntoView, contentArrived],
+  );
 
   const scrollElementIntoView = useCallback(
     ({ element, options }: ScrollElementIntoViewArgs) => {
@@ -662,6 +746,7 @@ export function BottomAnchoredScrollBody({
   );
 
   const attachToBottom = useCallback(() => {
+    pluginDetachedRef.current = false;
     userDetachedFromBottomRef.current = false;
     shouldStickToBottomRef.current = true;
     userScrollIntentUntilRef.current = 0;
@@ -710,7 +795,10 @@ export function BottomAnchoredScrollBody({
       );
     }
 
-    if (nearBottom) {
+    if (
+      nearBottom &&
+      (!pluginDetachedRef.current || hasRecentUserScrollIntent())
+    ) {
       attachToBottom();
       return;
     }
@@ -793,6 +881,7 @@ export function BottomAnchoredScrollBody({
         resizeObserverHasDeliveredRef.current = true;
         shrankOntoBottomWhileDetached =
           cacheWasAuthoritative &&
+          !pluginDetachedRef.current &&
           !shouldStickToBottomRef.current &&
           maxScrollOffset < previousMaxScrollOffset &&
           isScrolledNearBottom(maxScrollOffset, scrollArea.scrollTop);
@@ -948,58 +1037,60 @@ export function BottomAnchoredScrollBody({
   ]);
 
   return (
-    <BottomAnchorContext.Provider value={bottomAnchorContextValue}>
-      <TimelineScrollRestoreRowIdContext.Provider
-        value={initialScrollRestoreRowId}
-      >
-        <div className="grid min-h-0 flex-1 grid-rows-[minmax(auto,1fr)] overflow-hidden">
-          <div
-            ref={scrollAreaRef}
-            data-page-scroll-viewport=""
-            className={cn(
-              "thread-scrollbar @container/page col-start-1 row-start-1 min-h-0 overflow-x-hidden overflow-y-auto",
-              scrollAreaClassName,
-            )}
-          >
+    <ThreadScrollContext.Provider value={threadScroll}>
+      <BottomAnchorContext.Provider value={bottomAnchorContextValue}>
+        <TimelineScrollRestoreRowIdContext.Provider
+          value={initialScrollRestoreRowId}
+        >
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(auto,1fr)] overflow-hidden">
             <div
-              ref={scrollContentRef}
-              className="flex min-h-full min-w-0 flex-col"
+              ref={scrollAreaRef}
+              data-page-scroll-viewport=""
+              className={cn(
+                "thread-scrollbar @container/page col-start-1 row-start-1 min-h-0 overflow-x-hidden overflow-y-auto",
+                scrollAreaClassName,
+              )}
             >
-              {}
               <div
-                className={cn(
-                  "mx-auto flex w-full min-w-0 flex-1 flex-col px-4 pb-4 pt-2",
-                  maxWidthClassName,
-                  contentClassName,
-                  isAtBottom &&
-                    supportsScrollAnchoring() &&
-                    "scroll-bottom-anchor-content",
-                )}
-                style={PAGE_SHELL_CONTENT_STYLE}
+                ref={scrollContentRef}
+                className="flex min-h-full min-w-0 flex-col"
               >
-                {children}
-              </div>
-              <div className="scroll-bottom-anchor" aria-hidden />
-              {footer ? (
+                {}
                 <div
-                  data-scroll-footer=""
-                  className="sticky bottom-0 z-20 shrink-0 [overflow-anchor:none]"
+                  className={cn(
+                    "mx-auto flex w-full min-w-0 flex-1 flex-col px-4 pb-4 pt-2",
+                    maxWidthClassName,
+                    contentClassName,
+                    isAtBottom &&
+                      supportsScrollAnchoring() &&
+                      "scroll-bottom-anchor-content",
+                  )}
+                  style={PAGE_SHELL_CONTENT_STYLE}
                 >
-                  {footer}
+                  {children}
                 </div>
-              ) : null}
+                <div className="scroll-bottom-anchor" aria-hidden />
+                {footer ? (
+                  <div
+                    data-scroll-footer=""
+                    className="sticky bottom-0 z-20 shrink-0 [overflow-anchor:none]"
+                  >
+                    {footer}
+                  </div>
+                ) : null}
+              </div>
             </div>
+            {scrollOverlay ? (
+              <div
+                data-scroll-overlay=""
+                className="pointer-events-none z-30 col-start-1 row-start-1 flex min-h-0 min-w-0 items-center justify-end px-3 py-3"
+              >
+                <div className="pointer-events-auto">{scrollOverlay}</div>
+              </div>
+            ) : null}
           </div>
-          {scrollOverlay ? (
-            <div
-              data-scroll-overlay=""
-              className="pointer-events-none z-30 col-start-1 row-start-1 flex min-h-0 min-w-0 items-center justify-end px-3 py-3"
-            >
-              <div className="pointer-events-auto">{scrollOverlay}</div>
-            </div>
-          ) : null}
-        </div>
-      </TimelineScrollRestoreRowIdContext.Provider>
-    </BottomAnchorContext.Provider>
+        </TimelineScrollRestoreRowIdContext.Provider>
+      </BottomAnchorContext.Provider>
+    </ThreadScrollContext.Provider>
   );
 }

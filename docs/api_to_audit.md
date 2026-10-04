@@ -3709,3 +3709,24 @@ readable without rewriting historical inputs.
 Stabilization: verify queue/restart/stop/failure identity, namespace isolation,
 pagination and realtime replacement, renderer fallback, and payload limits with
 another plugin adopter. No daemon command or provider event shape changes.
+
+## `experimental_useThreadScroll`
+
+`experimental_useThreadScroll().scrollIntoView(element, { block, behavior })`
+reveals an element in the calling plugin slot instance's containing timeline.
+It returns `false` outside a timeline or for detached elements, another slot's
+elements (including nested slots), and portals outside the owning root. The
+host checks the live mount root and scroll container before scrolling. This
+is an API ownership guard, not a sandbox for trusted frontend JavaScript.
+
+The hook defaults to start alignment and auto behavior. Reduced motion forces
+instant scrolling. Only the timeline scrolls. Accepted calls suspend bottom
+anchoring through local expansion and resize; scrolling back to the bottom,
+using the host's bottom button, or receiving a newer timeline event resumes
+anchoring. Load-older pagination does not count as new content. Plugins call
+after the expanded DOM commits, as in the thread-chat-demo's `::scroll-demo`
+fixture. The test runtime has no timeline and returns `false`.
+
+Before stabilization, audit nested timeline ownership, virtualization, smooth
+scroll interruption, and new-event resumption with an actively streaming
+consumer. No daemon protocol, persisted data, or existing SDK member changes.

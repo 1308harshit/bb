@@ -22,6 +22,7 @@ import { buildMarkdownDocumentLinkRouting } from "@/components/ui/markdown-docum
 import { buildMarkdownMessageLinkRouting } from "@/components/ui/markdown-message-link-routing";
 import type { MarkdownPreviewLinkHandler } from "@/components/ui/markdown-link";
 import { useThreadTimelineNavigation } from "@/components/thread/timeline/ThreadTimelineNavigationContext";
+import { usePluginThreadScroll } from "@/components/plugin/usePluginThreadScroll";
 import { usePluginId } from "@/components/plugin/plugin-context";
 import { useQuestionFormHost } from "@bb/shared-ui/question-form-host";
 import { definePluginApp } from "./plugin-app-definition";
@@ -69,6 +70,7 @@ export const pluginSdkAppImplementation = {
   experimental_ProviderIcon: ProviderIcon,
   useBbContext,
   experimental_usePluginId: usePluginId,
+  experimental_useThreadScroll: usePluginThreadScroll,
   experimental_useQuestionFormHost: useQuestionFormHost,
   useBbNavigate,
   experimental_useAppPanel,

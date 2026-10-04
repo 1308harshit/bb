@@ -3354,6 +3354,31 @@ export interface BbNavigate {
 // plugin-breaking change.
 // ---------------------------------------------------------------------------
 
+/** Options for revealing plugin content inside its containing thread timeline. */
+export interface ExperimentalThreadScrollOptions {
+  /** Vertical alignment; defaults to `start`. */
+  block?: ScrollLogicalPosition;
+  /** Defaults to `auto`; reduced motion always uses `instant`. */
+  behavior?: ScrollBehavior;
+}
+
+/** A scroll handle scoped to the calling plugin slot instance. */
+export interface ExperimentalThreadScroll {
+  /**
+   * Reveal a connected element owned by this slot in its containing timeline.
+   * Returns false outside a timeline or for another slot's element, including
+   * nested slots and portals outside this slot. Call after expanded content
+   * has committed (for example from a layout effect).
+   * Releases bottom anchoring until the user returns to the bottom, explicitly
+   * jumps to the bottom, or a new timeline event arrives. Local expansion and
+   * resize alone do not reattach. Scrolls only the timeline, never the page.
+   */
+  scrollIntoView(
+    element: HTMLElement,
+    options?: ExperimentalThreadScrollOptions,
+  ): boolean;
+}
+
 /**
  * Everything `@get-bb/plugin-sdk/app` resolves to at runtime. The BB app builds
  * the real implementation and `satisfies` this interface; `bb plugin build`
@@ -3392,6 +3417,8 @@ export interface PluginSdkApp {
    * docs/api_to_audit.md.
    */
   experimental_usePluginId(): string;
+  /** Reveal an element in this slot without fighting timeline bottom anchoring. */
+  experimental_useThreadScroll(): ExperimentalThreadScroll;
   /**
    * The answer shortcuts bb binds while a pending interaction is open. Inside
    * a `pendingInteraction` component the form shows each option's shortcut and

@@ -1,9 +1,10 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, useRef, type ErrorInfo, type ReactNode } from "react";
 import { Pill } from "@bb/shared-ui/pill";
 import { useRouteAnchorDelegate } from "@/components/ui/app-route-anchor";
 import { usePluginCss } from "@/lib/plugin-css";
 import {
   PluginContext,
+  PluginSlotElementContext,
   PluginSlotOwnershipContext,
   type PluginSlotOwnershipRegistry,
 } from "./plugin-context";
@@ -179,6 +180,7 @@ export function PluginSlotMount({
   instanceId,
   onCrash,
 }: PluginSlotMountProps) {
+  const slotElementRef = useRef<HTMLDivElement>(null);
   const onRouteAnchorClick = useRouteAnchorDelegate();
   usePluginCss(pluginId);
   return (
@@ -194,14 +196,17 @@ export function PluginSlotMount({
         fallback={crashFallback}
         {...(onCrash ? { onCrash } : {})}
       >
-        <div
-          data-bb-plugin-root=""
-          data-bb-plugin={pluginId}
-          className="contents"
-          onClick={onRouteAnchorClick}
-        >
-          {children}
-        </div>
+        <PluginSlotElementContext.Provider value={slotElementRef}>
+          <div
+            ref={slotElementRef}
+            data-bb-plugin-root=""
+            data-bb-plugin={pluginId}
+            className="contents"
+            onClick={onRouteAnchorClick}
+          >
+            {children}
+          </div>
+        </PluginSlotElementContext.Provider>
       </PluginSlotBoundary>
     </PluginContext.Provider>
   );

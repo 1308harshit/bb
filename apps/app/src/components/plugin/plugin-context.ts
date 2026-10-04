@@ -1,6 +1,9 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, type RefObject } from "react";
 
 export const PluginContext = createContext<string | null>(null);
+
+export const PluginSlotElementContext =
+  createContext<RefObject<HTMLDivElement | null> | null>(null);
 
 export interface PluginSlotOwnershipRegistry {
   register(owner: symbol, release: () => void): void;

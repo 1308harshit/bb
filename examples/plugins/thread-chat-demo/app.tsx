@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   definePluginApp,
   experimental_useAppPanel,
+  experimental_useThreadScroll,
   experimental_useFixedTabTarget,
   ThreadChat,
   useBbContext,
@@ -157,7 +158,43 @@ function MessageAnchoredPanel({
   );
 }
 
+function ScrollDemo() {
+  const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const scroll = experimental_useThreadScroll();
+  useLayoutEffect(() => {
+    if (expanded && sectionRef.current) {
+      scroll.scrollIntoView(sectionRef.current, {
+        block: "start",
+        behavior: "smooth",
+      });
+    }
+  }, [expanded, scroll]);
+  return (
+    <div className="space-y-4 rounded-lg border p-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+      >
+        {expanded ? "Hide routine emails" : "14 unread emails · 12 routine"}
+      </button>
+      {expanded && (
+        <div ref={sectionRef} className="space-y-4">
+          <h3 className="font-semibold">Routine emails</h3>
+          {Array.from({ length: 12 }, (_, index) => (
+            <p key={index} className="rounded-md border p-4">
+              Routine email {index + 1}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default definePluginApp((app) => {
+  app.slots.messageDirective({ id: "scroll-demo", component: ScrollDemo });
   app.slots.navPanel({
     id: "thread-chat-demo",
     title: "ThreadChat demo",
