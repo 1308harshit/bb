@@ -90,16 +90,10 @@ export interface TimelineViewTurnRow extends Omit<TimelineTurnRow, "children"> {
   children: ThreadTimelineViewRow[] | null;
 }
 
-export interface TimelineAgentConversationRow extends TimelineRowBase {
-  kind: "agent-conversation";
-  children: ThreadTimelineViewRow[];
-}
-
 export type ThreadTimelineViewRow =
   | TimelineViewSourceRow
   | TimelineWorkSummaryRow
-  | TimelineViewTurnRow
-  | TimelineAgentConversationRow;
+  | TimelineViewTurnRow;
 
 type TimelineExplorationKind = "files" | "searches" | "lists";
 
