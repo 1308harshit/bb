@@ -227,8 +227,13 @@ describe("SideChatPanel", () => {
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith({
         threadId: "thr_src",
-        input: [{ type: "text", text: "test message text", mentions: [] }],
-        senderThreadId: "thr_fork",
+        input: [
+          {
+            type: "text",
+            text: "From the side chat:\n\n> test message text",
+            mentions: [],
+          },
+        ],
       });
     });
     expect(slot.rpcCalls).toEqual([]);

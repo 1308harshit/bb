@@ -216,19 +216,23 @@ function ReplyingTo({ anchorText }: { anchorText: string }) {
 function SideChatPanel({ params }: PluginThreadPanelProps) {
   const sdk = useSdk();
   const parsed = parsePanelParams(params);
-  const sideChatThreadId = parsed?.threadId ?? null;
   const sourceThreadId = parsed?.sourceThreadId ?? null;
 
   const sendToMain = useCallback(
     async (message: { text: string; threadId: string }) => {
-      if (sourceThreadId === null || sideChatThreadId === null) return;
+      if (sourceThreadId === null) return;
       const text = message.text.trim();
       if (text.length === 0) return;
       try {
         await sdk.threads.queuedMessages.create({
           threadId: sourceThreadId,
-          input: [{ type: "text", text, mentions: [] }],
-          senderThreadId: sideChatThreadId,
+          input: [
+            {
+              type: "text",
+              text: `From the side chat:\n\n${text.replace(/^/gm, "> ")}`,
+              mentions: [],
+            },
+          ],
         });
         toast.success("Sent to main thread");
       } catch (error) {
@@ -239,7 +243,7 @@ function SideChatPanel({ params }: PluginThreadPanelProps) {
         );
       }
     },
-    [sdk, sideChatThreadId, sourceThreadId],
+    [sdk, sourceThreadId],
   );
 
   if (parsed === null) {
