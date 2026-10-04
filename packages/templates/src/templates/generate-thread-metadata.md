@@ -6,7 +6,7 @@ intent: Generate stable, operator-friendly metadata for threads without adding e
 editingNotes: Callers expect plain text. bb strips think blocks, quotes, labels, and extra lines, then clamps the title to 48 columns.
 variables:
   instructions?: User-supplied title instructions from AI services settings, when set.
-  cleanedPrompt: User prompt text with noisy tokens removed and length-clamped.
+  cleanedPrompt: User task text with normalized whitespace, clamped to 4000 columns.
   invokedCommands?: Comma-separated slash commands or skills the prompt invokes, when it invokes any.
 ---
 You create concise titles for coding tasks.
