@@ -48,9 +48,12 @@ function Slots() {
   );
 }
 
-function fixture() {
+function fixture(footer = false) {
   const view = render(
-    <BottomAnchoredScrollBody footer={null} maxWidthClassName="max-w-none">
+    <BottomAnchoredScrollBody
+      footer={footer ? <div>Composer</div> : null}
+      maxWidthClassName="max-w-none"
+    >
       <Slots />
     </BottomAnchoredScrollBody>,
   );
@@ -140,6 +143,37 @@ describe("plugin timeline scrolling", () => {
     act(grow);
     expect(viewport.scrollTop).toBe(1400);
   });
+
+  it("retries a target clamped by the host's expanding message height", () => {
+    const { viewport, own, grow } = fixture();
+    vi.spyOn(own, "getBoundingClientRect").mockImplementation(
+      () => new DOMRect(0, 1100 - viewport.scrollTop, 600, 100),
+    );
+    act(() => scroll.scrollIntoView(own));
+    expect(viewport.scrollTop).toBe(1000);
+    act(grow);
+    expect(viewport.scrollTop).toBe(1100);
+    act(grow);
+    expect(viewport.scrollTop).toBe(1100);
+  });
+
+  it.each(["end", "nearest"] as const)(
+    "keeps %s alignment above the sticky composer",
+    (block) => {
+      const { viewport, own, container } = fixture(true);
+      const footer = container.querySelector("[data-scroll-footer]");
+      if (!footer) throw new Error("Missing composer");
+      vi.spyOn(footer, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 280, 600, 120),
+      );
+      vi.spyOn(own, "getBoundingClientRect").mockImplementation(
+        () => new DOMRect(0, 550 - viewport.scrollTop, 600, 100),
+      );
+      viewport.scrollTop = 300;
+      act(() => scroll.scrollIntoView(own, { block }));
+      expect(viewport.scrollTop).toBe(370);
+    },
+  );
 
   it("does not reattach on a smooth scroll's first near-bottom frame", () => {
     const { viewport, own, scrollTo, grow } = fixture();

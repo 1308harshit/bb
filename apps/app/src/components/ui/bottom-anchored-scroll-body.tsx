@@ -8,7 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ExperimentalThreadScroll } from "@get-bb/plugin-sdk";
+import type {
+  ExperimentalThreadScroll,
+  ExperimentalThreadScrollOptions,
+} from "@get-bb/plugin-sdk";
 import type { ReactNode } from "react";
 import { useStore } from "jotai";
 import { cn } from "@bb/shared-ui/lib/utils";
@@ -237,6 +240,11 @@ export function BottomAnchoredScrollBody({
   const isPointerCoarse = usePointerCoarse();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
+  const scrollFooterRef = useRef<HTMLDivElement>(null);
+  const pendingPluginScrollRef = useRef<{
+    element: HTMLElement;
+    options: ExperimentalThreadScrollOptions;
+  } | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const pluginDetachedRef = useRef(false);
   const timelineContentVersionRef = useRef<number | null>(null);
@@ -361,6 +369,7 @@ export function BottomAnchoredScrollBody({
 
   const scrollToBottom = useCallback(() => {
     pluginDetachedRef.current = false;
+    pendingPluginScrollRef.current = null;
     const scrollArea = scrollAreaRef.current;
     scrollToTopInProgressRef.current = false;
     cancelPendingScrollRestore();
@@ -375,32 +384,56 @@ export function BottomAnchoredScrollBody({
     queueBottomRestore();
   }, [cancelPendingScrollRestore, queueBottomRestore, refreshMaxScrollOffset]);
 
+  const applyPendingPluginScroll = useCallback(() => {
+    const pending = pendingPluginScrollRef.current;
+    const scrollArea = scrollAreaRef.current;
+    if (!pending || !scrollArea) return;
+    const { element, options } = pending;
+    if (!element.isConnected || !scrollArea.contains(element)) {
+      pendingPluginScrollRef.current = null;
+      return;
+    }
+    const viewport = scrollArea.getBoundingClientRect();
+    const visibleTop = viewport.top + scrollArea.clientTop;
+    const visibleBottom = Math.max(
+      visibleTop,
+      Math.min(
+        visibleTop + scrollArea.clientHeight,
+        scrollFooterRef.current?.getBoundingClientRect().top ?? Infinity,
+      ),
+    );
+    const visibleHeight = visibleBottom - visibleTop;
+    const target = element.getBoundingClientRect();
+    const top = target.top - visibleTop;
+    const bottom = target.bottom - visibleBottom;
+    const block = options.block ?? "start";
+    let delta = top;
+    if (block === "center") delta = (top + bottom) / 2;
+    if (block === "end") delta = bottom;
+    if (block === "nearest") {
+      if (top < 0 && bottom > 0) delta = 0;
+      else if (top < 0) delta = target.height <= visibleHeight ? top : bottom;
+      else if (bottom > 0)
+        delta = target.height <= visibleHeight ? bottom : top;
+      else delta = 0;
+    }
+    const requestedTop = Math.max(0, scrollArea.scrollTop + delta);
+    const maxScroll = refreshMaxScrollOffset(scrollArea);
+    if (requestedTop <= maxScroll) pendingPluginScrollRef.current = null;
+    scrollArea.scrollTo({
+      top: Math.min(maxScroll, requestedTop),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : (options.behavior ?? "auto"),
+    });
+  }, [refreshMaxScrollOffset]);
+
   const pluginScrollIntoView = useCallback<
     ExperimentalThreadScroll["scrollIntoView"]
   >(
     (element, options) => {
       const scrollArea = scrollAreaRef.current;
       if (!scrollArea?.contains(element)) return false;
-      const viewport = scrollArea.getBoundingClientRect();
-      const target = element.getBoundingClientRect();
-      const top = target.top - viewport.top - scrollArea.clientTop;
-      const bottom =
-        target.bottom -
-        viewport.top -
-        scrollArea.clientTop -
-        scrollArea.clientHeight;
-      const block = options?.block ?? "start";
-      let delta = top;
-      if (block === "center") delta = (top + bottom) / 2;
-      if (block === "end") delta = bottom;
-      if (block === "nearest") {
-        if (top < 0 && bottom > 0) delta = 0;
-        else if (top < 0)
-          delta = target.height <= scrollArea.clientHeight ? top : bottom;
-        else if (bottom > 0)
-          delta = target.height <= scrollArea.clientHeight ? bottom : top;
-        else delta = 0;
-      }
       cancelQueuedRestore();
       pendingScrollRestoreRef.current = null;
       pendingPrependAnchorRef.current = null;
@@ -411,21 +444,11 @@ export function BottomAnchoredScrollBody({
       userDetachedFromBottomRef.current = true;
       shouldStickToBottomRef.current = false;
       setIsAtBottom(false);
-      scrollArea.scrollTo({
-        top: Math.max(
-          0,
-          Math.min(
-            refreshMaxScrollOffset(scrollArea),
-            scrollArea.scrollTop + delta,
-          ),
-        ),
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : (options?.behavior ?? "auto"),
-      });
+      pendingPluginScrollRef.current = { element, options: options ?? {} };
+      applyPendingPluginScroll();
       return true;
     },
-    [cancelQueuedRestore, refreshMaxScrollOffset],
+    [applyPendingPluginScroll, cancelQueuedRestore],
   );
 
   const contentArrived = useCallback(
@@ -657,6 +680,7 @@ export function BottomAnchoredScrollBody({
   );
 
   const markUserScrollIntent = useCallback(() => {
+    pendingPluginScrollRef.current = null;
     scrollToTopInProgressRef.current = false;
     userScrollInputPendingRef.current = true;
     userScrollIntentUntilRef.current =
@@ -724,6 +748,7 @@ export function BottomAnchoredScrollBody({
   }, [markUserScrollIntent]);
 
   const startPointerScrollIntent = useCallback(() => {
+    pendingPluginScrollRef.current = null;
     scrollToTopInProgressRef.current = false;
     pointerScrollIntentRef.current = true;
   }, []);
@@ -886,6 +911,10 @@ export function BottomAnchoredScrollBody({
           maxScrollOffset < previousMaxScrollOffset &&
           isScrolledNearBottom(maxScrollOffset, scrollArea.scrollTop);
       }
+      if (pendingPluginScrollRef.current) {
+        applyPendingPluginScroll();
+        return;
+      }
       if (advancePendingScrollRestore()) return;
       if (shrankOntoBottomWhileDetached && scrollArea) {
         attachToBottom();
@@ -894,6 +923,7 @@ export function BottomAnchoredScrollBody({
       queueBottomRestore();
     },
     [
+      applyPendingPluginScroll,
       advancePendingScrollRestore,
       attachToBottom,
       queueBottomRestore,
@@ -1072,6 +1102,7 @@ export function BottomAnchoredScrollBody({
                 <div className="scroll-bottom-anchor" aria-hidden />
                 {footer ? (
                   <div
+                    ref={scrollFooterRef}
                     data-scroll-footer=""
                     className="sticky bottom-0 z-20 shrink-0 [overflow-anchor:none]"
                   >
