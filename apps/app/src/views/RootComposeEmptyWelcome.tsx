@@ -1,6 +1,6 @@
 import { Icon, type IconName } from "@bb/shared-ui/icon";
 import { usePrefersReducedMotion } from "@bb/shared-ui/hooks/use-media-query";
-import bbLogoUrl from "../../../../assets/bb-logo.svg";
+import tyriaLogoUrl from "../../../../assets/tyria-core-mark.svg";
 
 interface RootComposeEmptyWelcomeProps {
   onCompose: (prompt?: string) => void;
@@ -116,16 +116,16 @@ export function RootComposeEmptyWelcome({
       </svg>
       <div
         role="img"
-        aria-label="bb"
+        aria-label="Tyria BB"
         className="h-24 w-28 select-none"
         style={{ filter: "url(#bb-gloss)" }}
       >
         <img
-          src={bbLogoUrl}
+          src={tyriaLogoUrl}
           alt=""
           aria-hidden
           draggable={false}
-          className="size-full object-contain dark:invert"
+          className="size-full object-contain dark:brightness-0 dark:invert"
         />
       </div>
       <div className="flex w-full max-w-[360px] flex-col gap-1">

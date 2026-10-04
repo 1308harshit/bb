@@ -452,8 +452,8 @@
   --card-foreground: var(--ink);
   --popover: var(--canvas);
   --popover-foreground: var(--ink);
-  --primary: oklch(0.27 0 0);
-  --primary-foreground: oklch(1 0 0);
+  --primary: #693c9f;
+  --primary-foreground: #ffffff;
   /* Subtle fill. secondary and accent share one low-emphasis step a touch more
    * prominent than the card; they stay separate tokens for their distinct
    * component slots (secondary surfaces vs. highlight/hover), not for a look. */
@@ -475,7 +475,7 @@
   --version-upgrade: color-mix(in oklch, var(--ink) 96%, var(--canvas));
   /* Soft "paper blue" timeline accent — the one tint in the otherwise
    * achromatic timeline. ~5.0:1 on white. */
-  --timeline-accent: oklch(0.55 0.1 250);
+  --timeline-accent: #693c9f;
   --file-accent: var(--timeline-accent);
   /* Interactive-state fills: translucent ink so the same hover/active step
    * reads consistently on canvas, cards, and recessed surfaces alike. Over the
@@ -568,9 +568,9 @@
     var(--ink) 19.2%,
     var(--canvas)
   );
-  --sidebar: color-mix(in oklch, var(--ink) 2.2%, var(--canvas));
+  --sidebar: color-mix(in oklch, var(--primary) 3%, var(--canvas));
   --sidebar-foreground: var(--ink);
-  --sidebar-accent: color-mix(in oklch, var(--ink) 8%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--primary) 10%, var(--canvas));
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: color-mix(in oklch, var(--ink) 14%, var(--canvas));
   /* Search-match highlight: a manilla-folder tint over the canvas. Chromatic on
@@ -692,8 +692,8 @@
   --card-foreground: var(--ink);
   --popover: var(--canvas);
   --popover-foreground: var(--ink);
-  --primary: oklch(0.82 0 0);
-  --primary-foreground: oklch(0.2178 0 0);
+  --primary: #b78de8;
+  --primary-foreground: #1c1028;
   /* Subtle fill: secondary and accent share one step; muted is a distinct step
    * more prominent (in light too), so the ramp reads the same in both themes. */
   --secondary: color-mix(in oklch, var(--ink) 13%, var(--canvas));
@@ -708,7 +708,7 @@
   /* See the light block: the version an update would move you to. */
   --version-upgrade: color-mix(in oklch, var(--ink) 96%, var(--canvas));
   /* Soft "paper blue" timeline accent, lifted for the dark canvas (~6:1). */
-  --timeline-accent: oklch(0.72 0.09 250);
+  --timeline-accent: #b78de8;
   --file-accent: var(--timeline-accent);
   /* Interactive-state fills: translucent ink so the same hover/active step
   * reads consistently on canvas, cards, and recessed surfaces alike. */
@@ -790,9 +790,9 @@
     var(--ink) 25.2%,
     var(--canvas)
   );
-  --sidebar: color-mix(in oklch, var(--ink) 4.3%, var(--canvas));
+  --sidebar: color-mix(in oklch, var(--primary) 5%, var(--canvas));
   --sidebar-foreground: var(--ink);
-  --sidebar-accent: color-mix(in oklch, var(--ink) 12%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--primary) 14%, var(--canvas));
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: color-mix(in oklch, var(--ink) 18.1%, var(--canvas));
   /* Search-match highlight: see the light block (oklab mix, same hue caveat).
