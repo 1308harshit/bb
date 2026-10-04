@@ -72,7 +72,6 @@ import Mail02Icon from "@hugeicons/core-free-icons/Mail02Icon";
 import MailOpen01Icon from "@hugeicons/core-free-icons/MailOpen01Icon";
 import Menu02Icon from "@hugeicons/core-free-icons/Menu02Icon";
 import MessageAdd02Icon from "@hugeicons/core-free-icons/MessageAdd02Icon";
-import MessageMultiple01Icon from "@hugeicons/core-free-icons/MessageMultiple01Icon";
 import Mic02Icon from "@hugeicons/core-free-icons/Mic02Icon";
 import MinusSignIcon from "@hugeicons/core-free-icons/MinusSignIcon";
 import MoveToIcon from "@hugeicons/core-free-icons/MoveToIcon";
@@ -293,7 +292,6 @@ export const EXTENDED_ICON_MAP: ExtendedIconMap = {
   Mail: Mail02Icon,
   MailOpen: MailOpen01Icon,
   Maximize2: ExpandIcon,
-  MessageMultiple: MessageMultiple01Icon,
   Mic: Mic02Icon,
   Minus: MinusSignIcon,
   Minimize2: CollapseIcon,

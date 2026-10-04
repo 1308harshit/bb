@@ -386,11 +386,6 @@ function computeTimelineRowRenderSignature(row: ThreadTimelineViewRow): string {
         row.status,
         timelineRowsSignature(row.children),
       ]);
-    case "agent-conversation":
-      return joinSignatureParts([
-        baseSignature,
-        timelineRowsSignature(row.children),
-      ]);
     case "turn":
       return joinSignatureParts([
         baseSignature,

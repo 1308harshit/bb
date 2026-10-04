@@ -422,8 +422,6 @@ function formatRow(
     case "bundle-summary":
     case "step-summary":
       return formatWorkSummary(row, context);
-    case "agent-conversation":
-      return formatRows(row.children, context);
     case "turn": {
       const label = formatTurnTitle(row, context);
       if (!row.children || row.children.length === 0) {
