@@ -32,6 +32,9 @@ Read the installed SDK declarations for the exact current signatures.
 - `useBbContext`
 - `experimental_usePluginId` — this plugin's id, for keying browser-side
   state such as localStorage entries
+- `experimental_useThreadScroll` — reveal an owned element inside the containing
+  timeline; `ExperimentalThreadScroll` and `ExperimentalThreadScrollOptions`
+  describe the scoped handle and alignment/motion options.
 - `experimental_useQuestionFormHost` — bb's answer shortcuts inside a
   `pendingInteraction` form
 - `useBbNavigate`

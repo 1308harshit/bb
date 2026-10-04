@@ -35,6 +35,12 @@ Hooks:
   it (localStorage entries, log prefixes) so a copy published under another
   package name does not share the original's state. `renderSlot` returns its
   `pluginId` option, `test-plugin` by default.
+- `experimental_useThreadScroll()` → `ExperimentalThreadScroll`. After expanded
+  content commits, call `scrollIntoView(element, { block: "start", behavior: "smooth" })`.
+  `ExperimentalThreadScrollOptions` defaults to start/auto. Reduced motion forces
+  instant scrolling. Returns false for another slot's element, a detached element,
+  or a component outside a timeline. Local resizing keeps the reading position;
+  a new timeline event or the user returning to the bottom resumes anchoring.
 - `experimental_useQuestionFormHost()` → `{ shortcuts, registerChoiceHandler }`
   inside a `pendingInteraction` component: the host-owned answer shortcuts by
   zero-based option index, and a way to act when the person presses one. The
