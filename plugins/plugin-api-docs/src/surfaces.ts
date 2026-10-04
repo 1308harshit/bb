@@ -255,7 +255,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Claim a directive name; an agent writes `::name` in a message to invoke it",
           "Replace that marker with a live component, inline in the conversation",
           "Open a file from the workspace when someone interacts with the embed",
-          "Reveal an expanded section with experimental_useThreadScroll().scrollIntoView(element, { block: 'start', behavior: 'smooth' }); call after the content commits",
+          "Reveal an expanded section with experimental_useThreadScroll().scrollIntoView(element, { block: 'start', behavior: 'smooth' }); call after the content commits; requires Plugin SDK 0.6.18 or later",
           "Scroll only elements in the calling slot instance and containing timeline; another slot, detached element, external portal, or surface without a timeline returns false",
           "Release bottom anchoring until the user reaches the bottom or a new timeline event arrives; local expansion and resize keep the reading position, and reduced motion disables animation",
         ],
