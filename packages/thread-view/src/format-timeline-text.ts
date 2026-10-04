@@ -423,16 +423,7 @@ function formatRow(
     case "step-summary":
       return formatWorkSummary(row, context);
     case "agent-conversation":
-      return [
-        rowHeader(
-          buildTimelineRowTitle(row, cliTitleOptions(row, context)).plain,
-          context,
-        ),
-        indentBlock(
-          formatRows(row.children, nestedContext(context, null)),
-          "  ",
-        ),
-      ].join("\n");
+      return formatRows(row.children, context);
     case "turn": {
       const label = formatTurnTitle(row, context);
       if (!row.children || row.children.length === 0) {

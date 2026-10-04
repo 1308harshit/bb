@@ -71,11 +71,9 @@ function exchange(n: number): ThreadTimelineViewRow[] {
 
 function group(
   rows: ThreadTimelineViewRow[],
-  activeTurnId: string | null = null,
   pinned: string[] = [],
 ): ThreadTimelineViewRow[] {
   return groupAgentConversations({
-    activeTurnId,
     isExcludedSender: () => false,
     pinnedRowIds: new Set(pinned),
     rows,
@@ -111,10 +109,9 @@ describe("groupAgentConversations", () => {
     [
       "a single exchange",
       [...exchange(1), received("user", "turn_5", null), ...exchange(2)],
-      null,
       [],
     ],
-    ["the running exchange", [...exchange(3), ...exchange(4)], "turn_4", []],
+    ["the running exchange", [...exchange(3), ...exchange(4)], ["s4"]],
     [
       "a pending message",
       [
@@ -122,7 +119,6 @@ describe("groupAgentConversations", () => {
         received("queued", "turn_6", MANAGER, { status: "pending" }),
         ...exchange(7),
       ],
-      null,
       [],
     ],
     [
@@ -132,11 +128,10 @@ describe("groupAgentConversations", () => {
         ...exchange(9),
         received("steer", "turn_9", null, { kind: "steer" }),
       ],
-      null,
       [],
     ],
-    ["a pinned run", [...exchange(10), ...exchange(11)], null, ["s11"]],
-  ])("keeps %s ungrouped", (_case, rows, activeTurnId, pinned) => {
-    expect(ids(group(rows, activeTurnId, pinned))).toEqual(ids(rows));
+    ["a search or unread target", [...exchange(10), ...exchange(11)], ["r11"]],
+  ])("keeps %s ungrouped", (_case, rows, pinned) => {
+    expect(ids(group(rows, pinned))).toEqual(ids(rows));
   });
 });
