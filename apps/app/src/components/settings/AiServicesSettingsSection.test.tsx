@@ -167,67 +167,54 @@ describe("AiServicesSettingsSection", () => {
     await vi.waitFor(() => expect(trigger.textContent).toContain("Off"));
   });
 
-  it.each([
-    {
-      label: "Thread title instructions",
-      key: "threadTitleInstructions",
-      otherKey: "commitMessageInstructions",
-    },
-    {
-      label: "Commit message instructions",
-      key: "commitMessageInstructions",
-      otherKey: "threadTitleInstructions",
-    },
-  ])(
-    "adds $label, autosaves them on blur, and collapses when cleared",
-    async ({ label, key, otherKey }) => {
-      const requests = stubFetch();
-      const { wrapper } = createQueryClientTestHarness();
-      render(<AiServicesSettingsSection />, { wrapper });
-      const add = await screen.findByRole("button", {
-        name: `Add ${label.toLowerCase()}`,
-      });
-      expect(screen.queryByRole("textbox", { name: label })).toBeNull();
-      await vi.waitFor(() => expect(add.hasAttribute("disabled")).toBe(false));
-      const writes = () =>
-        requests.filter(
-          (request) => request.url === "/api/v1/settings/general",
-        );
-      fireEvent.click(add);
-      const empty = await screen.findByRole("textbox", { name: label });
-      fireEvent.blur(empty);
-      await vi.waitFor(() =>
-        expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
-      );
-      expect(writes()).toHaveLength(0);
-      fireEvent.click(
-        screen.getByRole("button", { name: `Add ${label.toLowerCase()}` }),
-      );
-      const editor = await screen.findByRole("textbox", { name: label });
-      if (!(editor instanceof HTMLTextAreaElement))
-        throw new Error("Expected instructions textarea");
-      expect(document.activeElement).toBe(editor);
-      fireEvent.change(editor, { target: { value: "  Write in French.  " } });
-      fireEvent.blur(editor);
-      await vi.waitFor(() => {
-        expect(writes()).toHaveLength(1);
-        expect(JSON.parse(writes()[0]?.body ?? "null")[key]).toBe(
-          "Write in French.",
-        );
-        expect(JSON.parse(writes()[0]?.body ?? "null")).not.toHaveProperty(
-          otherKey,
-        );
-      });
-      await vi.waitFor(() => expect(editor.value).toBe("Write in French."));
-      fireEvent.change(editor, { target: { value: " " } });
-      fireEvent.blur(editor);
-      await vi.waitFor(() => {
-        expect(writes()).toHaveLength(2);
-        expect(JSON.parse(writes().at(-1)?.body ?? "null")[key]).toBeNull();
-      });
-      await screen.findByRole("button", { name: `Add ${label.toLowerCase()}` });
-    },
-  );
+  it("adds thread title instructions, autosaves them on blur, and collapses when cleared", async () => {
+    const label = "Thread title instructions";
+    const requests = stubFetch();
+    const { wrapper } = createQueryClientTestHarness();
+    render(<AiServicesSettingsSection />, { wrapper });
+    const add = await screen.findByRole("button", {
+      name: `Add ${label.toLowerCase()}`,
+    });
+    expect(screen.queryByRole("textbox", { name: label })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /commit message instructions/iu }),
+    ).toBeNull();
+    await vi.waitFor(() => expect(add.hasAttribute("disabled")).toBe(false));
+    const writes = () =>
+      requests.filter((request) => request.url === "/api/v1/settings/general");
+    fireEvent.click(add);
+    const empty = await screen.findByRole("textbox", { name: label });
+    fireEvent.blur(empty);
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: label })).toBeNull(),
+    );
+    expect(writes()).toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: `Add ${label.toLowerCase()}` }),
+    );
+    const editor = await screen.findByRole("textbox", { name: label });
+    if (!(editor instanceof HTMLTextAreaElement))
+      throw new Error("Expected instructions textarea");
+    expect(document.activeElement).toBe(editor);
+    fireEvent.change(editor, { target: { value: "  Write in French.  " } });
+    fireEvent.blur(editor);
+    await vi.waitFor(() => {
+      expect(writes()).toHaveLength(1);
+      expect(
+        JSON.parse(writes()[0]?.body ?? "null").threadTitleInstructions,
+      ).toBe("Write in French.");
+    });
+    await vi.waitFor(() => expect(editor.value).toBe("Write in French."));
+    fireEvent.change(editor, { target: { value: " " } });
+    fireEvent.blur(editor);
+    await vi.waitFor(() => {
+      expect(writes()).toHaveLength(2);
+      expect(
+        JSON.parse(writes().at(-1)?.body ?? "null").threadTitleInstructions,
+      ).toBeNull();
+    });
+    await screen.findByRole("button", { name: `Add ${label.toLowerCase()}` });
+  });
 
   it("runs a test and shows the reply", async () => {
     stubFetch();

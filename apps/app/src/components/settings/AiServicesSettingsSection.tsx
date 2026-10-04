@@ -17,7 +17,7 @@ import {
   ChoiceDropdownSetting,
   type ChoiceDropdownOption,
 } from "./ChoiceDropdownSetting";
-import { AiTaskInstructionsSetting } from "./AiTaskInstructionsSetting";
+import { ThreadTitleInstructionsSetting } from "./ThreadTitleInstructionsSetting";
 
 type AiTaskTestResult = TestAiServiceResponse | { ok: false; message: string };
 
@@ -205,7 +205,7 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose a service for each task. Add instructions to shape titles and commit messages."
+      description="Choose a service for each task. Add instructions to shape thread titles."
     >
       <div className="divide-y divide-border">
         {AI_TASK_ROWS.map((row) => {
@@ -269,9 +269,9 @@ export function AiServicesSettingsSection() {
                   </Button>
                 )}
               </ChoiceDropdownSetting>
-              {testTask === null ? null : (
-                <AiTaskInstructionsSetting task={testTask} />
-              )}
+              {row.task === "thread-title" ? (
+                <ThreadTitleInstructionsSetting />
+              ) : null}
             </div>
           );
         })}

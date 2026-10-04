@@ -2,7 +2,7 @@ import { z } from "zod";
 import { completedTurnDisplaySchema } from "./completed-turn-display.js";
 import { isValidGitBranchName } from "./git-checkout.js";
 
-export const AI_TASK_INSTRUCTIONS_MAX_LENGTH = 2000;
+export const THREAD_TITLE_INSTRUCTIONS_MAX_LENGTH = 2000;
 
 export const MANAGED_BRANCH_PREFIX_MAX_LENGTH = 64;
 
@@ -35,14 +35,7 @@ export const appSettingsSchema = z
       .string()
       .trim()
       .min(1)
-      .max(AI_TASK_INSTRUCTIONS_MAX_LENGTH)
-      .nullable()
-      .default(null),
-    commitMessageInstructions: z
-      .string()
-      .trim()
-      .min(1)
-      .max(AI_TASK_INSTRUCTIONS_MAX_LENGTH)
+      .max(THREAD_TITLE_INSTRUCTIONS_MAX_LENGTH)
       .nullable()
       .default(null),
     machineServerUrl: z
@@ -76,7 +69,6 @@ export const defaultAppSettings: AppSettings = {
   telemetryEnabled: true,
   managedBranchPrefix: DEFAULT_MANAGED_BRANCH_PREFIX,
   threadTitleInstructions: null,
-  commitMessageInstructions: null,
   machineServerUrl: null,
   defaultMachineAccess: null,
   machineGitCredentialsEnabled: true,
@@ -89,9 +81,6 @@ export const appSettingsUpdateSchema = z.union([
     threadTitleInstructions: appSettingsSchema.shape.threadTitleInstructions
       .removeDefault()
       .optional(),
-    commitMessageInstructions: appSettingsSchema.shape.commitMessageInstructions
-      .removeDefault()
-      .optional(),
     allowFastServiceTier: z.boolean().optional(),
     telemetryEnabled: z.boolean().optional(),
     confirmThreadArchive: z.boolean().optional(),
@@ -99,9 +88,6 @@ export const appSettingsUpdateSchema = z.union([
   }),
   appSettingsSchema.omit({ showDiagnosticEvents: true }).extend({
     threadTitleInstructions: appSettingsSchema.shape.threadTitleInstructions
-      .removeDefault()
-      .optional(),
-    commitMessageInstructions: appSettingsSchema.shape.commitMessageInstructions
       .removeDefault()
       .optional(),
     allowFastServiceTier: z.boolean().optional(),

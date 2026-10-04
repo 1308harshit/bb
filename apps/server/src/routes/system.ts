@@ -305,10 +305,6 @@ export function registerSystemRoutes(
         : undefined;
     const updatedSettings = appSettingsSchema.parse({
       ...settings,
-      commitMessageInstructions:
-        settings.commitMessageInstructions === undefined
-          ? current.commitMessageInstructions
-          : settings.commitMessageInstructions,
       threadTitleInstructions:
         settings.threadTitleInstructions === undefined
           ? current.threadTitleInstructions

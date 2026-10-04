@@ -1,4 +1,3 @@
-import { getAppSettings } from "@bb/db";
 import { renderTemplate } from "@bb/templates";
 import { truncateToWidthAtWordBoundary } from "@bb/text-utils";
 import type { LoggedWorkSessionDeps } from "../../types.js";
@@ -15,10 +14,8 @@ export interface GenerateCommitMessageArgs {
 
 export function buildCommitMessagePrompt(
   args: GenerateCommitMessageArgs,
-  instructions: string | null = null,
 ): string {
   return renderTemplate("generateCommitMessage", {
-    ...(instructions === null ? {} : { instructions }),
     diffDescription: args.diffDescription,
     shortstat: args.shortstat,
     files: args.files,
@@ -41,10 +38,7 @@ export async function generateCommitMessage(
   const outcome = await runTextAiTask(deps, {
     task: "commit-message",
     label: "Commit message generation",
-    prompt: buildCommitMessagePrompt(
-      args,
-      getAppSettings(deps.db).commitMessageInstructions,
-    ),
+    prompt: buildCommitMessagePrompt(args),
   });
   return outcome.ok ? sanitizeGeneratedCommitMessage(outcome.value) : null;
 }

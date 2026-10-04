@@ -112,10 +112,7 @@ function sampleFor(
 } {
   if (task === "commit-message") {
     return {
-      prompt: buildCommitMessagePrompt(
-        SAMPLE_COMMIT,
-        settings.commitMessageInstructions,
-      ),
+      prompt: buildCommitMessagePrompt(SAMPLE_COMMIT),
       sanitize: sanitizeGeneratedCommitMessage,
     };
   }

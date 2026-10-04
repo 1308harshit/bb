@@ -253,25 +253,21 @@ primary machine. bb cloud is on by default once you sign in; `bb ai off` turns i
 is used alone; if it fails, titles fall back to the start of the prompt and
 commits to `bb: automated commit`. Each plugin picks its own model.
 
-### Instructions
+### Thread title instructions
 
-Settings → AI services → Add instructions adds your own instructions to bb's
-built-in rules for a task, server-wide. The field saves when it loses focus.
-Use instructions for language, format, or conventions, such as "Write titles
-in French." Your instructions take precedence over bb's style rules, but output
-stays one line: titles are limited to 48 display columns and commit subjects to
-72. bb adds the task text, invoked commands, and diff itself, so no template
-variables are needed. Existing titles are not renamed.
+Settings → AI services → Thread titles → Add instructions adds your own
+instructions to bb's built-in title rules, server-wide. The field saves when it
+loses focus. Use instructions for language, length, tone, or naming
+conventions, such as "Write titles in French." Your instructions take
+precedence over bb's style rules, but a title stays one line of at most 48
+display columns. bb adds the task text and invoked commands itself, so no
+template variables are needed. Existing titles are not renamed.
 
-| Task | Instructions setting |
-| --- | --- |
-| `thread-title` | `threadTitleInstructions` |
-| `commit-message` | `commitMessageInstructions` |
-
-Set one with `bb settings general <setting> "<instructions>"`, or pass it with
-the other current settings from `system.config().generalSettings` to SDK
-`system.updateGeneralSettings`. Each accepts 1–2,000 characters after trimming.
-Set `null`, or clear the field, to use only bb's rules.
+Set them with `bb settings general threadTitleInstructions "<instructions>"`,
+or pass `threadTitleInstructions` with the other current settings from
+`system.config().generalSettings` to SDK `system.updateGeneralSettings`. The
+setting accepts 1–2,000 characters after trimming. Set `null`, or clear the
+field, to use only bb's rules.
 
 `BB_INFERENCE`, `BB_INFERENCE_FALLBACK`, and `BB_TRANSCRIPTION` were removed.
 bb ignores them in `~/.bb/config.json` with a warning, and `bb-app config set`

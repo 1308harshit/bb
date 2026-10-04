@@ -180,20 +180,14 @@ when they do. `test` runs a sample title or commit message through the current
 choice. Settings → AI services has the same controls. Each plugin chooses its
 own model.
 
-Settings → AI services → Add instructions adds your own instructions to bb's
-built-in rules for a task, server-wide; the field saves on blur. Instructions
-take precedence over bb's style rules, but output stays one line (titles 48
-display columns, commit subjects 72). bb adds the task text and diff, so no
-template variables are needed. Each setting accepts 1–2,000 characters; `null`
-or an empty field uses only bb's rules.
-
-| Task | Instructions setting |
-| --- | --- |
-| `thread-title` | `threadTitleInstructions` |
-| `commit-message` | `commitMessageInstructions` |
-
+Settings → AI services → Thread titles → Add instructions adds your own
+instructions to bb's built-in title rules, server-wide; the field saves on
+blur. Instructions take precedence over bb's style rules, but a title stays one
+line of at most 48 display columns. bb adds the task text, so no template
+variables are needed. The `threadTitleInstructions` setting accepts 1–2,000
+characters; `null` or an empty field uses only bb's rules.
 `bb settings general threadTitleInstructions "Write titles in French."` sets
-one; the SDK uses `system.updateGeneralSettings` with the same keys.
+it; the SDK uses `system.updateGeneralSettings` with the same key.
 
 `bb settings general` accepts any key from `generalSettings` in
 `bb settings show`. Boolean preferences take `true`, `false`, `on`, or `off`,
