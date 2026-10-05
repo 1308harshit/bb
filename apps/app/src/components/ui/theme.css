@@ -452,7 +452,7 @@
   --card-foreground: var(--ink);
   --popover: var(--canvas);
   --popover-foreground: var(--ink);
-  --primary: #693c9f;
+  --primary: oklch(0.461042 0.155084 301.505);
   --primary-foreground: #ffffff;
   /* Subtle fill. secondary and accent share one low-emphasis step a touch more
    * prominent than the card; they stay separate tokens for their distinct
@@ -475,7 +475,7 @@
   --version-upgrade: color-mix(in oklch, var(--ink) 96%, var(--canvas));
   /* Soft "paper blue" timeline accent — the one tint in the otherwise
    * achromatic timeline. ~5.0:1 on white. */
-  --timeline-accent: #693c9f;
+  --timeline-accent: oklch(0.461042 0.155084 301.505);
   --file-accent: var(--timeline-accent);
   /* Interactive-state fills: translucent ink so the same hover/active step
    * reads consistently on canvas, cards, and recessed surfaces alike. Over the
@@ -568,9 +568,9 @@
     var(--ink) 19.2%,
     var(--canvas)
   );
-  --sidebar: color-mix(in oklch, var(--primary) 3%, var(--canvas));
+  --sidebar: color-mix(in oklch, var(--ink) 2.2%, var(--canvas));
   --sidebar-foreground: var(--ink);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 10%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--ink) 8%, var(--canvas));
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: color-mix(in oklch, var(--ink) 14%, var(--canvas));
   /* Search-match highlight: a manilla-folder tint over the canvas. Chromatic on
@@ -678,11 +678,11 @@
 
 .dark {
   color-scheme: dark;
-  --canvas: oklch(0.195 0 0);
+  --canvas: oklch(0.215 0.05 307.611);
   /* Softened from a brighter near-white so dark-mode foreground text reads a
    * touch less intense; the whole achromatic ramp is anchored here, so chrome
    * follows by an imperceptible amount. */
-  --ink: oklch(0.81 0 0);
+  --ink: oklch(0.983061 0.008026 278.64);
   --background: var(--canvas);
   --foreground: var(--ink);
   /* Card and popover stay flush with the canvas here too — elevation comes from
@@ -692,8 +692,8 @@
   --card-foreground: var(--ink);
   --popover: var(--canvas);
   --popover-foreground: var(--ink);
-  --primary: #b78de8;
-  --primary-foreground: #1c1028;
+  --primary: oklch(0.615298 0.123748 307.611);
+  --primary-foreground: #100e1e;
   /* Subtle fill: secondary and accent share one step; muted is a distinct step
    * more prominent (in light too), so the ramp reads the same in both themes. */
   --secondary: color-mix(in oklch, var(--ink) 13%, var(--canvas));
@@ -707,8 +707,8 @@
   --readback-foreground: oklch(0.715 0 0);
   /* See the light block: the version an update would move you to. */
   --version-upgrade: color-mix(in oklch, var(--ink) 96%, var(--canvas));
-  /* Soft "paper blue" timeline accent, lifted for the dark canvas (~6:1). */
-  --timeline-accent: #b78de8;
+  /* Tyria purple timeline accent, lifted for the dark canvas. */
+  --timeline-accent: oklch(0.615298 0.123748 307.611);
   --file-accent: var(--timeline-accent);
   /* Interactive-state fills: translucent ink so the same hover/active step
   * reads consistently on canvas, cards, and recessed surfaces alike. */
@@ -790,9 +790,9 @@
     var(--ink) 25.2%,
     var(--canvas)
   );
-  --sidebar: color-mix(in oklch, var(--primary) 5%, var(--canvas));
+  --sidebar: color-mix(in oklch, var(--ink) 4.3%, var(--canvas));
   --sidebar-foreground: var(--ink);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 14%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--ink) 12%, var(--canvas));
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: color-mix(in oklch, var(--ink) 18.1%, var(--canvas));
   /* Search-match highlight: see the light block (oklab mix, same hue caveat).
