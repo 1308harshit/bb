@@ -17,6 +17,9 @@ origin or public client ID from BB plugin settings; no client secret is used.
 Open **Tyria Projects**, select **Connect Tyria**, open the verification page,
 and approve the displayed code and scopes. The panel then shows only the
 projects and actions Tyria authorizes for the connected account/workspace.
+Task detail responses omit comment and attachment counts when the connected
+account lacks the corresponding permission; omission means restricted, not
+zero.
 
 Agent writes always show a BB confirmation form before the request is sent.
 Screenshot analysis asks again before BB downloads the selected PNG/JPEG and

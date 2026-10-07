@@ -136,8 +136,8 @@ export const taskSummarySchema = z
 export const taskDetailSchema = taskSummarySchema
   .extend({
     description: z.string().nullable(),
-    commentCount: z.number().int().nonnegative(),
-    attachmentCount: z.number().int().nonnegative(),
+    commentCount: z.number().int().nonnegative().optional(),
+    attachmentCount: z.number().int().nonnegative().optional(),
     capabilities: capabilitiesSchema,
   })
   .strict();

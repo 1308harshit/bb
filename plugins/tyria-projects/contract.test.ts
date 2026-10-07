@@ -3,8 +3,36 @@ import {
   createTaskInputSchema,
   patchTaskInputSchema,
   projectListQuerySchema,
+  taskDetailSchema,
   tyriaProjectsRpcContract,
 } from "./contract.js";
+
+const taskDetail = {
+  id: "task_1",
+  projectId: "project_1",
+  phaseId: "phase_1",
+  milestoneId: null,
+  parentTaskId: null,
+  title: "Task",
+  status: "Incomplete",
+  priority: "Medium",
+  assignees: [],
+  startDate: null,
+  dueDate: null,
+  createdAt: "2026-10-08T00:00:00.000Z",
+  completedAt: null,
+  version: 1,
+  description: null,
+  capabilities: {
+    createTask: false,
+    editTask: false,
+    moveTask: false,
+    assignTask: false,
+    viewComments: false,
+    createComment: false,
+    readFiles: false,
+  },
+} as const;
 
 describe("Tyria Projects contract", () => {
   it("rejects unknown keys at every public input boundary", () => {
@@ -60,5 +88,15 @@ describe("Tyria Projects contract", () => {
     const base = { projectId: "project_1", taskId: "task_1", fileId: "file_1" };
     expect(tyriaProjectsRpcContract["attachments.previewTicket"].input.safeParse(base).success).toBe(false);
     expect(tyriaProjectsRpcContract["attachments.previewTicket"].input.safeParse({ ...base, clientNonce: crypto.randomUUID() }).success).toBe(true);
+  });
+
+  it("accepts task details with permission-restricted counts omitted", () => {
+    const restricted = taskDetailSchema.parse(taskDetail);
+    expect(restricted.commentCount).toBeUndefined();
+    expect(restricted.attachmentCount).toBeUndefined();
+
+    const visible = taskDetailSchema.parse({ ...taskDetail, commentCount: 3, attachmentCount: 2 });
+    expect(visible.commentCount).toBe(3);
+    expect(visible.attachmentCount).toBe(2);
   });
 });
