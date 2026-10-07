@@ -1934,3 +1934,45 @@ Publish updates with **Mobile Android (EAS)**, profile `preview`, **publish** on
 
 The publishing workflow verifies the signed APK and publishes both the checksum-named
 asset and the stable `bb-android.apk` alias, then `latest.json`.
+
+## Tyria Projects
+
+The bundled, default-enabled `tyria-projects` plugin adds the **Tyria Projects**
+sidebar and the `bb tyria` CLI. It defaults to
+`https://sandbox.tyriacore.app` with public OAuth client ID `tyria-bb`.
+Operations must provision that public device-flow client in each Tyria
+environment before sign-in; the plugin does not use a client secret or dynamic
+client registration.
+
+Set `tyriaBaseUrl` to an exact HTTPS Tyria origin and `tyriaClientId` to its
+provisioned public client ID in the plugin's settings when using another
+environment. Development additionally permits exact `http://localhost` origins.
+Private-network, link-local, credential-bearing, path-bearing, query-bearing,
+fragment-bearing, and redirected origins are rejected.
+
+One local BB installation supports one connected Tyria account/workspace grant.
+The rotating refresh token is stored as the secret `tyriaRefreshToken` setting;
+access tokens and device codes remain in process memory. Reconnecting replaces
+the previous grant. The UI, CLI, and Muse tools all call Tyria's scoped Projects
+API and cannot exceed the connected user's Tyria permissions.
+
+Every Muse mutation requires an in-thread confirmation. Attachment analysis
+requires a second, file-specific confirmation before a PNG/JPEG is downloaded
+and sent to Meta Muse, where its content may become part of the Muse conversation
+history. CLI writes, disconnect, and downloads require `--yes`; the plugin CLI
+host has no safe interactive stdin confirmation callback, so an omitted `--yes`
+stops before the operation and returns a bounded structural target summary with
+an exact instruction to rerun with `--yes`. Use the stdin variants for
+descriptions/comments to reduce shell-history exposure. See
+[the plugin README](../plugins/tyria-projects/README.md) and
+[agent skill](../plugins/tyria-projects/skills/tyria-projects/SKILL.md).
+
+The plugin SDK currently exposes only a coarse client/plugin caller kind to RPC
+handlers and local HTTP authentication validates origin/host rather than an
+authenticated browser-session ID. Tyria preview tickets therefore use the
+safest plugin-contained fallback: a random per-mounted-task-view nonce kept only
+in browser memory, stored server-side only as a SHA-256 binding, and required in
+the fixed preview POST body. A mismatch consumes and rejects the single-use
+ticket. This is not an authenticated identity; the preferred future design is
+an opaque host-issued client/session ID available consistently to plugin RPC and
+HTTP contexts.
