@@ -25,7 +25,7 @@ import {
   type TaskListQuery,
 } from "../contract.js";
 
-export const DEFAULT_TYRIA_BASE_URL = "https://sandbox.tyriacore.app";
+export const DEFAULT_TYRIA_BASE_URL = "https://www.sandbox.tyriacore.app";
 export const DEFAULT_TYRIA_CLIENT_ID = "tyria-bb";
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg"]);

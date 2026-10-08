@@ -1939,7 +1939,7 @@ asset and the stable `bb-android.apk` alias, then `latest.json`.
 
 The bundled, default-enabled `tyria-projects` plugin adds the **Tyria Projects**
 sidebar and the `bb tyria` CLI. It defaults to
-`https://sandbox.tyriacore.app` with public OAuth client ID `tyria-bb`.
+`https://www.sandbox.tyriacore.app` with public OAuth client ID `tyria-bb`.
 Operations must provision that public device-flow client in each Tyria
 environment before sign-in; the plugin does not use a client secret or dynamic
 client registration.

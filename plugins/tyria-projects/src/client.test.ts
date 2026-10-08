@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TyriaProjectsClient, randomTicket, validateTyriaOrigin } from "./client.js";
 
-const BASE_URL = "https://sandbox.tyriacore.app";
+const BASE_URL = "https://www.sandbox.tyriacore.app";
 const RESOURCE = `${BASE_URL}/api/v1/task-projects`;
 const SCOPES = "openid profile offline_access tyria.projects.read tyria.projects.write tyria.projects.comments tyria.projects.files.read";
 
@@ -12,7 +12,7 @@ function jwt(payload: Record<string, unknown>): string {
 
 describe("Tyria Projects client", () => {
   it("accepts only exact safe issuer origins", () => {
-    expect(validateTyriaOrigin("https://sandbox.tyriacore.app").origin).toBe("https://sandbox.tyriacore.app");
+    expect(validateTyriaOrigin("https://www.sandbox.tyriacore.app").origin).toBe("https://www.sandbox.tyriacore.app");
     expect(validateTyriaOrigin("http://localhost:3000").origin).toBe("http://localhost:3000");
     for (const value of ["http://example.com", "https://user@example.com", "https://example.com/path", "https://example.com/?x=1", "file:///tmp/a"]) {
       expect(() => validateTyriaOrigin(value)).toThrow();

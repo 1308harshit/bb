@@ -9,7 +9,7 @@ in-flight device code remain in server memory. The rotating refresh token is a
 BB secret setting and is never exposed to the app, CLI output, realtime events,
 or agent tools. One local BB installation supports one Tyria grant.
 
-The default issuer is `https://sandbox.tyriacore.app` and the default public
+The default issuer is `https://www.sandbox.tyriacore.app` and the default public
 client ID is `tyria-bb`. Operations must provision that public client in every
 Tyria environment before real sign-in can work. Configure a different exact
 origin or public client ID from BB plugin settings; no client secret is used.
