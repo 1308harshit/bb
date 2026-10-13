@@ -1,0 +1,79 @@
+{
+  "name": "bb-plugin-tyria-projects",
+  "version": "0.1.0",
+  "description": "Browse and manage authorized Tyria project tasks from BB and Muse.",
+  "private": true,
+  "license": "MIT",
+  "homepage": "https://github.com/1308harshit/bb#readme",
+  "bugs": {
+    "url": "https://github.com/1308harshit/bb/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1308harshit/bb.git",
+    "directory": "plugins/tyria-projects"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "server.ts",
+    "app.tsx",
+    "contract.ts",
+    "src",
+    "skills",
+    "README.md"
+  ],
+  "engines": {
+    "bb": ">=0.0",
+    "bbPluginSdk": ">=0.4.102"
+  },
+  "bb": {
+    "name": "Tyria Projects",
+    "description": "Browse projects, manage tasks and comments, and share approved screenshots with Muse.",
+    "branding": {
+      "icon": "FolderKanban"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": [
+      "skills"
+    ]
+  },
+  "keywords": [
+    "bb-plugin",
+    "tyria",
+    "projects",
+    "tasks"
+  ],
+  "scripts": {
+    "build": "node --conditions=source --import tsx ../../scripts/build-official-plugins.mjs tyria-projects",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "test": "vitest run --config vitest.config.ts",
+    "prepare:bundled": "bb-plugin-build prepare-bundled"
+  },
+  "devDependencies": {
+    "@bb/plugin-build": "workspace:*",
+    "@get-bb/plugin-sdk": "workspace:*",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^1.7.4",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2",
+    "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "@bb/shared-ui": "workspace:*",
+    "zod": "^4.3.6"
+  }
+}
