@@ -212,9 +212,12 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  let hasStoredGrant = Boolean((await settings.get()).tyriaRefreshToken?.trim());
+
   const client = new TyriaProjectsClient({
     async getConfig() {
       const current = await settings.get();
+      hasStoredGrant = Boolean(current.tyriaRefreshToken?.trim());
       return {
         baseUrl: current.tyriaBaseUrl,
         clientId: current.tyriaClientId,
@@ -223,6 +226,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
     async setRefreshToken(value) {
       await settings.experimental_set({ tyriaRefreshToken: value ?? "" });
+      hasStoredGrant = Boolean(value?.trim());
     },
   });
   const previewTickets = new PreviewTicketVault<PreviewTicketRecord>();
@@ -574,10 +578,10 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   bb.agents.configure(() => ({
-    tools: client.isConnected()
+    tools: client.isConnected() || hasStoredGrant
       ? ["tyria_projects_list", "tyria_project_board", "tyria_tasks_list", "tyria_task_get", "tyria_task_create", "tyria_task_update", "tyria_task_move", "tyria_task_assign", "tyria_comments_list", "tyria_comment_add", "tyria_attachments_list", "tyria_attachment_analyze"]
       : [],
-    skills: client.isConnected() ? ["tyria-projects"] : [],
+    skills: client.isConnected() || hasStoredGrant ? ["tyria-projects"] : [],
   }));
 
   const withCli = async (json: boolean, operation: () => Promise<unknown>, label: (value: unknown) => string): Promise<PluginCliResult> => {

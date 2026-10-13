@@ -12,10 +12,11 @@ afterEach(async () => {
   hosts.length = 0;
 });
 
-async function setup() {
+async function setup(settings: Record<string, string> = {}) {
   const host = createFakePluginHost({
     pluginId: "tyria-projects",
     agentSkillIds: ["tyria-projects"],
+    settings,
   });
   hosts.push(host.harness);
   await plugin(host.bb);
@@ -74,6 +75,17 @@ describe("Tyria Projects server registration", () => {
       makePluginAgentConfigurationContext(),
     );
     expect(configured).toEqual({ tools: [], skills: [] });
+  });
+
+  it("exposes tools immediately after restart when a durable grant is stored", async () => {
+    const { harness } = await setup({ tyriaRefreshToken: "stored-refresh-token" });
+    const configured = harness.registrations.agentConfigurationProvider?.(
+      makePluginAgentConfigurationContext(),
+    );
+
+    expect(configured?.tools).toContain("tyria_projects_list");
+    expect(configured?.tools).toContain("tyria_comment_add");
+    expect(configured?.skills).toEqual(["tyria-projects"]);
   });
 
   it("requires explicit CLI confirmation before every mutation, download, and disconnect", async () => {
